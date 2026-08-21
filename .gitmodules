@@ -1,0 +1,4 @@
+[submodule "ShortP2P"]
+	path = ShortP2P
+	url = https://github.com/devgopher/ShortP2P.git
+	branch = dev/0.1_transport_remake
