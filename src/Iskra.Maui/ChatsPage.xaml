@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Iskra.Maui"
+             x:Class="Iskra.Maui.ChatsPage"
+             Title="Чаты"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{DynamicResource PageBackground}">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <local:AppHeaderView x:Name="Header" />
+
+        <Grid Grid.Row="1" Padding="16,4,16,10" ColumnDefinitions="*,48" ColumnSpacing="10">
+            <Border Stroke="{DynamicResource Hairline}" StrokeThickness="1" BackgroundColor="{DynamicResource FieldBackground}"
+                    StrokeShape="RoundRectangle 18" Padding="12,0">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Label Text="&#x1F50D;" FontSize="14" VerticalOptions="Center"
+                           TextColor="{DynamicResource MutedText}" />
+                    <Entry x:Name="SearchEntry" Grid.Column="1" Placeholder="Поиск"
+                           PlaceholderColor="{DynamicResource MutedText}" BackgroundColor="Transparent"
+                           FontSize="15" TextChanged="OnSearchChanged" />
+                </Grid>
+            </Border>
+            <Button Grid.Column="1" Text="+" FontSize="22" FontAttributes="Bold" CornerRadius="24"
+                    WidthRequest="48" HeightRequest="48" Padding="0"
+                    BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}" Clicked="OnAddChatClicked" />
+        </Grid>
+
+        <CollectionView x:Name="ChatsCollection" Grid.Row="2" SelectionMode="Single"
+                        SelectionChanged="OnChatSelected">
+            <CollectionView.EmptyView>
+                <Label Text="Нет чатов. Нажмите + чтобы добавить."
+                       TextColor="{DynamicResource MutedText}" HorizontalOptions="Center"
+                       VerticalOptions="Center" Margin="24" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <SwipeView>
+                        <SwipeView.RightItems>
+                            <SwipeItems Mode="Execute">
+                                <SwipeItem Text="Удалить" BackgroundColor="{DynamicResource Danger}" Invoked="OnChatSwipeDelete" />
+                            </SwipeItems>
+                        </SwipeView.RightItems>
+                        <Grid Padding="16,10" ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
+                            <Grid WidthRequest="48" HeightRequest="48">
+                                <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 24"
+                                        BackgroundColor="{Binding AvatarColor}"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                                <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="15"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                <Ellipse WidthRequest="12" HeightRequest="12" Fill="#34C759"
+                                         HorizontalOptions="End" VerticalOptions="End" Stroke="White"
+                                         StrokeThickness="2" IsVisible="{Binding IsPeerOnline}" />
+                            </Grid>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding PeerNickname}" FontSize="16" FontAttributes="Bold"
+                                       TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding LastPreview}" FontSize="13"
+                                       TextColor="{DynamicResource MutedText}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Start">
+                                <Label Text="{Binding TimeLabel}" FontSize="11"
+                                       TextColor="{DynamicResource MutedText}" HorizontalOptions="End" />
+                                <Label Text="{Binding DeliveryGlyph}" FontSize="12"
+                                       TextColor="{Binding DeliveryGlyphColor}" HorizontalOptions="End"
+                                       IsVisible="{Binding ShowDelivery}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </SwipeView>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

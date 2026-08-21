@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Shell
+    x:Class="Iskra.Maui.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Iskra"
+    FlyoutBehavior="Disabled">
+
+    <TabBar>
+        <Tab Title="Чаты" Icon="tab_chats.png">
+            <ShellContent x:Name="ChatsHost" Title="Чаты" />
+        </Tab>
+        <Tab Title="Контакты" Icon="tab_contacts.png">
+            <ShellContent x:Name="ContactsHost" Title="Контакты" />
+        </Tab>
+        <Tab Title="Сеть" Icon="tab_network.png">
+            <ShellContent x:Name="NetworkHost" Title="Сеть" />
+        </Tab>
+        <Tab Title="Настройки" Icon="tab_settings.png">
+            <ShellContent x:Name="SettingsHost" Title="Настройки" />
+        </Tab>
+    </TabBar>
+</Shell>

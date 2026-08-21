@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Iskra.Maui.LoginPage"
+             Title="Iskra"
+             BackgroundColor="{DynamicResource PageBackground}">
+    <ScrollView>
+        <VerticalStackLayout Padding="28,48" Spacing="16" MaximumWidthRequest="420"
+                             HorizontalOptions="Center" VerticalOptions="Center">
+            <Image Source="logo_min.png" WidthRequest="88" HeightRequest="88" Aspect="AspectFit"
+                   HorizontalOptions="Center" />
+            <Label Text="Iskra" FontSize="32" FontAttributes="Bold"
+                   TextColor="{DynamicResource Accent}" HorizontalOptions="Center" />
+            <Label Text="Вход по нику и паролю. Ключ хранится на этом устройстве."
+                   FontSize="14" TextColor="{DynamicResource MutedText}" HorizontalTextAlignment="Center" />
+            <Entry x:Name="NicknameEntry" Placeholder="Ник" />
+            <Entry x:Name="PasswordEntry" Placeholder="Пароль" IsPassword="True" />
+            <Button Text="Войти" Clicked="OnLoginClicked" />
+            <Button Text="Создать аккаунт" Clicked="OnRegisterNavigateClicked"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Iskra.Maui.RegisterPage"
+             Title="Регистрация"
+             BackgroundColor="{DynamicResource PageBackground}">
+    <ScrollView>
+        <VerticalStackLayout Padding="28,36" Spacing="16" MaximumWidthRequest="420" HorizontalOptions="Center">
+            <Image Source="logo_min.png" WidthRequest="64" HeightRequest="64" Aspect="AspectFit"
+                   HorizontalOptions="Center" />
+            <Label Text="Новый аккаунт" FontSize="24" FontAttributes="Bold"
+                   TextColor="{DynamicResource MidnightBlue}" />
+            <Label Text="Ник и пароль. Сетевой идентификатор создаётся локально."
+                   FontSize="14" TextColor="{DynamicResource MutedText}" />
+            <Entry x:Name="NicknameEntry" Placeholder="Ник" />
+            <Entry x:Name="PasswordEntry" Placeholder="Пароль" IsPassword="True" />
+            <Button Text="Зарегистрироваться" Clicked="OnRegisterClicked" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

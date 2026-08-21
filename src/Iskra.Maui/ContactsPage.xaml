@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Iskra.Maui"
+             x:Class="Iskra.Maui.ContactsPage"
+             Title="Контакты"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{DynamicResource PageBackground}">
+    <Grid RowDefinitions="Auto,*">
+        <local:AppHeaderView x:Name="Header" />
+        <CollectionView x:Name="ContactsCollection" Grid.Row="1" SelectionMode="Single"
+                        SelectionChanged="OnContactSelected">
+            <CollectionView.EmptyView>
+                <Label Text="Нет контактов. Добавьте чат или найдите узел в сети."
+                       TextColor="{DynamicResource MutedText}" HorizontalOptions="Center"
+                       VerticalOptions="Center" Margin="24" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="16,10" ColumnDefinitions="52,*" ColumnSpacing="12">
+                        <Grid WidthRequest="48" HeightRequest="48">
+                            <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 24" BackgroundColor="{Binding AvatarColor}" />
+                            <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="15"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Ellipse WidthRequest="12" HeightRequest="12" Fill="#34C759"
+                                     HorizontalOptions="End" VerticalOptions="End" Stroke="White" StrokeThickness="2"
+                                     IsVisible="{Binding IsOnline}" />
+                        </Grid>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold"
+                                   TextColor="{DynamicResource MidnightBlue}" />
+                            <Label Text="{Binding Detail}" FontSize="12" TextColor="{DynamicResource MutedText}"
+                                   LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

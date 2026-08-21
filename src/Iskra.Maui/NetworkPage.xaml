@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Iskra.Maui"
+             x:Class="Iskra.Maui.NetworkPage"
+             Title="Сеть"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{DynamicResource PageBackground}">
+    <ScrollView>
+        <VerticalStackLayout Spacing="14" Padding="0,0,0,20">
+            <local:AppHeaderView x:Name="Header" />
+            <Label x:Name="NodesTitle" Text="Узлы в сети" FontAttributes="Bold" FontSize="16"
+                   TextColor="{DynamicResource MidnightBlue}" Margin="16,0" />
+            <CollectionView x:Name="NodesCollection" HeightRequest="180">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="16,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="10">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnNodeTapped" />
+                            </Grid.GestureRecognizers>
+                            <Grid WidthRequest="40" HeightRequest="40">
+                                <Border WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 20" BackgroundColor="{Binding AvatarColor}" />
+                                <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="12"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Grid>
+                            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                <Label Text="{Binding Name}" FontSize="14" FontAttributes="Bold"
+                                       TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding IdShort}" FontSize="11" TextColor="{DynamicResource MutedText}"
+                                       LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding Status}" FontSize="11" TextColor="{DynamicResource OnlineGreen}" HorizontalOptions="End" />
+                                <Label Text="{Binding Hops}" FontSize="11" TextColor="{DynamicResource MutedText}"
+                                       HorizontalOptions="End" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            <Label Text="Мой QR" FontAttributes="Bold" FontSize="16"
+                   TextColor="{DynamicResource MidnightBlue}" Margin="16,4,16,0" />
+            <Image x:Name="QrImage" HeightRequest="200" WidthRequest="200" Aspect="AspectFit"
+                   HorizontalOptions="Center" BackgroundColor="{DynamicResource Surface}" />
+            <Grid Margin="16,4" ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="10">
+                <Button Text="Добавить чат" Clicked="OnAddChatClicked" Style="{StaticResource NetworkTile}" />
+                <Button Grid.Column="1" Text="Мой QR" Clicked="OnMyQrClicked" Style="{StaticResource NetworkTile}" />
+                <Button Grid.Column="2" Text="Мои адреса" Clicked="OnMyAddressesClicked" Style="{StaticResource NetworkTile}" />
+                <Button Grid.Row="1" Text="Копировать ключ" Clicked="OnCopyKeysClicked" Style="{StaticResource NetworkTile}" />
+                <Button Grid.Row="1" Grid.Column="1" Text="LAN-сканирование" Clicked="OnLanScanClicked"
+                        Style="{StaticResource NetworkTile}" />
+                <Button Grid.Row="1" Grid.Column="2" Text="P2P-маршрутизация" Clicked="OnRoutingClicked"
+                        Style="{StaticResource NetworkTile}" />
+            </Grid>
+            <Button Text="Серверы" Clicked="OnServersClicked" Margin="16,0"
+                    BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

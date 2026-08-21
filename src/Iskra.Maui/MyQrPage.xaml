@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Iskra.Maui.MyQrPage"
+             Title="My QR code">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="12">
+            <Label
+                Text="Show this code to a peer so they can add you. All detected IPv4 addresses on this device are included (best first); the peer can edit the list after scanning if needed."
+                FontSize="12"
+                TextColor="Gray" />
+            <Image x:Name="QrImage"
+                   HeightRequest="280"
+                   WidthRequest="280"
+                   Aspect="AspectFit"
+                   HorizontalOptions="Center"
+                   BackgroundColor="#F5F5F5" />
+            <Button Text="Поделиться"
+                    Clicked="OnShareQrClicked"
+                    HorizontalOptions="Center" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

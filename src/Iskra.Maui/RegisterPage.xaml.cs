@@ -1,0 +1,35 @@
+using Microsoft.Extensions.Logging;
+using ShortP2P.Auth;
+
+namespace Iskra.Maui;
+
+public partial class RegisterPage : ContentPage
+{
+    private readonly AuthService _auth;
+    private readonly ILogger<RegisterPage> _logger;
+
+    public RegisterPage(AuthService auth, ILogger<RegisterPage> logger)
+    {
+        InitializeComponent();
+        _auth = auth;
+        _logger = logger;
+    }
+
+    private async void OnRegisterClicked(object? sender, EventArgs e)
+    {
+        var nick = NicknameEntry.Text?.Trim() ?? "";
+        var pass = PasswordEntry.Text ?? "";
+        var (ok, err) = await _auth.RegisterAsync(nick, pass).ConfigureAwait(true);
+        if (!ok)
+        {
+            _logger.LogWarning("Registration failed for {Nickname}: {Reason}", nick, err);
+            await DisplayAlert("Register", err ?? "Failed", "OK").ConfigureAwait(true);
+            return;
+        }
+
+        var id = _auth.CurrentUser?.NetworkIdShort ?? "";
+        await DisplayAlert("Account created", $"Your network id:\n{id}", "OK").ConfigureAwait(true);
+
+        Application.Current!.MainPage = MauiProgram.Services.GetRequiredService<AppShell>();
+    }
+}
