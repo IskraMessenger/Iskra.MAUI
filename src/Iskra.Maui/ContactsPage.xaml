@@ -7,12 +7,39 @@
              Title="Контакты"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{DynamicResource PageBackground}">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
         <local:AppHeaderView x:Name="Header" />
-        <CollectionView x:Name="ContactsCollection" Grid.Row="1" SelectionMode="Single"
+
+        <VerticalStackLayout Grid.Row="1" Padding="16,4,16,10" Spacing="6">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Border Stroke="{DynamicResource Hairline}" StrokeThickness="1"
+                        BackgroundColor="{DynamicResource FieldBackground}"
+                        StrokeShape="RoundRectangle 18" Padding="12,0">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Label Text="&#x1F50D;" FontSize="14" VerticalOptions="Center"
+                               TextColor="{DynamicResource MutedText}" />
+                        <Entry x:Name="SearchEntry" Grid.Column="1" Placeholder="Поиск по имени или id"
+                               PlaceholderColor="{DynamicResource MutedText}" BackgroundColor="Transparent"
+                               FontSize="15" TextChanged="OnSearchChanged" />
+                    </Grid>
+                </Border>
+                <Button x:Name="ScanButton" Grid.Column="1" Text="Скан" FontSize="14" FontAttributes="Bold"
+                        CornerRadius="24" HeightRequest="48" Padding="16,0"
+                        BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}"
+                        Clicked="OnScanClicked" />
+            </Grid>
+            <HorizontalStackLayout x:Name="ScanStatusRow" IsVisible="False" Spacing="8">
+                <ActivityIndicator x:Name="ScanSpinner" WidthRequest="16" HeightRequest="16"
+                                   Color="{DynamicResource Accent}" />
+                <Label x:Name="ScanStatusLabel" FontSize="12" TextColor="{DynamicResource MutedText}"
+                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+
+        <CollectionView x:Name="ContactsCollection" Grid.Row="2" SelectionMode="Single"
                         SelectionChanged="OnContactSelected">
             <CollectionView.EmptyView>
-                <Label Text="Нет контактов. Добавьте чат или найдите узел в сети."
+                <Label Text="Нет контактов. Нажмите Скан, чтобы найти узлы в LAN и на серверах."
                        TextColor="{DynamicResource MutedText}" HorizontalOptions="Center"
                        VerticalOptions="Center" Margin="24" />
             </CollectionView.EmptyView>

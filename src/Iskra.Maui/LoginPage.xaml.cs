@@ -57,6 +57,7 @@ public partial class LoginPage : ContentPage
             var p2p = MauiProgram.Services.GetRequiredService<UserP2pRuntime>();
             var chatsRepo = MauiProgram.Services.GetRequiredService<ChatRepository>();
             await p2p.EnsureStartedAsync(user).ConfigureAwait(true);
+            await MessengerServersBootstrap.EnsureRunningAsync(p2p, _logger).ConfigureAwait(true);
             await p2p.EnsureAllChatSessionsStartedAsync(user, _auth, chatsRepo, SynchronizationContext.Current)
                 .ConfigureAwait(true);
         }

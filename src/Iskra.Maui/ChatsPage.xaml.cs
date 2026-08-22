@@ -72,6 +72,7 @@ public partial class ChatsPage : ContentPage
             try
             {
                 await _p2p.EnsureStartedAsync(u).ConfigureAwait(true);
+                await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
                 await _p2p.EnsureAllChatSessionsStartedAsync(u, _auth, _chats, SynchronizationContext.Current)
                     .ConfigureAwait(true);
             }

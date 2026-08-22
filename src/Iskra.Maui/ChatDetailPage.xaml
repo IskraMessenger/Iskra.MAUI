@@ -7,7 +7,7 @@
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False"
              BackgroundColor="{DynamicResource PageBackground}">
-    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto">
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
         <Grid Padding="8,8,12,8" ColumnDefinitions="36,48,*,Auto" ColumnSpacing="8" BackgroundColor="{DynamicResource Surface}">
             <Button Text="‹" FontSize="28" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
@@ -69,24 +69,10 @@
             </CollectionView.ItemTemplate>
         </CollectionView>
 
-        <ScrollView Grid.Row="2" Orientation="Horizontal" Margin="8,0">
-            <HorizontalStackLayout Spacing="8" Padding="0,4">
-                <Button Text="Send handshake" FontSize="12" Padding="10,6" HeightRequest="36"
-                        BackgroundColor="{DynamicResource FieldBackground}" TextColor="{DynamicResource MidnightBlue}"
-                        Clicked="OnTechHandshakeClicked" />
-                <Button Text="Send invite" FontSize="12" Padding="10,6" HeightRequest="36"
-                        BackgroundColor="{DynamicResource FieldBackground}" TextColor="{DynamicResource MidnightBlue}"
-                        Clicked="OnTechInviteClicked" />
-                <Button Text="Send ping" FontSize="12" Padding="10,6" HeightRequest="36"
-                        BackgroundColor="{DynamicResource FieldBackground}" TextColor="{DynamicResource MidnightBlue}"
-                        Clicked="OnTechPingClicked" />
-            </HorizontalStackLayout>
-        </ScrollView>
-
-        <Label x:Name="DeliveryIssueLabel" Grid.Row="3" TextColor="{DynamicResource Danger}" IsVisible="False"
+        <Label x:Name="DeliveryIssueLabel" Grid.Row="2" TextColor="{DynamicResource Danger}" IsVisible="False"
                LineBreakMode="WordWrap" Margin="12,0" FontSize="12" />
 
-        <Grid Grid.Row="4" Padding="8,6,8,10" ColumnDefinitions="Auto,Auto,Auto,Auto,*,48" ColumnSpacing="4"
+        <Grid Grid.Row="3" Padding="8,6,8,10" ColumnDefinitions="Auto,Auto,Auto,Auto,*,48" ColumnSpacing="4"
               BackgroundColor="{DynamicResource Surface}">
             <Button x:Name="VoiceButton" Text="&#x1F3A4;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
                     BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}" Clicked="OnVoiceClicked" />

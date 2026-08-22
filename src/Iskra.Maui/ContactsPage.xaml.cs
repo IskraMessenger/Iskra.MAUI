@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
@@ -20,17 +21,22 @@ public sealed class ContactRow
 
 public partial class ContactsPage : ContentPage
 {
+    private readonly List<ContactRow> _allRows = [];
     private readonly AuthService _auth;
     private readonly ChatRepository _chats;
+    private readonly ILogger<ContactsPage> _logger;
     private readonly UserP2pRuntime _p2p;
     private readonly ObservableCollection<ContactRow> _rows = [];
+    private bool _scanning;
+    private string _search = "";
 
-    public ContactsPage(AuthService auth, ChatRepository chats, UserP2pRuntime p2p)
+    public ContactsPage(AuthService auth, ChatRepository chats, UserP2pRuntime p2p, ILogger<ContactsPage> logger)
     {
         InitializeComponent();
         _auth = auth;
         _chats = chats;
         _p2p = p2p;
+        _logger = logger;
         ContactsCollection.ItemsSource = _rows;
     }
 
@@ -39,7 +45,22 @@ public partial class ContactsPage : ContentPage
         base.OnAppearing();
         _p2p.LocalScan.ClientsChanged -= OnClientsChanged;
         _p2p.LocalScan.ClientsChanged += OnClientsChanged;
+        var u = _auth.CurrentUser;
+        if (u != null)
+        {
+            try
+            {
+                await _p2p.EnsureStartedAsync(u).ConfigureAwait(true);
+                await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ensure P2P on contacts page appearing");
+            }
+        }
+
         await RefreshAsync().ConfigureAwait(true);
+        _ = ProbeDiscoveryAsync();
     }
 
     protected override void OnDisappearing()
@@ -53,27 +74,79 @@ public partial class ContactsPage : ContentPage
         MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync());
     }
 
+    private void OnSearchChanged(object? sender, TextChangedEventArgs e)
+    {
+        _search = e.NewTextValue?.Trim() ?? "";
+        ApplyFilter();
+    }
+
+    private async Task ProbeDiscoveryAsync()
+    {
+        try
+        {
+            await _p2p.LocalScan.TriggerScanAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Contacts discovery round");
+        }
+    }
+
+    private async void OnScanClicked(object? sender, EventArgs e)
+    {
+        if (_scanning)
+            return;
+
+        _scanning = true;
+        ScanButton.IsEnabled = false;
+        var sec = (int)Math.Round(LocalNetworkScanner.DefaultScanListenDuration.TotalSeconds);
+        ScanStatusLabel.Text = $"Сканируем LAN и серверы {sec} с…";
+        ScanSpinner.IsRunning = true;
+        ScanStatusRow.IsVisible = true;
+        try
+        {
+            await _p2p.LocalScan.ScanAsync(LocalNetworkScanner.DefaultScanListenDuration).ConfigureAwait(true);
+            await RefreshAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Contacts scan");
+            await DisplayAlert("Контакты", ex.Message, "OK").ConfigureAwait(true);
+        }
+        finally
+        {
+            _scanning = false;
+            ScanSpinner.IsRunning = false;
+            ScanStatusRow.IsVisible = false;
+            ScanStatusLabel.Text = "";
+            ScanButton.IsEnabled = true;
+        }
+    }
+
     private async Task RefreshAsync()
     {
         var u = _auth.CurrentUser;
         Header.Bind(u, _p2p);
-        _rows.Clear();
+        _allRows.Clear();
         if (u == null)
+        {
+            ApplyFilter();
             return;
+        }
 
         var chats = await _chats.ListChatsAsync(u.Id).ConfigureAwait(true);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var c in chats)
         {
             seen.Add(c.PeerNetworkIdShort);
-            _rows.Add(new ContactRow
+            _allRows.Add(new ContactRow
             {
                 Chat = c,
                 Name = c.PeerNickname,
                 Detail = c.PeerNetworkIdShort,
                 Initials = IskraTheme.Initials(c.PeerNickname),
                 AvatarColor = IskraTheme.AvatarColor(c.PeerNetworkIdShort),
-                IsOnline = _p2p.LocalScan.IsPeerSeenRecentlyOnLan(c.PeerNetworkIdShort)
+                IsOnline = IsOnline(c.PeerNetworkIdShort, null)
             });
         }
 
@@ -83,19 +156,42 @@ public partial class ContactsPage : ContentPage
             if (seen.Contains(id))
                 continue;
             var nick = string.IsNullOrWhiteSpace(p.Nickname) ? id : p.Nickname;
-            var online = p.TransportKind == TransportKind.MessengerServer
-                ? p.MessengerServerOnline
-                : _p2p.LocalScan.IsPeerSeenRecentlyOnLan(id) || p.MessengerServerOnline;
-            _rows.Add(new ContactRow
+            _allRows.Add(new ContactRow
             {
                 Peer = p,
                 Name = nick,
                 Detail = $"{id} · {TransportLabel(p)}",
                 Initials = IskraTheme.Initials(nick),
                 AvatarColor = IskraTheme.AvatarColor(id),
-                IsOnline = online
+                IsOnline = IsOnline(id, p)
             });
         }
+
+        ApplyFilter();
+    }
+
+    private bool IsOnline(string networkIdShort, DiscoveredLocalPeer? peer)
+    {
+        if (peer?.TransportKind == TransportKind.MessengerServer)
+            return peer.MessengerServerOnline;
+        return _p2p.LocalScan.IsPeerSeenRecentlyOnLan(networkIdShort) ||
+               (peer?.MessengerServerOnline ?? false) ||
+               _p2p.LocalScan.Clients.Any(c =>
+                   string.Equals(c.NetworkId.ToShortString(), networkIdShort, StringComparison.Ordinal) &&
+                   c.MessengerServerOnline);
+    }
+
+    private void ApplyFilter()
+    {
+        IEnumerable<ContactRow> src = _allRows;
+        if (_search.Length > 0)
+            src = _allRows.Where(r =>
+                r.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                r.Detail.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+        _rows.Clear();
+        foreach (var row in src)
+            _rows.Add(row);
     }
 
     private static string TransportLabel(DiscoveredLocalPeer p) =>
