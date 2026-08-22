@@ -101,6 +101,8 @@ public partial class ChatDetailPage : ContentPage
         {
             await _p2p.EnsureStartedAsync(user).ConfigureAwait(true);
             await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
+            await MessengerServersBootstrap.PublishChatRequestAsync(_p2p, chat.PeerNetworkIdShort, _logger)
+                .ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -419,6 +421,7 @@ public partial class ChatDetailPage : ContentPage
 
         try
         {
+            await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
             await _p2pSession.SendTextAsync(text).ConfigureAwait(true);
             MessageEntry.Text = string.Empty;
             ClearDeliveryIssue();
@@ -854,6 +857,7 @@ public partial class ChatDetailPage : ContentPage
 
     private async Task PrepareBinarySendAsync()
     {
+        // Same probe as text: GetClients so servers-first PutBlob / SendMessage can find the peer.
         await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
     }
 
