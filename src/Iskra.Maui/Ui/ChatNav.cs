@@ -43,7 +43,7 @@ internal static class ChatNav
             return "Нет сообщений";
         if (m.PayloadKind == (int)ChatPayloadKind.Image)
             return "Фото";
-        if (m.MimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
+        if (m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) == true)
             return "Голосовое сообщение";
         if (m.PayloadKind is (int)ChatPayloadKind.File or (int)ChatPayloadKind.TransferOffer)
             return string.IsNullOrWhiteSpace(m.TransferFileName)

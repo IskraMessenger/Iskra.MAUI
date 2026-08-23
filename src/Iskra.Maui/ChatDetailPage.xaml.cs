@@ -342,6 +342,7 @@ public partial class ChatDetailPage : ContentPage
             DeliveryGlyph = glyph,
             DeliveryGlyphColor = gColor,
             Outgoing = m.Outgoing,
+            BubbleColumn = m.Outgoing ? 2 : 0,
             DeliveryStatus = ds,
             BubbleColor = bubble,
             TimeLabel = ts
@@ -378,6 +379,7 @@ public partial class ChatDetailPage : ContentPage
             DeliveryGlyph = glyph,
             DeliveryGlyphColor = gColor,
             Outgoing = m.Outgoing,
+            BubbleColumn = m.Outgoing ? 2 : 0,
             DeliveryStatus = deliveryStatus,
             BubbleColor = bubble,
             TimeLabel = ts

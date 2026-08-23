@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework Condition="'$(ShortP2PBuildAndroid)' != 'true'">net10.0-windows10.0.19041.0</TargetFramework>
-        <TargetFrameworks Condition="'$(ShortP2PBuildAndroid)' == 'true'">net10.0-windows10.0.19041.0;net10.0-android</TargetFrameworks>
+        <!-- Windows is the default TFM so `dotnet run` / IDE F5 can start the desktop app.
+             Android is opt-in: -p:IncludeAndroid=true -->
+        <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+        <TargetFrameworks Condition="'$(ShortP2PBuildAndroid)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
 
         <OutputType>Exe</OutputType>
         <RootNamespace>Iskra.Maui</RootNamespace>
@@ -14,7 +16,7 @@
         <ApplicationTitle>Iskra</ApplicationTitle>
         <ApplicationId>com.iskra.maui</ApplicationId>
         <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationVersion>7</ApplicationVersion>
 
         <WindowsPackageType>None</WindowsPackageType>
         <EnableMsixTooling>true</EnableMsixTooling>
@@ -42,8 +44,13 @@
         <TargetPlatformVersion>36.0</TargetPlatformVersion>
         <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
         <AndroidMinSdkVersion>21</AndroidMinSdkVersion>
-        <!-- Load libe_sqlite3 from the APK when extractNativeLibs is false (compressed .so → DllNotFound). -->
-        <AndroidStoreUncompressedFileExtensions>.so</AndroidStoreUncompressedFileExtensions>
+        <!-- BlueStacks x86_64: AOT SIGSEGV; trim TypeLoadException abort; marshal methods
+             drop JNI n_onCreate (UnsatisfiedLinkError). Interpreter, untrimmed, classic JNI. -->
+        <RunAOTCompilation>false</RunAOTCompilation>
+        <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+        <EnableLLVM>false</EnableLLVM>
+        <PublishTrimmed>false</PublishTrimmed>
+        <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
     </PropertyGroup>
 
     <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Debug'">
