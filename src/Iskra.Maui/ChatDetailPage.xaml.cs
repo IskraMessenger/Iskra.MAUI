@@ -281,7 +281,7 @@ public partial class ChatDetailPage : ContentPage
 
     /// <summary>
     /// После выборки страницы сразу отпускаем BLOB: в списке они не нужны,
-    /// открытие идёт через <see cref="OpenReceivedBinaryAsync"/>.
+    /// открытие идёт через <see cref="OpenOrDownloadAttachmentAsync"/>.
     /// </summary>
     private static void ReleaseListPayloadBlobs(IEnumerable<ChatMessageEntity> rows)
     {
@@ -385,7 +385,7 @@ public partial class ChatDetailPage : ContentPage
     }
 
     private static int AttachmentSizeBytes(ChatMessageEntity m) =>
-        (int)(m.ImageBlob is { Length: > 0 } blob ? blob.Length : m .TransferSizeBytes);
+        (int)(m.ImageBlob is { Length: > 0 } blob ? blob.Length : m.TransferSizeBytes);
 
     private static string AttachmentDisplayName(ChatMessageEntity m)
     {
@@ -783,18 +783,12 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
-        if (vm.IsTransferOffer)
-        {
-            await DownloadTransferOfferAsync(vm.MessageId).ConfigureAwait(true);
-            return;
-        }
-
         if (!vm.IsFile && !vm.IsImage)
             return;
 
         try
         {
-            await OpenReceivedBinaryAsync(vm.MessageId).ConfigureAwait(true);
+            await OpenOrDownloadAttachmentAsync(vm.MessageId).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -803,7 +797,28 @@ public partial class ChatDetailPage : ContentPage
         }
     }
 
-    private async Task DownloadTransferOfferAsync(int messageId)
+    private async Task OpenOrDownloadAttachmentAsync(int messageId)
+    {
+        var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
+        if (row?.ImageBlob is { Length: > 0 })
+        {
+            await DisplayAttachmentAsync(row).ConfigureAwait(true);
+            return;
+        }
+
+        var canDownload = _p2pSession != null &&
+                          row is { Outgoing: false } &&
+                          !string.IsNullOrWhiteSpace(row.TransferId);
+        if (!canDownload)
+        {
+            await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
+            return;
+        }
+
+        await DownloadThenShowAsync(messageId).ConfigureAwait(true);
+    }
+
+    private async Task DownloadThenShowAsync(int messageId)
     {
         if (_p2pSession == null)
             return;
@@ -827,18 +842,28 @@ public partial class ChatDetailPage : ContentPage
             await ReloadMessagesAsync().ConfigureAwait(true);
         }
 
-        if (!downloaded)
+        var row = await WaitForMessageBlobAsync(messageId).ConfigureAwait(true);
+        if (row?.ImageBlob is { Length: > 0 })
+        {
+            await DisplayAttachmentAsync(row).ConfigureAwait(true);
             return;
+        }
 
-        try
+        if (downloaded)
+            await DisplayAlert("Файл", "Скачано, но файл ещё не готов. Нажмите ещё раз.", "OK").ConfigureAwait(true);
+    }
+
+    private async Task<ChatMessageEntity?> WaitForMessageBlobAsync(int messageId)
+    {
+        for (var i = 0; i < 8; i++)
         {
-            await OpenReceivedBinaryAsync(messageId).ConfigureAwait(true);
+            var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
+            if (row?.ImageBlob is { Length: > 0 })
+                return row;
+            await Task.Delay(120).ConfigureAwait(true);
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Open attachment failed after download");
-            await DisplayAlert("Файл", ex.Message, "OK").ConfigureAwait(true);
-        }
+
+        return await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
     }
 
     private async Task PrepareBinarySendAsync()
@@ -847,10 +872,9 @@ public partial class ChatDetailPage : ContentPage
         await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
     }
 
-    private async Task OpenReceivedBinaryAsync(int messageId)
+    private async Task DisplayAttachmentAsync(ChatMessageEntity row)
     {
-        var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
-        if (row?.ImageBlob is not { Length: > 0 } blob)
+        if (row.ImageBlob is not { Length: > 0 } blob)
         {
             await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
             return;
@@ -858,17 +882,26 @@ public partial class ChatDetailPage : ContentPage
 
         var isImage = IsImageAttachment(row);
         var isVideo = IsVideoAttachment(row);
-        var fallback = isImage ? "image.jpg" : isVideo ? "video.mp4" : "document";
-        var rawName = AttachmentDisplayName(row);
-        var name = SanitizeFileName(string.IsNullOrWhiteSpace(rawName) ? fallback : rawName);
-        var temp = Path.Combine(FileSystem.CacheDirectory, $"{messageId}_{name}");
+        var name = SanitizeFileName(EnsureMediaFileName(AttachmentDisplayName(row), row));
+        var temp = Path.Combine(FileSystem.CacheDirectory, $"{row.Id}_{name}");
         await File.WriteAllBytesAsync(temp, blob).ConfigureAwait(true);
-        AppLog.BinaryLoaded(isImage ? "received-image" : isVideo ? "received-video" : "received-document", name, blob.Length);
-        if (isImage || isVideo)
+        AppLog.BinaryLoaded(isImage ? "received-image" : isVideo ? "received-video" : "received-document", name,
+            blob.Length);
+        if (isImage)
+        {
+            await Navigation.PushModalAsync(new NavigationPage(new ImagePreviewPage(temp))
+            {
+                BarBackgroundColor = Colors.Black,
+                BarTextColor = Colors.White
+            }).ConfigureAwait(true);
+            return;
+        }
+
+        if (isVideo)
         {
             await Launcher.Default.OpenAsync(new OpenFileRequest
             {
-                Title = isVideo ? "Видео" : "Изображение",
+                Title = "Видео",
                 File = new ReadOnlyFile(temp)
             }).ConfigureAwait(true);
             return;
@@ -879,6 +912,27 @@ public partial class ChatDetailPage : ContentPage
             Title = "Сохранить или отправить документ",
             File = new ShareFile(temp)
         }).ConfigureAwait(true);
+    }
+
+    private static string EnsureMediaFileName(string name, ChatMessageEntity row)
+    {
+        if (Path.HasExtension(name))
+            return name;
+        if (IsImageAttachment(row))
+        {
+            var ext = row.MimeType?.Trim().ToLowerInvariant() switch
+            {
+                "image/png" => ".png",
+                "image/gif" => ".gif",
+                "image/webp" => ".webp",
+                _ => ".jpg"
+            };
+            return name + ext;
+        }
+
+        if (IsVideoAttachment(row))
+            return name + ".mp4";
+        return name;
     }
 
     private static string SanitizeFileName(string name)

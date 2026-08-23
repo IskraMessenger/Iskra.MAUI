@@ -1,0 +1,15 @@
+<Project>
+    <!--
+      Same leak as in ShortP2P: NuGet RID graph treats linux-* as compatible with android-*,
+      so SQLitePCLRaw.lib.e_sqlite3 ships a desktop .so into the APK (DllNotFoundException e_sqlite3).
+      Native SQLite on Android must come from SQLitePCLRaw.lib.e_sqlite3.android only.
+    -->
+    <Target Name="_IskraExcludeDesktopSqliteNativeAssets"
+            AfterTargets="ResolvePackageAssets"
+            Condition="'$(TargetFramework)' != '' and $(TargetFramework.Contains('-android'))">
+        <ItemGroup>
+            <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)"
+                                  Condition="'%(NativeCopyLocalItems.NuGetPackageId)' == 'SQLitePCLRaw.lib.e_sqlite3'" />
+        </ItemGroup>
+    </Target>
+</Project>
