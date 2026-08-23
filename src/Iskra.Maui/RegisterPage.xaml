@@ -14,7 +14,10 @@
             <Label Text="Ник и пароль. Сетевой идентификатор создаётся локально."
                    FontSize="14" TextColor="{DynamicResource MutedText}" />
             <Entry x:Name="NicknameEntry" Placeholder="Ник" />
-            <Entry x:Name="PasswordEntry" Placeholder="Пароль" IsPassword="True" />
+            <Entry x:Name="PasswordEntry" Placeholder="Пароль" IsPassword="True"
+                   TextChanged="OnPasswordTextChanged" />
+            <Label x:Name="PasswordHintLabel"
+                   FontSize="12" TextColor="{DynamicResource MutedText}" LineBreakMode="WordWrap" />
             <Button Text="Зарегистрироваться" Clicked="OnRegisterClicked" />
         </VerticalStackLayout>
     </ScrollView>
