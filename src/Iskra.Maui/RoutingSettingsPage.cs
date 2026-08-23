@@ -219,7 +219,7 @@ public class RoutingSettingsPage : ContentPage
         _runtime.Settings.SendFailureRetryDelay = settings.SendFailureRetryDelay;
         _runtime.Settings.SearchWaitTimeout = settings.SearchWaitTimeout;
         _runtime.Settings.LinkTechnology = settings.LinkTechnology;
-        _runtime.Settings.TrafficSavingEnabled = settings.TrafficSavingEnabled;
+        MediaEconomy.Apply(_runtime, settings.TrafficSavingEnabled);
         _runtime.Settings.EnableUdpTransport = settings.EnableUdpTransport;
         _runtime.Settings.EnableBluetoothTransport = settings.EnableBluetoothTransport;
         _runtime.Settings.SelectedBluetoothAdapterDeviceId = settings.SelectedBluetoothAdapterDeviceId;

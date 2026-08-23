@@ -6,6 +6,7 @@ using ShortP2P.Auth;
 using ShortP2P.Client;
 using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Data;
+using ShortP2P.Client.Routing;
 using ShortP2P.Client.Services;
 
 namespace Iskra.Maui;
@@ -17,7 +18,8 @@ public partial class ChatDetailPage : ContentPage
         {
             [DevicePlatform.WinUI] =
             [
-                ".doc", ".docx", ".rtf", ".pdf", ".odt", ".ods", ".odp", ".odg", ".xlsx", ".xls", ".pptx", ".ppt"
+                ".doc", ".docx", ".rtf", ".pdf", ".odt", ".ods", ".odp", ".odg", ".xlsx", ".xls", ".pptx", ".ppt",
+                ".mp4", ".mov", ".avi", ".wmv", ".webm", ".ogv"
             ],
             [DevicePlatform.Android] =
             [
@@ -32,7 +34,13 @@ public partial class ChatDetailPage : ContentPage
                 "application/vnd.oasis.opendocument.spreadsheet",
                 "application/vnd.oasis.opendocument.presentation",
                 "application/vnd.oasis.opendocument.graphics",
-                "application/rtf"
+                "application/rtf",
+                "video/mp4",
+                "video/quicktime",
+                "video/x-msvideo",
+                "video/x-ms-wmv",
+                "video/webm",
+                "video/ogg"
             ],
             [DevicePlatform.iOS] = ["public.data"],
             [DevicePlatform.MacCatalyst] = ["public.data"]
@@ -42,10 +50,10 @@ public partial class ChatDetailPage : ContentPage
     private readonly ChatRepository _repo;
     private readonly UserP2pRuntime _p2p;
     private readonly ChatMediaOptions _media;
+    private readonly P2pRoutingSettingsStore _routingStore;
     private readonly ILogger<ChatDetailPage> _logger;
     private const int MessagesPageSize = 10;
     private readonly ObservableCollection<MessageRowVm> _messageItems = [];
-    private readonly Dictionary<int, ImageSource> _imagePreviewCache = [];
     private readonly List<ChatMessageEntity> _loadedRows = [];
     private ChatP2PSession? _p2pSession;
     private string? _peerNetworkIdShort;
@@ -55,22 +63,17 @@ public partial class ChatDetailPage : ContentPage
     private bool _suppressLoadMore = true;
     private bool _pendingReload;
     private int _reloadEpoch;
-    private const string VoiceMessageMime = "audio/ogg";
-    private const string VoiceFileName = "voice.ogg";
-#if ANDROID
-    private global::Android.Media.MediaRecorder? _voiceRecorder;
-    private string? _voiceTempPath;
-#endif
-    private bool _isVoiceRecording;
+    private VoiceRecordingSession? _voice;
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
-        ILogger<ChatDetailPage> logger)
+        P2pRoutingSettingsStore routingStore, ILogger<ChatDetailPage> logger)
     {
         InitializeComponent();
         _auth = auth;
         _repo = repo;
         _p2p = p2p;
         _media = media;
+        _routingStore = routingStore;
         _logger = logger;
         MessagesCollection.ItemsSource = _messageItems;
     }
@@ -152,8 +155,6 @@ public partial class ChatDetailPage : ContentPage
             _p2pSession.TransferStateChanged -= OnP2PTransferStateChanged;
             _p2pSession = null;
         }
-
-        _imagePreviewCache.Clear();
     }
 
     private void OnPeerLanPresenceChanged(object? sender, EventArgs e)
@@ -212,6 +213,7 @@ public partial class ChatDetailPage : ContentPage
         {
             var take = Math.Max(MessagesPageSize, _loadedRows.Count);
             var page = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
+            ReleaseListPayloadBlobs(page);
             _hasMoreRows = page.Count == take;
             _loadedRows.Clear();
             _loadedRows.AddRange(page);
@@ -237,6 +239,7 @@ public partial class ChatDetailPage : ContentPage
         {
             var page = await _repo.ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize)
                 .ConfigureAwait(true);
+            ReleaseListPayloadBlobs(page);
             _hasMoreRows = page.Count == MessagesPageSize;
             _loadedRows.AddRange(page);
             foreach (var m in page)
@@ -256,7 +259,7 @@ public partial class ChatDetailPage : ContentPage
         for (var i = 0; i < page.Count; i++)
         {
             var previous = i < _messageItems.Count ? _messageItems[i] : null;
-            var next = BuildMessageRowVm(page[i], previous);
+            var next = BuildMessageRowVm(page[i]);
             if (previous == null)
                 _messageItems.Add(next);
             else if (!MessageRowsEqual(previous, next))
@@ -274,10 +277,25 @@ public partial class ChatDetailPage : ContentPage
         a.IsTransferOffer == b.IsTransferOffer &&
         a.ShowDelivery == b.ShowDelivery &&
         a.DeliveryGlyph == b.DeliveryGlyph &&
-        a.TimeLabel == b.TimeLabel &&
-        ReferenceEquals(a.ImagePreview, b.ImagePreview);
+        a.TimeLabel == b.TimeLabel;
 
-    private MessageRowVm BuildMessageRowVm(ChatMessageEntity m, MessageRowVm? existing = null)
+    /// <summary>
+    /// После выборки страницы сразу отпускаем BLOB: в списке они не нужны,
+    /// открытие идёт через <see cref="OpenReceivedBinaryAsync"/>.
+    /// </summary>
+    private static void ReleaseListPayloadBlobs(IEnumerable<ChatMessageEntity> rows)
+    {
+        foreach (var m in rows)
+        {
+            if (m.ImageBlob is not { Length: > 0 } blob)
+                continue;
+            if (m.TransferSizeBytes <= 0)
+                m.TransferSizeBytes = blob.Length;
+            m.ImageBlob = null;
+        }
+    }
+
+    private MessageRowVm BuildMessageRowVm(ChatMessageEntity m)
     {
         var color = m.Outgoing ? IskraTheme.SentText : IskraTheme.Text;
         var sentLocal = new DateTimeOffset(m.SentUtcTicks, TimeSpan.Zero).ToLocalTime();
@@ -288,153 +306,26 @@ public partial class ChatDetailPage : ContentPage
         var (glyph, gColor, show) = DeliveryUiFor(ds, m.Outgoing);
         var bubble = m.Outgoing ? IskraTheme.OutgoingBubble : IskraTheme.IncomingBubble;
 
-        if (m.PayloadKind == (int)ChatPayloadKind.File && m.ImageBlob is { Length: > 0 } docBlob)
-        {
-            var kb = (docBlob.Length + 1023) / 1024;
-            var name = string.IsNullOrEmpty(m.Text) ? "file" : m.Text;
-            var kindCaption = m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) == true
-                ? "голосовое"
-                : m.MimeType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true
-                    ? "видео"
-                    : "документ";
-            return new MessageRowVm
-            {
-                CaptionLine = kindCaption,
-                TextBody = "",
-                FileBodyText = $"{name} · {kb} КБ · нажмите строку — Скачать",
-                ShowTextBody = false,
-                IsImage = false,
-                IsFile = true,
-                IsTransferOffer = false,
-                MessageId = m.Id,
-                ImagePreview = null,
-                MessageColor = color,
-                ShowDelivery = show,
-                DeliveryGlyph = glyph,
-                DeliveryGlyphColor = gColor,
-                Outgoing = m.Outgoing,
-                DeliveryStatus = ds,
-                BubbleColor = bubble,
-                TimeLabel = ts
-            };
-        }
+        if (m.PayloadKind == (int)ChatPayloadKind.File)
+            return AttachmentPlaceholder(m, isTransferOffer: false, ds, color, show, glyph, gColor, bubble, ts);
 
-        if (m.PayloadKind == (int)ChatPayloadKind.Image && m.ImageBlob is { Length: > 0 } blob)
-        {
-            return new MessageRowVm
-            {
-                CaptionLine = "фото",
-                TextBody = "",
-                ShowTextBody = false,
-                IsImage = true,
-                IsFile = false,
-                IsTransferOffer = false,
-                MessageId = m.Id,
-                ImagePreview = ImagePreviewFor(m.Id, blob, existing),
-                MessageColor = color,
-                ShowDelivery = show,
-                DeliveryGlyph = glyph,
-                DeliveryGlyphColor = gColor,
-                Outgoing = m.Outgoing,
-                DeliveryStatus = ds,
-                BubbleColor = bubble,
-                TimeLabel = ts
-            };
-        }
+        if (m.PayloadKind == (int)ChatPayloadKind.Image)
+            return AttachmentPlaceholder(m, isTransferOffer: false, ds, color, show, glyph, gColor, bubble, ts);
 
         if (m.PayloadKind == (int)ChatPayloadKind.TransferOffer)
         {
-            // Outgoing offers keep the local bytes — show them as the finished attachment (WinForms-style).
-            if (m.Outgoing && m.ImageBlob is { Length: > 0 } localBlob)
-            {
-                var isImage = m.TransferPayloadKind.Equals("image", StringComparison.OrdinalIgnoreCase) ||
-                              (m.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false);
-                if (isImage)
-                {
-                    return new MessageRowVm
-                    {
-                        CaptionLine = "фото",
-                        TextBody = "",
-                        ShowTextBody = false,
-                        IsImage = true,
-                        IsFile = false,
-                        IsTransferOffer = false,
-                        MessageId = m.Id,
-                        ImagePreview = ImagePreviewFor(m.Id, localBlob, existing),
-                        MessageColor = color,
-                        ShowDelivery = show,
-                        DeliveryGlyph = glyph,
-                        DeliveryGlyphColor = gColor,
-                        Outgoing = m.Outgoing,
-                        DeliveryStatus = ds,
-                        BubbleColor = bubble,
-                        TimeLabel = ts
-                    };
-                }
-
-                var kbLocal = (localBlob.Length + 1023) / 1024;
-                var nameLocal = string.IsNullOrWhiteSpace(m.TransferFileName)
-                    ? (string.IsNullOrEmpty(m.Text) ? "file" : m.Text)
-                    : m.TransferFileName;
-                var kindLocal = m.TransferPayloadKind.Equals("voice", StringComparison.OrdinalIgnoreCase) ||
-                                (m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ?? false)
-                    ? "голосовое"
-                    : m.TransferPayloadKind.Equals("video", StringComparison.OrdinalIgnoreCase) ||
-                      (m.MimeType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ?? false)
-                        ? "видео"
-                        : "документ";
-                return new MessageRowVm
-                {
-                    CaptionLine = kindLocal,
-                    TextBody = "",
-                    FileBodyText = $"{nameLocal} · {kbLocal} КБ · нажмите строку — Скачать",
-                    ShowTextBody = false,
-                    IsImage = false,
-                    IsFile = true,
-                    IsTransferOffer = false,
-                    MessageId = m.Id,
-                    ImagePreview = null,
-                    MessageColor = color,
-                    ShowDelivery = show,
-                    DeliveryGlyph = glyph,
-                    DeliveryGlyphColor = gColor,
-                    Outgoing = m.Outgoing,
-                    DeliveryStatus = ds,
-                    BubbleColor = bubble,
-                    TimeLabel = ts
-                };
-            }
-
-            var kb = (m.TransferSizeBytes + 1023) / 1024;
             var state = (ChatTransferState)m.TransferState;
+            var localReady = m.Outgoing || state == ChatTransferState.Received;
+            if (localReady)
+                return AttachmentPlaceholder(m, isTransferOffer: false, ds, color, show, glyph, gColor, bubble, ts);
+
             var stateText = state switch
             {
                 ChatTransferState.Transferring => "загрузка...",
-                ChatTransferState.Received => "получено",
                 ChatTransferState.Failed => "ошибка, нажмите для повтора",
                 _ => "нажмите строку — Скачать"
             };
-            var name = string.IsNullOrWhiteSpace(m.TransferFileName) ? m.Text : m.TransferFileName;
-            return new MessageRowVm
-            {
-                CaptionLine = m.TransferPayloadKind,
-                TextBody = "",
-                FileBodyText = $"{name} · {kb} КБ · {stateText}",
-                ShowTextBody = false,
-                IsImage = false,
-                IsFile = true,
-                IsTransferOffer = true,
-                MessageId = m.Id,
-                ImagePreview = null,
-                MessageColor = color,
-                ShowDelivery = show,
-                DeliveryGlyph = glyph,
-                DeliveryGlyphColor = gColor,
-                Outgoing = m.Outgoing,
-                DeliveryStatus = ds,
-                BubbleColor = bubble,
-                TimeLabel = ts
-            };
+            return AttachmentPlaceholder(m, isTransferOffer: true, ds, color, show, glyph, gColor, bubble, ts, stateText);
         }
 
         return new MessageRowVm
@@ -446,7 +337,6 @@ public partial class ChatDetailPage : ContentPage
             IsFile = false,
             IsTransferOffer = false,
             MessageId = m.Id,
-            ImagePreview = null,
             MessageColor = color,
             ShowDelivery = show,
             DeliveryGlyph = glyph,
@@ -458,29 +348,78 @@ public partial class ChatDetailPage : ContentPage
         };
     }
 
-    private ImageSource ImagePreviewFor(int messageId, byte[] blob, MessageRowVm? existing)
+    private static MessageRowVm AttachmentPlaceholder(
+        ChatMessageEntity m,
+        bool isTransferOffer,
+        MessageDeliveryStatus deliveryStatus,
+        Color color,
+        bool show,
+        string glyph,
+        Color gColor,
+        Color bubble,
+        string ts,
+        string? stateText = null)
     {
-        if (existing is { IsImage: true, ImagePreview: not null } && existing.MessageId == messageId)
-            return existing.ImagePreview;
-        if (_imagePreviewCache.TryGetValue(messageId, out var cached))
-            return cached;
-
-        var path = Path.Combine(FileSystem.CacheDirectory, $"iskra_img_{ChatId}_{messageId}");
-        try
+        var kb = (AttachmentSizeBytes(m) + 1023) / 1024;
+        var name = AttachmentDisplayName(m);
+        var action = stateText ?? "нажмите строку — Скачать";
+        return new MessageRowVm
         {
-            var info = new FileInfo(path);
-            if (!info.Exists || info.Length != blob.Length)
-                File.WriteAllBytes(path, blob);
-            var source = ImageSource.FromFile(path);
-            _imagePreviewCache[messageId] = source;
-            return source;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Image preview cache write failed for {MessageId}", messageId);
-            return ImageSource.FromStream(() => new MemoryStream(blob));
-        }
+            CaptionLine = AttachmentKindCaption(m),
+            TextBody = "",
+            FileBodyText = $"{name} · {kb} КБ · {action}",
+            ShowTextBody = false,
+            IsImage = IsImageAttachment(m),
+            IsFile = true,
+            IsTransferOffer = isTransferOffer,
+            MessageId = m.Id,
+            MessageColor = color,
+            ShowDelivery = show,
+            DeliveryGlyph = glyph,
+            DeliveryGlyphColor = gColor,
+            Outgoing = m.Outgoing,
+            DeliveryStatus = deliveryStatus,
+            BubbleColor = bubble,
+            TimeLabel = ts
+        };
     }
+
+    private static int AttachmentSizeBytes(ChatMessageEntity m) =>
+        (int)(m.ImageBlob is { Length: > 0 } blob ? blob.Length : m .TransferSizeBytes);
+
+    private static string AttachmentDisplayName(ChatMessageEntity m)
+    {
+        if (!string.IsNullOrWhiteSpace(m.TransferFileName))
+            return m.TransferFileName;
+        if (!string.IsNullOrWhiteSpace(m.Text))
+            return m.Text;
+        if (IsImageAttachment(m))
+            return "image.jpg";
+        if (IsVideoAttachment(m))
+            return "video.mp4";
+        return "file";
+    }
+
+    private static string AttachmentKindCaption(ChatMessageEntity m)
+    {
+        if (IsImageAttachment(m))
+            return "фото";
+        if (string.Equals(m.TransferPayloadKind, "voice", StringComparison.OrdinalIgnoreCase) ||
+            (m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ?? false))
+            return "голосовое";
+        if (IsVideoAttachment(m))
+            return "видео";
+        return "документ";
+    }
+
+    private static bool IsImageAttachment(ChatMessageEntity m) =>
+        m.PayloadKind == (int)ChatPayloadKind.Image ||
+        string.Equals(m.TransferPayloadKind, "image", StringComparison.OrdinalIgnoreCase) ||
+        (m.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private static bool IsVideoAttachment(ChatMessageEntity m) =>
+        string.Equals(m.TransferPayloadKind, "video", StringComparison.OrdinalIgnoreCase) ||
+        (m.MimeType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ?? false);
 
     private void OnMessagesScrolled(object? sender, ItemsViewScrolledEventArgs e)
     {
@@ -530,7 +469,7 @@ public partial class ChatDetailPage : ContentPage
         if (_p2pSession == null)
             return;
 
-        if (_isVoiceRecording)
+        if (_voice is { IsRecording: true })
         {
             await StopVoiceRecordingAndSendAsync().ConfigureAwait(true);
             return;
@@ -539,10 +478,15 @@ public partial class ChatDetailPage : ContentPage
         await StartVoiceRecordingAsync().ConfigureAwait(true);
     }
 
+    private async Task SyncUltraEconomyAsync()
+    {
+        var persisted = await _routingStore.LoadAsync().ConfigureAwait(true);
+        MediaEconomy.Apply(_p2p, persisted.TrafficSavingEnabled);
+    }
+
     private async Task StartVoiceRecordingAsync()
     {
         ClearDeliveryIssue();
-#if ANDROID
         var mic = await Permissions.RequestAsync<Permissions.Microphone>().ConfigureAwait(true);
         if (mic != PermissionStatus.Granted)
         {
@@ -550,27 +494,11 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
-        if (!OperatingSystem.IsAndroidVersionAtLeast(29))
-        {
-            ShowDeliveryIssue("Голосовые сообщения требуют Android 10+ (API 29).");
-            return;
-        }
-
         try
         {
-            _voiceTempPath = Path.Combine(FileSystem.CacheDirectory, $"voice_{DateTime.UtcNow.Ticks}.ogg");
-            var recorder = new global::Android.Media.MediaRecorder();
-            _voiceRecorder = recorder;
-            recorder.SetAudioSource(global::Android.Media.AudioSource.Mic);
-            recorder.SetOutputFormat(global::Android.Media.OutputFormat.Ogg);
-            recorder.SetAudioEncoder(global::Android.Media.AudioEncoder.Opus);
-            recorder.SetAudioEncodingBitRate(18_000);
-            recorder.SetAudioSamplingRate(48_000);
-            recorder.SetOutputFile(_voiceTempPath);
-            recorder.Prepare();
-            recorder.Start();
-
-            _isVoiceRecording = true;
+            await SyncUltraEconomyAsync().ConfigureAwait(true);
+            _voice = new VoiceRecordingSession();
+            await _voice.StartAsync(MediaEconomy.SpeechBitrate(_p2p)).ConfigureAwait(true);
             VoiceButton.Text = "■";
             VoiceButton.TextColor = Colors.Red;
         }
@@ -580,64 +508,26 @@ public partial class ChatDetailPage : ContentPage
             ShowDeliveryIssue(ex.Message);
             await StopVoiceRecordingAndDiscardAsync().ConfigureAwait(true);
         }
-#else
-        ShowDeliveryIssue("Запись голосовых сейчас доступна только на Android.");
-#endif
     }
 
     private async Task StopVoiceRecordingAndSendAsync()
     {
-#if ANDROID
+        ResetVoiceButton();
         try
         {
-            if (_voiceRecorder != null)
-                _voiceRecorder.Stop();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Voice recording stop failed");
-            ShowDeliveryIssue(ex.Message);
-            await StopVoiceRecordingAndDiscardAsync().ConfigureAwait(true);
-            return;
-        }
-        finally
-        {
-            try
-            {
-                _voiceRecorder?.Release();
-                _voiceRecorder?.Dispose();
-            }
-            catch
-            {
-                // ignore
-            }
-
-            _voiceRecorder = null;
-            _isVoiceRecording = false;
-            VoiceButton.Text = "🎤";
-            VoiceButton.TextColor = IskraTheme.Text;
-        }
-
-        try
-        {
-            if (string.IsNullOrEmpty(_voiceTempPath) || !File.Exists(_voiceTempPath))
+            if (_voice == null)
             {
                 ShowDeliveryIssue("Не удалось получить записанный голосовой файл.");
                 return;
             }
 
-            var bytes = await File.ReadAllBytesAsync(_voiceTempPath).ConfigureAwait(true);
-            AppLog.BinaryLoaded("voice", VoiceFileName, bytes.Length);
-            if (bytes.Length == 0)
-            {
-                ShowDeliveryIssue("Голосовая запись пустая.");
-                return;
-            }
-
-            _media.ValidateDocumentMime(VoiceMessageMime);
-            _media.ValidateDocumentSize(bytes.Length);
+            var recorded = await _voice.StopAsync().ConfigureAwait(true);
+            _voice = null;
+            AppLog.BinaryLoaded("voice", recorded.FileName, recorded.Bytes.Length);
+            _media.ValidateDocumentMime(recorded.MimeType);
+            _media.ValidateDocumentSize(recorded.Bytes.Length);
             await PrepareBinarySendAsync().ConfigureAwait(true);
-            await _p2pSession!.SendFileAsync(VoiceFileName, bytes, VoiceMessageMime).ConfigureAwait(true);
+            await _p2pSession!.SendFileAsync(recorded.FileName, recorded.Bytes, recorded.MimeType).ConfigureAwait(true);
             ClearDeliveryIssue();
         }
         catch (OutboundMessageQueuedException ex)
@@ -649,48 +539,20 @@ public partial class ChatDetailPage : ContentPage
         {
             _logger.LogWarning(ex, "Send voice message failed");
             ShowDeliveryIssue(ex.Message);
+            await StopVoiceRecordingAndDiscardAsync().ConfigureAwait(true);
         }
         finally
         {
-            if (!string.IsNullOrEmpty(_voiceTempPath))
-            {
-                try
-                {
-                    File.Delete(_voiceTempPath);
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
-
-            _voiceTempPath = null;
             await ReloadMessagesAsync().ConfigureAwait(true);
         }
-#else
-        await Task.CompletedTask;
-#endif
     }
 
     private async Task StopVoiceRecordingAndDiscardAsync()
     {
-#if ANDROID
         try
         {
-            if (_voiceRecorder != null)
-            {
-                try
-                {
-                    _voiceRecorder.Stop();
-                }
-                catch
-                {
-                    // ignore invalid state
-                }
-
-                _voiceRecorder.Release();
-                _voiceRecorder.Dispose();
-            }
+            if (_voice != null)
+                await _voice.DiscardAsync().ConfigureAwait(true);
         }
         catch
         {
@@ -698,26 +560,15 @@ public partial class ChatDetailPage : ContentPage
         }
         finally
         {
-            _voiceRecorder = null;
-            _isVoiceRecording = false;
-            VoiceButton.Text = "🎤";
-            VoiceButton.TextColor = IskraTheme.Text;
-            if (!string.IsNullOrEmpty(_voiceTempPath))
-            {
-                try
-                {
-                    File.Delete(_voiceTempPath);
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
-
-            _voiceTempPath = null;
+            _voice = null;
+            ResetVoiceButton();
         }
-#endif
-        await Task.CompletedTask.ConfigureAwait(true);
+    }
+
+    private void ResetVoiceButton()
+    {
+        VoiceButton.Text = "🎤";
+        VoiceButton.TextColor = IskraTheme.Text;
     }
 
     private async void OnAttachImageClicked(object? sender, EventArgs e)
@@ -759,25 +610,11 @@ public partial class ChatDetailPage : ContentPage
                 return;
             }
 
-            if (bytes.Length > _media.MaxImageBytes)
-            {
-                var limKb = (_media.MaxImageBytes + 1023) / 1024;
-                var want = await DisplayAlert("Размер",
-                    $"Файл {(bytes.Length + 1023) / 1024} КБ больше лимита {limKb} КБ (настраивается в chat-media.json). Сжать изображение?",
-                    "Сжать",
-                    "Отмена").ConfigureAwait(true);
-                if (!want)
-                    return;
-                if (!ImageAttachmentCompressor.TryCompressToMaxBytes(bytes, _media.MaxImageBytes, out var compressed,
-                        out var err))
-                {
-                    await DisplayAlert("Сжатие", err ?? "Не удалось уложиться в лимит.", "OK").ConfigureAwait(true);
-                    return;
-                }
-
-                bytes = compressed;
-                mime = ImageAttachmentCompressor.SuggestMimeAfterCompression();
-            }
+            var fitted = await TryFitOutgoingImageAsync(bytes, mime, askIfOverDefault: true).ConfigureAwait(true);
+            if (fitted == null)
+                return;
+            bytes = fitted.Value.Bytes;
+            mime = fitted.Value.Mime;
 
             _media.ValidateMime(mime);
             await PrepareBinarySendAsync().ConfigureAwait(true);
@@ -810,16 +647,16 @@ public partial class ChatDetailPage : ContentPage
         {
             var pick = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = "Документ Word / LibreOffice (до 10 МБ)",
+                PickerTitle = "Документ или видео (до 10 МБ)",
                 FileTypes = OfficeDocFileTypes
             }).ConfigureAwait(true);
             if (pick == null)
                 return;
 
-            if (!DocumentAttachHelper.TryGetMimeFromExtension(pick.FileName, out var mime))
+            if (!TryGetDocumentOrVideoMime(pick.FileName, out var mime))
             {
                 await DisplayAlert("Файл",
-                        "Допустимы только .doc, .docx, .rtf, .pdf, .odt, .ods, .odp, .odg, .xlsx, .xls, .pptx, .ppt.",
+                        "Допустимы офисные документы и видео (.mp4, .mov, .avi, .webm, .ogv, .wmv).",
                         "OK")
                     .ConfigureAwait(true);
                 return;
@@ -836,14 +673,55 @@ public partial class ChatDetailPage : ContentPage
                 return;
             }
 
-            var headLen = Math.Min(4096, bytes.Length);
-            if (!DocumentAttachHelper.SniffMatchesMime(bytes.AsSpan(0, headLen), mime))
+            var sendName = pick.FileName;
+            var isVideo = Video144pTranscoder.IsVideoMime(mime);
+            if (!isVideo)
             {
-                await DisplayAlert("Файл", "Содержимое не совпадает с типом файла.", "OK").ConfigureAwait(true);
-                return;
+                var headLen = Math.Min(4096, bytes.Length);
+                if (!DocumentAttachHelper.SniffMatchesMime(bytes.AsSpan(0, headLen), mime))
+                {
+                    await DisplayAlert("Файл", "Содержимое не совпадает с типом файла.", "OK").ConfigureAwait(true);
+                    return;
+                }
             }
 
-            if (bytes.Length > _media.MaxDocumentBytes)
+            await SyncUltraEconomyAsync().ConfigureAwait(true);
+            if (isVideo && MediaEconomy.IsEnabled(_p2p))
+            {
+                var temp = Path.Combine(FileSystem.CacheDirectory,
+                    $"iskra_in_{DateTime.UtcNow.Ticks}{Path.GetExtension(pick.FileName)}");
+                await File.WriteAllBytesAsync(temp, bytes).ConfigureAwait(true);
+                try
+                {
+                    var prepared = await Video144pTranscoder.PrepareAsync(temp, pick.FileName, mime, true)
+                        .ConfigureAwait(true);
+                    if (!prepared.Ok || prepared.Bytes == null)
+                    {
+                        await DisplayAlert("Видео",
+                                prepared.Error ?? "Не удалось перекодировать в 144p (256×144).",
+                                "OK")
+                            .ConfigureAwait(true);
+                        return;
+                    }
+
+                    bytes = prepared.Bytes;
+                    mime = prepared.Mime;
+                    sendName = prepared.FileName;
+                    AppLog.BinaryLoaded("video-144p", sendName, bytes.Length);
+                }
+                finally
+                {
+                    try
+                    {
+                        File.Delete(temp);
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                }
+            }
+            else if (bytes.Length > _media.MaxDocumentBytes)
             {
                 var limMb = (_media.MaxDocumentBytes + (1024 * 1024 - 1)) / (1024 * 1024);
                 await DisplayAlert("Размер", $"Файл больше {limMb} МБ (лимит maxDocumentBytes в chat-media.json).",
@@ -852,9 +730,16 @@ public partial class ChatDetailPage : ContentPage
                 return;
             }
 
+            if (bytes.Length > _media.MaxDocumentBytes)
+            {
+                await DisplayAlert("Размер", "После сжатия видео всё ещё больше лимита вложения.", "OK")
+                    .ConfigureAwait(true);
+                return;
+            }
+
             _media.ValidateDocumentMime(mime);
             await PrepareBinarySendAsync().ConfigureAwait(true);
-            await _p2pSession.SendFileAsync(pick.FileName, bytes, mime).ConfigureAwait(true);
+            await _p2pSession.SendFileAsync(sendName, bytes, mime).ConfigureAwait(true);
             ClearDeliveryIssue();
         }
         catch (OutboundMessageQueuedException ex)
@@ -909,7 +794,7 @@ public partial class ChatDetailPage : ContentPage
 
         try
         {
-            await OpenReceivedBinaryAsync(vm.MessageId, vm.IsImage).ConfigureAwait(true);
+            await OpenReceivedBinaryAsync(vm.MessageId).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -924,11 +809,13 @@ public partial class ChatDetailPage : ContentPage
             return;
 
         ClearDeliveryIssue();
+        var downloaded = false;
         try
         {
             await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
             await _p2pSession.RequestBinaryDownloadAsync(messageId).ConfigureAwait(true);
             ClearDeliveryIssue();
+            downloaded = true;
         }
         catch (Exception ex)
         {
@@ -939,6 +826,19 @@ public partial class ChatDetailPage : ContentPage
         {
             await ReloadMessagesAsync().ConfigureAwait(true);
         }
+
+        if (!downloaded)
+            return;
+
+        try
+        {
+            await OpenReceivedBinaryAsync(messageId).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Open attachment failed after download");
+            await DisplayAlert("Файл", ex.Message, "OK").ConfigureAwait(true);
+        }
     }
 
     private async Task PrepareBinarySendAsync()
@@ -947,7 +847,7 @@ public partial class ChatDetailPage : ContentPage
         await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
     }
 
-    private async Task OpenReceivedBinaryAsync(int messageId, bool asImage)
+    private async Task OpenReceivedBinaryAsync(int messageId)
     {
         var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
         if (row?.ImageBlob is not { Length: > 0 } blob)
@@ -956,16 +856,19 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
-        var fallback = asImage ? "image.jpg" : "document";
-        var name = SanitizeFileName(string.IsNullOrEmpty(row.Text) ? fallback : row.Text);
+        var isImage = IsImageAttachment(row);
+        var isVideo = IsVideoAttachment(row);
+        var fallback = isImage ? "image.jpg" : isVideo ? "video.mp4" : "document";
+        var rawName = AttachmentDisplayName(row);
+        var name = SanitizeFileName(string.IsNullOrWhiteSpace(rawName) ? fallback : rawName);
         var temp = Path.Combine(FileSystem.CacheDirectory, $"{messageId}_{name}");
         await File.WriteAllBytesAsync(temp, blob).ConfigureAwait(true);
-        AppLog.BinaryLoaded(asImage ? "received-image" : "received-document", name, blob.Length);
-        if (asImage)
+        AppLog.BinaryLoaded(isImage ? "received-image" : isVideo ? "received-video" : "received-document", name, blob.Length);
+        if (isImage || isVideo)
         {
             await Launcher.Default.OpenAsync(new OpenFileRequest
             {
-                Title = "Изображение",
+                Title = isVideo ? "Видео" : "Изображение",
                 File = new ReadOnlyFile(temp)
             }).ConfigureAwait(true);
             return;
@@ -1004,6 +907,52 @@ public partial class ChatDetailPage : ContentPage
         };
     }
 
+    private async Task<(byte[] Bytes, string Mime)?> TryFitOutgoingImageAsync(
+        byte[] bytes, string mime, bool askIfOverDefault)
+    {
+        await SyncUltraEconomyAsync().ConfigureAwait(true);
+        var ultra = MediaEconomy.IsEnabled(_p2p);
+        var limit = ultra ? MediaEconomy.MaxImageBytes : _media.MaxImageBytes;
+        if (bytes.Length <= limit)
+            return (bytes, mime);
+
+        if (askIfOverDefault && !ultra)
+        {
+            var limKb = (limit + 1023) / 1024;
+            var want = await DisplayAlert("Размер",
+                $"Файл {(bytes.Length + 1023) / 1024} КБ больше лимита {limKb} КБ. Сжать изображение?",
+                "Сжать",
+                "Отмена").ConfigureAwait(true);
+            if (!want)
+                return null;
+        }
+
+        if (!ImageAttachmentCompressor.TryCompressToMaxBytes(bytes, limit, out var compressed, out var err))
+        {
+            await DisplayAlert("Сжатие", err ?? "Не удалось уложиться в лимит.", "OK").ConfigureAwait(true);
+            return null;
+        }
+
+        return (compressed, ImageAttachmentCompressor.SuggestMimeAfterCompression());
+    }
+
+    private static bool TryGetDocumentOrVideoMime(string fileName, out string mime)
+    {
+        if (DocumentAttachHelper.TryGetMimeFromExtension(fileName, out mime))
+            return true;
+        mime = Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".mp4" => "video/mp4",
+            ".mov" => "video/quicktime",
+            ".avi" => "video/x-msvideo",
+            ".wmv" => "video/x-ms-wmv",
+            ".webm" => "video/webm",
+            ".ogv" => "video/ogg",
+            _ => ""
+        };
+        return mime.Length > 0;
+    }
+
     private async void OnBackClicked(object? sender, EventArgs e)
     {
         await Navigation.PopAsync().ConfigureAwait(true);
@@ -1034,18 +983,11 @@ public partial class ChatDetailPage : ContentPage
             var mime = "image/jpeg";
             if (ImageAttachHelper.TryGetMimeFromExtension(photo.FileName, out var sniffed))
                 mime = sniffed;
-            if (bytes.Length > _media.MaxImageBytes)
-            {
-                if (!ImageAttachmentCompressor.TryCompressToMaxBytes(bytes, _media.MaxImageBytes, out var compressed,
-                        out var err))
-                {
-                    await DisplayAlert("Сжатие", err ?? "Не удалось уложиться в лимит.", "OK").ConfigureAwait(true);
-                    return;
-                }
-
-                bytes = compressed;
-                mime = ImageAttachmentCompressor.SuggestMimeAfterCompression();
-            }
+            var fitted = await TryFitOutgoingImageAsync(bytes, mime, askIfOverDefault: false).ConfigureAwait(true);
+            if (fitted == null)
+                return;
+            bytes = fitted.Value.Bytes;
+            mime = fitted.Value.Mime;
 
             _media.ValidateMime(mime);
             await PrepareBinarySendAsync().ConfigureAwait(true);

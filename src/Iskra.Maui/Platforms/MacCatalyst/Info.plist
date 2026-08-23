@@ -32,6 +32,8 @@
             <string>UIInterfaceOrientationLandscapeLeft</string>
             <string>UIInterfaceOrientationLandscapeRight</string>
         </array>
+        <key>NSMicrophoneUsageDescription</key>
+        <string>Iskra записывает голосовые сообщения в чате.</string>
         <key>XSAppIconAssets</key>
         <string>Assets.xcassets/appicon.appiconset</string>
     </dict>

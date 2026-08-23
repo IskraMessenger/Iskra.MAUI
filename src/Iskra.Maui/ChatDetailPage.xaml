@@ -55,8 +55,6 @@
                                        LineBreakMode="WordWrap" IsVisible="{Binding ShowTextBody}" />
                                 <Label Text="{Binding FileBodyText}" TextColor="{Binding MessageColor}"
                                        LineBreakMode="WordWrap" IsVisible="{Binding IsFile}" />
-                                <Image Source="{Binding ImagePreview}" IsVisible="{Binding IsImage}"
-                                       MaximumHeightRequest="220" Aspect="AspectFit" />
                                 <HorizontalStackLayout Spacing="6" HorizontalOptions="End">
                                     <Label Text="{Binding TimeLabel}" FontSize="10"
                                            TextColor="{DynamicResource MutedText}" />

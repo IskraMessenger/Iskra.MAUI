@@ -12,14 +12,15 @@ public sealed class MessageRowVm
     public string FileBodyText { get; init; } = "";
 
     public bool ShowTextBody { get; init; }
+
+    /// <summary>Картинка или видео: в списке не декодируем, открываем только по нажатию «Скачать».</summary>
     public bool IsImage { get; init; }
 
-    /// <summary>Вложение-документ; для сохранения используйте <see cref="MessageId" />.</summary>
+    /// <summary>Вложение; байты грузятся только по нажатию, см. <see cref="MessageId" />.</summary>
     public bool IsFile { get; init; }
 
     public bool IsTransferOffer { get; init; }
     public int MessageId { get; init; }
-    public ImageSource? ImagePreview { get; init; }
     public required Color MessageColor { get; init; }
     public bool ShowDelivery { get; init; }
     public required string DeliveryGlyph { get; init; }

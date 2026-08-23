@@ -11,6 +11,7 @@ internal static class AppPermissionsBootstrapper
         if (Interlocked.Exchange(ref _requested, 1) == 1)
             return;
 
+        await RequestIfNeededAsync<Permissions.Microphone>(logger, "microphone").ConfigureAwait(false);
 #if ANDROID
         await RequestIfNeededAsync<Permissions.Camera>(logger, "camera").ConfigureAwait(false);
         await RequestIfNeededAsync<Permissions.Bluetooth>(logger, "bluetooth").ConfigureAwait(false);
