@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Extensions.Logging;
+using Iskra.Maui.Services;
 using ShortP2P.Auth;
 using ShortP2P.Client.Bluetooth;
 using ShortP2P.Client.Routing;
@@ -155,6 +156,9 @@ public partial class SettingsPage : ContentPage
             var s = await _store.LoadAsync().ConfigureAwait(true);
             mutate(s);
             await _store.SaveAsync(s).ConfigureAwait(true);
+            AppLog.SettingChanged("EnableBluetoothTransport", s.EnableBluetoothTransport);
+            AppLog.SettingChanged("EnableUdpTransport", s.EnableUdpTransport);
+            AppLog.SettingChanged("AdvertisedPeerCapabilities", s.AdvertisedPeerCapabilities);
             _p2p.Settings.EnableUdpTransport = s.EnableUdpTransport;
             _p2p.Settings.EnableBluetoothTransport = s.EnableBluetoothTransport;
             _p2p.Settings.AdvertisedPeerCapabilities = s.AdvertisedPeerCapabilities | PresencePeerCapabilities.Chat;
@@ -194,6 +198,7 @@ public partial class SettingsPage : ContentPage
             _logger.LogWarning(ex, "Stop P2P on logout");
         }
 
+        AppLog.Ui.LogInformation("Logout");
         await _auth.LogoutAsync().ConfigureAwait(true);
         Application.Current!.MainPage = new NavigationPage(MauiProgram.Services.GetRequiredService<LoginPage>());
     }

@@ -37,8 +37,11 @@ public static class MauiProgram
     public static Microsoft.Maui.Hosting.MauiApp CreateMauiApp()
     {
         SQLitePCL.Batteries_V2.Init();
+        AppLogPaths.Initialize();
         ConfigureNLog();
         ConfigureGlobalExceptionHandlers();
+        HttpServerResponseLog.Hook();
+        HookAssemblyLoadLogging();
 
         var builder = Microsoft.Maui.Hosting.MauiApp.CreateBuilder();
         builder
@@ -125,11 +128,17 @@ public static class MauiProgram
 
         var app = builder.Build();
         Services = app.Services;
+        var logFactory = Services.GetRequiredService<ILoggerFactory>();
+        AppLog.Initialize(logFactory);
         Services.ApplyRouteDatabaseMigrationsAsync().GetAwaiter().GetResult();
-        P2PSession.TrafficLogger = Services.GetRequiredService<ILoggerFactory>().CreateLogger<P2PSession>();
+        P2PSession.TrafficLogger = logFactory.CreateLogger<P2PSession>();
         IncomingMessageSound.EnsureHooked(Services.GetRequiredService<ChatRepository>(),
-            Services.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(IncomingMessageSound)));
-        Services.GetRequiredService<ILogger<MauiHost>>().LogInformation("GUI application started");
+            logFactory.CreateLogger(nameof(IncomingMessageSound)));
+        logFactory.CreateLogger<MauiHost>().LogInformation(
+            "GUI application started. Logs directory: {LogsDir}", AppLogPaths.LogsDirectory);
+        var p2p = Services.GetRequiredService<UserP2pRuntime>();
+        p2p.LocalScan.ClientsChanged += (_, _) =>
+            AppLog.Network.LogInformation("Peer directory changed (LAN/server scan)");
 
         AppDomain.CurrentDomain.ProcessExit += (_, _) => LogManager.Shutdown();
         return app;
@@ -137,28 +146,13 @@ public static class MauiProgram
 
     private static void ConfigureNLog()
     {
-        try
-        {
-            var configPath = Path.Combine(AppContext.BaseDirectory, "nlog.config");
-            if (File.Exists(configPath))
-            {
-                LogManager.Configuration = new XmlLoggingConfiguration(configPath);
-                LogManager.GetCurrentClassLogger().Info("Loaded NLog config from {Path}", configPath);
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Failed to load nlog.config: {ex}");
-        }
-
-        var logsDir = Path.Combine(FileSystem.AppDataDirectory, "logs");
+        var logsDir = AppLogPaths.LogsDirectory;
         Directory.CreateDirectory(logsDir);
 
-        var fallbackConfig = new LoggingConfiguration();
+        var config = new LoggingConfiguration();
         var fileTarget = new FileTarget("gui-logfile")
         {
-            FileName = Path.Combine(logsDir, "${date:format=yyyy-MM-dd}.log"),
+            FileName = Path.Combine(logsDir, "${date:format=dd.MM.yyyy}.log"),
             Layout =
                 "${longdate}|${uppercase:${level}}|${logger}|${message}${onexception:inner=|${exception:format=tostring}}",
             Encoding = System.Text.Encoding.UTF8,
@@ -167,12 +161,25 @@ public static class MauiProgram
             CreateDirs = true
         };
 
-        // Async wrapper avoids blocking UI thread during app startup/log bursts.
         var asyncTarget = new AsyncTargetWrapper(fileTarget, 1000, AsyncTargetWrapperOverflowAction.Discard);
-        fallbackConfig.AddTarget(asyncTarget);
-        fallbackConfig.AddRuleForAllLevels(asyncTarget);
-        LogManager.Configuration = fallbackConfig;
-        LogManager.GetCurrentClassLogger().Info("Using fallback NLog file target: {Path}", logsDir);
+        config.AddTarget(asyncTarget);
+        config.AddRule(NLog.LogLevel.Debug, NLog.LogLevel.Fatal, asyncTarget,
+            "ShortP2P.Transport.Bluetooth.*");
+        config.AddRule(NLog.LogLevel.Info, NLog.LogLevel.Fatal, asyncTarget);
+        LogManager.Configuration = config;
+        LogManager.GetCurrentClassLogger().Info("NLog file target: {Path}", logsDir);
+    }
+
+    private static void HookAssemblyLoadLogging()
+    {
+        AppDomain.CurrentDomain.AssemblyLoad += (_, args) =>
+        {
+            var asm = args.LoadedAssembly;
+            if (asm.IsDynamic)
+                return;
+            var location = string.IsNullOrEmpty(asm.Location) ? "(memory)" : asm.Location;
+            AppLog.Files.LogDebug("Assembly loaded: {Name} location={Location}", asm.GetName().Name, location);
+        };
     }
 
     private static void ConfigureGlobalExceptionHandlers()

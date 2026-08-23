@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Qr;
@@ -197,6 +198,7 @@ public sealed class MessengerServersPage : ContentPage
         try
         {
             var entity = await _manager.AddServerAsync(url).ConfigureAwait(true);
+            AppLog.ServerResponse("AddServer", entity.BaseUrl, $"id={entity.Id} trusted={entity.Trusted}");
             _baseUrlEntry.Text = "";
             _status.Text = $"Добавлен: {entity.BaseUrl}";
             await ReloadAsync().ConfigureAwait(true);
@@ -265,6 +267,7 @@ public sealed class MessengerServersPage : ContentPage
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms).ConfigureAwait(true);
             bytes = ms.ToArray();
+            AppLog.BinaryLoaded("server-qr", picked.FileName, bytes.Length);
         }
         catch (Exception ex)
         {
@@ -298,6 +301,7 @@ public sealed class MessengerServersPage : ContentPage
             }
 
             var entity = await _manager.AddServerAsync(url).ConfigureAwait(true);
+            AppLog.ServerResponse("ImportServer", entity.BaseUrl, $"id={entity.Id}");
             _status.Text = $"Импортирован: {entity.BaseUrl}";
             await ReloadAsync().ConfigureAwait(true);
         }
@@ -339,6 +343,7 @@ public sealed class MessengerServersPage : ContentPage
         try
         {
             await _manager.SetActiveAsync(row.Id, e.Value).ConfigureAwait(true);
+            AppLog.SettingChanged($"MessengerServer.Active:{row.BaseUrl}", e.Value);
             row.Active = e.Value;
             row.RefreshMeta();
         }
@@ -364,6 +369,7 @@ public sealed class MessengerServersPage : ContentPage
         try
         {
             var result = await _manager.RecheckServerAsync(row.Id).ConfigureAwait(true);
+            AppLog.ServerResponse("RecheckServer", result.Server.BaseUrl, result.Status);
             await ReloadAsync().ConfigureAwait(true);
             switch (result.Status)
             {
@@ -423,6 +429,7 @@ public sealed class MessengerServersPage : ContentPage
         try
         {
             await _manager.DeleteServerAsync(row.Id).ConfigureAwait(true);
+            AppLog.SettingChanged($"MessengerServer.Deleted:{row.BaseUrl}", row.Id);
             await ReloadAsync().ConfigureAwait(true);
         }
         catch (Exception ex)

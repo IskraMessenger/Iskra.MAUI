@@ -8,8 +8,8 @@ public sealed class MessageRowVm
     public required string CaptionLine { get; init; }
     public required string TextBody { get; init; }
 
-    /// <summary>Текст вложения с выделением «Скачать» цветом ссылки.</summary>
-    public FormattedString? FileBodyFormatted { get; init; }
+    /// <summary>Текст вложения (без FormattedString — на WinUI он роняет layout OOM).</summary>
+    public string FileBodyText { get; init; } = "";
 
     public bool ShowTextBody { get; init; }
     public bool IsImage { get; init; }

@@ -1,3 +1,4 @@
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth.Data;
 using ShortP2P.Client.Bluetooth;
@@ -76,7 +77,10 @@ internal sealed class MauiBluetoothTransportRegistration : IAsyncDisposable, IBl
             }
 
             if (!settings.EnableBluetoothTransport)
+            {
+                AppLog.Network.LogInformation("Bluetooth transport disabled");
                 return;
+            }
 
 #if WINDOWS
             ulong? localAddr = null;
@@ -91,6 +95,7 @@ internal sealed class MauiBluetoothTransportRegistration : IAsyncDisposable, IBl
                 // ignore
             }
 
+            AppLog.Network.LogInformation("Bluetooth transport enabled (Windows)");
             _instance = new WindowsBluetoothTransport(new WindowsBluetoothTransportOptions(
                 GattDiscoverable: true,
                 LocalAdapterBluetoothAddress: localAddr,
@@ -98,6 +103,7 @@ internal sealed class MauiBluetoothTransportRegistration : IAsyncDisposable, IBl
                 OnPeerNetworkIdReceived: OnPeerNetworkIdReceived,
                 Logger: _transportLogger));
 #elif ANDROID
+            AppLog.Network.LogInformation("Bluetooth transport enabled (Android)");
             _instance = new AndroidBluetoothTransport(global::Android.App.Application.Context,
                 new AndroidBluetoothTransportOptions(
                     GattDiscoverable: true,
@@ -110,6 +116,7 @@ internal sealed class MauiBluetoothTransportRegistration : IAsyncDisposable, IBl
 
     private void OnPeerNetworkIdReceived(TransportAddress addr, CompressedNetworkId peerNetworkId)
     {
+        AppLog.PeerConnected("bluetooth", peerNetworkId.ToShortString());
         if (_bleDiscoveredPeerStore == null)
             return;
         _ = _bleDiscoveredPeerStore.RecordScanSeenAsync(addr, new BleAdScanResult { NetworkId = peerNetworkId });

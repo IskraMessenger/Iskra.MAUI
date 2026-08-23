@@ -1,3 +1,4 @@
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 
@@ -61,6 +62,7 @@ public partial class RegisterPage : ContentPage
         }
 
         var id = _auth.CurrentUser?.NetworkIdShort ?? "";
+        AppLog.Ui.LogInformation("Registration success for {Nickname} id={Id}", nick, id);
         await DisplayAlert("Аккаунт создан", $"Сетевой идентификатор:\n{id}", "OK").ConfigureAwait(true);
 
         Application.Current!.MainPage = MauiProgram.Services.GetRequiredService<AppShell>();

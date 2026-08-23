@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Client.Data;
@@ -72,6 +73,7 @@ public partial class ChatsPage : ContentPage
             try
             {
                 await _p2p.EnsureStartedAsync(u).ConfigureAwait(true);
+                AppLog.PeerConnected("p2p-runtime", u.NetworkIdShort);
                 await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
                 await _p2p.EnsureAllChatSessionsStartedAsync(u, _auth, _chats, SynchronizationContext.Current)
                     .ConfigureAwait(true);

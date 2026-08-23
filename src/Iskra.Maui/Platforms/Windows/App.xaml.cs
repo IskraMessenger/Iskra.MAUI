@@ -17,6 +17,11 @@ public partial class App : MauiWinUIApplication
 	public App()
     {
         this.InitializeComponent();
+        UnhandledException += (_, e) =>
+        {
+            NLog.LogManager.GetLogger("GlobalExceptions").Error(e.Exception, "WinUI UnhandledException");
+            NLog.LogManager.Flush();
+        };
     }
 
     protected override global::Microsoft.Maui.Hosting.MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();

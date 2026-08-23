@@ -18,23 +18,8 @@ public static class AppLogReader
         return null;
     }
 
-    public static IReadOnlyList<string> GetCandidateLogPaths()
-    {
-        var today = DateTime.Now;
-        var dateFormats = new[] { today.ToString("dd.MM.yyyy"), today.ToString("yyyy-MM-dd") };
-        var dirs = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "logs"),
-            Path.Combine(FileSystem.AppDataDirectory, "logs")
-        };
-
-        var paths = new List<string>();
-        foreach (var dir in dirs)
-        foreach (var date in dateFormats)
-            paths.Add(Path.Combine(dir, $"{date}.log"));
-
-        return paths;
-    }
+    public static IReadOnlyList<string> GetCandidateLogPaths() =>
+        AppLogPaths.CandidateTodayFiles().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
     public static string ReadTodayLog(out string? resolvedPath)
     {

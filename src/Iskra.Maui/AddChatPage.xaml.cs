@@ -1,3 +1,4 @@
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Client.Qr;
@@ -42,6 +43,7 @@ public partial class AddChatPage : ContentPage
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms).ConfigureAwait(true);
         var bytes = ms.ToArray();
+        AppLog.BinaryLoaded("peer-qr", result.FileName, bytes.Length);
 
         if (!PeerQrService.TryDecodeImage(bytes, out var payload, out var err))
         {
@@ -115,6 +117,7 @@ public partial class AddChatPage : ContentPage
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms).ConfigureAwait(true);
         var bytes = ms.ToArray();
+        AppLog.BinaryLoaded("peer-qr-camera", photo.FileName, bytes.Length);
 
         if (!PeerQrService.TryDecodeImage(bytes, out var payload, out var err))
         {

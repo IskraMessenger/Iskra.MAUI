@@ -1,3 +1,4 @@
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Routing;
 
@@ -12,6 +13,7 @@ public partial class App : Application
     {
         InitializeComponent();
         ThemeService.LoadAndApply();
+        UiInteractionLog.HookApplication(this);
     }
 
     protected override Window CreateWindow(IActivationState? activationState)

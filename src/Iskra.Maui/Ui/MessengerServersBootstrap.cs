@@ -1,3 +1,4 @@
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
@@ -26,6 +27,7 @@ internal static class MessengerServersBootstrap
         try
         {
             sync.Start();
+            AppLog.Network.LogInformation("Messenger servers sync started");
         }
         catch (Exception ex)
         {
@@ -40,7 +42,8 @@ internal static class MessengerServersBootstrap
         try
         {
             // JWT + GetClients — needed so TryDeliverWireAsync / PutBlob see the peer as registered.
-            await sync.ProbeAndListRemoteClientsAsync(cancellationToken).ConfigureAwait(false);
+            var clients = await sync.ProbeAndListRemoteClientsAsync(cancellationToken).ConfigureAwait(false);
+            AppLog.ServerResponse("GetClients/probe", null, $"remoteClients={clients.Count}");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -67,6 +70,7 @@ internal static class MessengerServersBootstrap
         {
             await EnsureRunningAsync(p2p, logger, cancellationToken).ConfigureAwait(false);
             await sync.PublishChatRequestAsync(peerNetworkIdShort.Trim(), cancellationToken).ConfigureAwait(false);
+            AppLog.ServerResponse("ChatRequest", null, $"peer={peerNetworkIdShort.Trim()}");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

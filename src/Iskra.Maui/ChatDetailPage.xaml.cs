@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Client;
@@ -44,12 +45,16 @@ public partial class ChatDetailPage : ContentPage
     private readonly ILogger<ChatDetailPage> _logger;
     private const int MessagesPageSize = 10;
     private readonly ObservableCollection<MessageRowVm> _messageItems = [];
+    private readonly Dictionary<int, ImageSource> _imagePreviewCache = [];
     private readonly List<ChatMessageEntity> _loadedRows = [];
     private ChatP2PSession? _p2pSession;
     private string? _peerNetworkIdShort;
     private IDispatcherTimer? _presenceRefreshTimer;
     private bool _hasMoreRows = true;
     private bool _isLoadingRows;
+    private bool _suppressLoadMore = true;
+    private bool _pendingReload;
+    private int _reloadEpoch;
     private const string VoiceMessageMime = "audio/ogg";
     private const string VoiceFileName = "voice.ogg";
 #if ANDROID
@@ -120,6 +125,7 @@ public partial class ChatDetailPage : ContentPage
             {
                 await _p2pSession.StartAsync().ConfigureAwait(true);
                 _p2p.MarkChatSessionStarted(chat.Id);
+                AppLog.PeerConnected("chat-session", chat.PeerNetworkIdShort);
             }
             catch (Exception ex)
             {
@@ -139,12 +145,15 @@ public partial class ChatDetailPage : ContentPage
         if (_presenceRefreshTimer != null)
             _presenceRefreshTimer.Stop();
         _peerNetworkIdShort = null;
+        Interlocked.Increment(ref _reloadEpoch);
         if (_p2pSession != null)
         {
             _p2pSession.MessagesChanged -= OnP2PMessagesChanged;
             _p2pSession.TransferStateChanged -= OnP2PTransferStateChanged;
             _p2pSession = null;
         }
+
+        _imagePreviewCache.Clear();
     }
 
     private void OnPeerLanPresenceChanged(object? sender, EventArgs e)
@@ -154,12 +163,24 @@ public partial class ChatDetailPage : ContentPage
 
     private void OnP2PMessagesChanged(object? sender, EventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(async () => await ReloadMessagesAsync().ConfigureAwait(true));
+        ScheduleReloadMessages();
     }
 
     private void OnP2PTransferStateChanged(object? sender, int messageId)
     {
-        MainThread.BeginInvokeOnMainThread(async () => await ReloadMessagesAsync().ConfigureAwait(true));
+        ScheduleReloadMessages();
+    }
+
+    private void ScheduleReloadMessages()
+    {
+        var epoch = Interlocked.Increment(ref _reloadEpoch);
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await Task.Delay(200).ConfigureAwait(true);
+            if (epoch != Volatile.Read(ref _reloadEpoch))
+                return;
+            await ReloadMessagesAsync().ConfigureAwait(true);
+        });
     }
 
     private void EnsurePresenceRefreshTimerStarted()
@@ -179,10 +200,32 @@ public partial class ChatDetailPage : ContentPage
 
     private async Task ReloadMessagesAsync()
     {
-        _loadedRows.Clear();
-        _messageItems.Clear();
-        _hasMoreRows = true;
-        await LoadNextMessagesPageAsync().ConfigureAwait(true);
+        if (_isLoadingRows)
+        {
+            _pendingReload = true;
+            return;
+        }
+
+        _isLoadingRows = true;
+        _suppressLoadMore = true;
+        try
+        {
+            var take = Math.Max(MessagesPageSize, _loadedRows.Count);
+            var page = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
+            _hasMoreRows = page.Count == take;
+            _loadedRows.Clear();
+            _loadedRows.AddRange(page);
+            SyncMessageItems(page);
+        }
+        finally
+        {
+            _isLoadingRows = false;
+            if (_pendingReload)
+            {
+                _pendingReload = false;
+                await ReloadMessagesAsync().ConfigureAwait(true);
+            }
+        }
     }
 
     private async Task LoadNextMessagesPageAsync()
@@ -196,7 +239,8 @@ public partial class ChatDetailPage : ContentPage
                 .ConfigureAwait(true);
             _hasMoreRows = page.Count == MessagesPageSize;
             _loadedRows.AddRange(page);
-            foreach (var m in page) _messageItems.Add(BuildMessageRowVm(m));
+            foreach (var m in page)
+                _messageItems.Add(BuildMessageRowVm(m));
         }
         finally
         {
@@ -204,7 +248,36 @@ public partial class ChatDetailPage : ContentPage
         }
     }
 
-    private MessageRowVm BuildMessageRowVm(ChatMessageEntity m)
+    private void SyncMessageItems(IReadOnlyList<ChatMessageEntity> page)
+    {
+        while (_messageItems.Count > page.Count)
+            _messageItems.RemoveAt(_messageItems.Count - 1);
+
+        for (var i = 0; i < page.Count; i++)
+        {
+            var previous = i < _messageItems.Count ? _messageItems[i] : null;
+            var next = BuildMessageRowVm(page[i], previous);
+            if (previous == null)
+                _messageItems.Add(next);
+            else if (!MessageRowsEqual(previous, next))
+                _messageItems[i] = next;
+        }
+    }
+
+    private static bool MessageRowsEqual(MessageRowVm a, MessageRowVm b) =>
+        a.MessageId == b.MessageId &&
+        a.DeliveryStatus == b.DeliveryStatus &&
+        a.TextBody == b.TextBody &&
+        a.FileBodyText == b.FileBodyText &&
+        a.IsImage == b.IsImage &&
+        a.IsFile == b.IsFile &&
+        a.IsTransferOffer == b.IsTransferOffer &&
+        a.ShowDelivery == b.ShowDelivery &&
+        a.DeliveryGlyph == b.DeliveryGlyph &&
+        a.TimeLabel == b.TimeLabel &&
+        ReferenceEquals(a.ImagePreview, b.ImagePreview);
+
+    private MessageRowVm BuildMessageRowVm(ChatMessageEntity m, MessageRowVm? existing = null)
     {
         var color = m.Outgoing ? IskraTheme.SentText : IskraTheme.Text;
         var sentLocal = new DateTimeOffset(m.SentUtcTicks, TimeSpan.Zero).ToLocalTime();
@@ -224,18 +297,11 @@ public partial class ChatDetailPage : ContentPage
                 : m.MimeType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true
                     ? "видео"
                     : "документ";
-            var fileBody = new FormattedString();
-            fileBody.Spans.Add(new Span
-            {
-                Text = $"{name} · {kb} КБ · нажмите строку — ",
-                TextColor = color
-            });
-            fileBody.Spans.Add(new Span { Text = "Скачать", TextColor = Colors.DodgerBlue });
             return new MessageRowVm
             {
                 CaptionLine = kindCaption,
                 TextBody = "",
-                FileBodyFormatted = fileBody,
+                FileBodyText = $"{name} · {kb} КБ · нажмите строку — Скачать",
                 ShowTextBody = false,
                 IsImage = false,
                 IsFile = true,
@@ -255,8 +321,6 @@ public partial class ChatDetailPage : ContentPage
 
         if (m.PayloadKind == (int)ChatPayloadKind.Image && m.ImageBlob is { Length: > 0 } blob)
         {
-            var kb = (blob.Length + 1023) / 1024;
-            var mimeShort = string.IsNullOrEmpty(m.MimeType) ? "image" : m.MimeType.Replace("image/", "");
             return new MessageRowVm
             {
                 CaptionLine = "фото",
@@ -266,7 +330,7 @@ public partial class ChatDetailPage : ContentPage
                 IsFile = false,
                 IsTransferOffer = false,
                 MessageId = m.Id,
-                ImagePreview = ImageSource.FromStream(() => new MemoryStream(blob)),
+                ImagePreview = ImagePreviewFor(m.Id, blob, existing),
                 MessageColor = color,
                 ShowDelivery = show,
                 DeliveryGlyph = glyph,
@@ -296,7 +360,7 @@ public partial class ChatDetailPage : ContentPage
                         IsFile = false,
                         IsTransferOffer = false,
                         MessageId = m.Id,
-                        ImagePreview = ImageSource.FromStream(() => new MemoryStream(localBlob)),
+                        ImagePreview = ImagePreviewFor(m.Id, localBlob, existing),
                         MessageColor = color,
                         ShowDelivery = show,
                         DeliveryGlyph = glyph,
@@ -319,18 +383,11 @@ public partial class ChatDetailPage : ContentPage
                       (m.MimeType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ?? false)
                         ? "видео"
                         : "документ";
-                var fileBodyLocal = new FormattedString();
-                fileBodyLocal.Spans.Add(new Span
-                {
-                    Text = $"{nameLocal} · {kbLocal} КБ · нажмите строку — ",
-                    TextColor = color
-                });
-                fileBodyLocal.Spans.Add(new Span { Text = "Скачать", TextColor = Colors.DodgerBlue });
                 return new MessageRowVm
                 {
                     CaptionLine = kindLocal,
                     TextBody = "",
-                    FileBodyFormatted = fileBodyLocal,
+                    FileBodyText = $"{nameLocal} · {kbLocal} КБ · нажмите строку — Скачать",
                     ShowTextBody = false,
                     IsImage = false,
                     IsFile = true,
@@ -358,17 +415,11 @@ public partial class ChatDetailPage : ContentPage
                 _ => "нажмите строку — Скачать"
             };
             var name = string.IsNullOrWhiteSpace(m.TransferFileName) ? m.Text : m.TransferFileName;
-            var fileBody = new FormattedString();
-            fileBody.Spans.Add(new Span
-            {
-                Text = $"{name} · {kb} КБ · {stateText}",
-                TextColor = color
-            });
             return new MessageRowVm
             {
                 CaptionLine = m.TransferPayloadKind,
                 TextBody = "",
-                FileBodyFormatted = fileBody,
+                FileBodyText = $"{name} · {kb} КБ · {stateText}",
                 ShowTextBody = false,
                 IsImage = false,
                 IsFile = true,
@@ -407,8 +458,40 @@ public partial class ChatDetailPage : ContentPage
         };
     }
 
+    private ImageSource ImagePreviewFor(int messageId, byte[] blob, MessageRowVm? existing)
+    {
+        if (existing is { IsImage: true, ImagePreview: not null } && existing.MessageId == messageId)
+            return existing.ImagePreview;
+        if (_imagePreviewCache.TryGetValue(messageId, out var cached))
+            return cached;
+
+        var path = Path.Combine(FileSystem.CacheDirectory, $"iskra_img_{ChatId}_{messageId}");
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length != blob.Length)
+                File.WriteAllBytes(path, blob);
+            var source = ImageSource.FromFile(path);
+            _imagePreviewCache[messageId] = source;
+            return source;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Image preview cache write failed for {MessageId}", messageId);
+            return ImageSource.FromStream(() => new MemoryStream(blob));
+        }
+    }
+
+    private void OnMessagesScrolled(object? sender, ItemsViewScrolledEventArgs e)
+    {
+        if (Math.Abs(e.VerticalDelta) > 0.5)
+            _suppressLoadMore = false;
+    }
+
     private async void OnMessagesRemainingItemsThresholdReached(object? sender, EventArgs e)
     {
+        if (_suppressLoadMore)
+            return;
         await LoadNextMessagesPageAsync().ConfigureAwait(true);
     }
 
@@ -544,6 +627,7 @@ public partial class ChatDetailPage : ContentPage
             }
 
             var bytes = await File.ReadAllBytesAsync(_voiceTempPath).ConfigureAwait(true);
+            AppLog.BinaryLoaded("voice", VoiceFileName, bytes.Length);
             if (bytes.Length == 0)
             {
                 ShowDeliveryIssue("Голосовая запись пустая.");
@@ -662,6 +746,7 @@ public partial class ChatDetailPage : ContentPage
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms).ConfigureAwait(true);
             var bytes = ms.ToArray();
+            AppLog.BinaryLoaded("image", pick.FileName, bytes.Length);
             if (bytes.Length < 12)
             {
                 await DisplayAlert("Файл", "Файл слишком маленький.", "OK").ConfigureAwait(true);
@@ -744,6 +829,7 @@ public partial class ChatDetailPage : ContentPage
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms).ConfigureAwait(true);
             var bytes = ms.ToArray();
+            AppLog.BinaryLoaded("document", pick.FileName, bytes.Length);
             if (bytes.Length == 0)
             {
                 await DisplayAlert("Файл", "Файл пустой.", "OK").ConfigureAwait(true);
@@ -874,6 +960,7 @@ public partial class ChatDetailPage : ContentPage
         var name = SanitizeFileName(string.IsNullOrEmpty(row.Text) ? fallback : row.Text);
         var temp = Path.Combine(FileSystem.CacheDirectory, $"{messageId}_{name}");
         await File.WriteAllBytesAsync(temp, blob).ConfigureAwait(true);
+        AppLog.BinaryLoaded(asImage ? "received-image" : "received-document", name, blob.Length);
         if (asImage)
         {
             await Launcher.Default.OpenAsync(new OpenFileRequest
@@ -937,6 +1024,7 @@ public partial class ChatDetailPage : ContentPage
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms).ConfigureAwait(true);
             var bytes = ms.ToArray();
+            AppLog.BinaryLoaded("camera-image", photo.FileName, bytes.Length);
             if (bytes.Length < 12)
             {
                 await DisplayAlert("Камера", "Не удалось получить снимок.", "OK").ConfigureAwait(true);

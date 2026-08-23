@@ -34,7 +34,8 @@
         </Grid>
 
         <CollectionView x:Name="MessagesCollection" Grid.Row="1" RemainingItemsThreshold="2"
-                        RemainingItemsThresholdReached="OnMessagesRemainingItemsThresholdReached" Margin="8,4">
+                        RemainingItemsThresholdReached="OnMessagesRemainingItemsThresholdReached"
+                        ItemsUpdatingScrollMode="KeepScrollOffset" Scrolled="OnMessagesScrolled" Margin="8,4">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid Padding="4,3">
@@ -52,8 +53,8 @@
                             <VerticalStackLayout Spacing="4">
                                 <Label Text="{Binding TextBody}" TextColor="{Binding MessageColor}"
                                        LineBreakMode="WordWrap" IsVisible="{Binding ShowTextBody}" />
-                                <Label FormattedText="{Binding FileBodyFormatted}" LineBreakMode="WordWrap"
-                                       IsVisible="{Binding IsFile}" />
+                                <Label Text="{Binding FileBodyText}" TextColor="{Binding MessageColor}"
+                                       LineBreakMode="WordWrap" IsVisible="{Binding IsFile}" />
                                 <Image Source="{Binding ImagePreview}" IsVisible="{Binding IsImage}"
                                        MaximumHeightRequest="220" Aspect="AspectFit" />
                                 <HorizontalStackLayout Spacing="6" HorizontalOptions="End">

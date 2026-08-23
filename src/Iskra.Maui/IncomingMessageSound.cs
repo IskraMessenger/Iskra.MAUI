@@ -1,3 +1,4 @@
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Services;
 
@@ -50,6 +51,7 @@ internal static class IncomingMessageSound
             await using var src = await FileSystem.OpenAppPackageFileAsync("GChord.ogg").ConfigureAwait(true);
             await using var dst = File.Create(cache);
             await src.CopyToAsync(dst).ConfigureAwait(true);
+            AppLog.BinaryLoaded("sound", "GChord.ogg", dst.Length);
         }
 
         var file = await global::Windows.Storage.StorageFile.GetFileFromPathAsync(cache);
@@ -82,6 +84,7 @@ internal static class IncomingMessageSound
             await using var src = await FileSystem.OpenAppPackageFileAsync("GChord.ogg").ConfigureAwait(true);
             await using var dst = File.Create(cache);
             await src.CopyToAsync(dst).ConfigureAwait(true);
+            AppLog.BinaryLoaded("sound", "GChord.ogg", dst.Length);
         }
 
         var path = cache;

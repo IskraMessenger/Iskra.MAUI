@@ -1,3 +1,4 @@
+using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Bluetooth;
 using ShortP2P.Client.Routing;
@@ -203,6 +204,16 @@ public class RoutingSettingsPage : ContentPage
         };
         ApplySelectedAdapter(settings);
         await _store.SaveAsync(settings).ConfigureAwait(true);
+        AppLog.SettingChanged("MaxSearchHops", settings.MaxSearchHops);
+        AppLog.SettingChanged("SendFailureSearchAttempts", settings.SendFailureSearchAttempts);
+        AppLog.SettingChanged("SendFailureRetryDelayMs", dm);
+        AppLog.SettingChanged("SearchWaitTimeoutMs", st);
+        AppLog.SettingChanged("LinkTechnology", settings.LinkTechnology);
+        AppLog.SettingChanged("EnableUdpTransport", settings.EnableUdpTransport);
+        AppLog.SettingChanged("EnableBluetoothTransport", settings.EnableBluetoothTransport);
+        AppLog.SettingChanged("SelectedBluetoothAdapter", settings.SelectedBluetoothAdapterMac);
+        AppLog.SettingChanged("SuggestBluetoothPairing", settings.SuggestBluetoothPairing);
+        AppLog.SettingChanged("AdvertisedPeerCapabilities", settings.AdvertisedPeerCapabilities);
         _runtime.Settings.MaxSearchHops = settings.MaxSearchHops;
         _runtime.Settings.SendFailureSearchAttempts = settings.SendFailureSearchAttempts;
         _runtime.Settings.SendFailureRetryDelay = settings.SendFailureRetryDelay;

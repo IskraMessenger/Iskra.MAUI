@@ -31,7 +31,10 @@ internal static class ThemeService
         }
 
         if (save)
+        {
             Preferences.Default.Set(PrefKey, kind.ToString());
+            Iskra.Maui.Services.AppLog.SettingChanged("Theme", kind);
+        }
 
         Changed?.Invoke(null, EventArgs.Empty);
     }
