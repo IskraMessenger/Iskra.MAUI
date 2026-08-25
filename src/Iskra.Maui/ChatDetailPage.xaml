@@ -33,9 +33,8 @@
                     Padding="4" Clicked="OnClearChatClicked" />
         </Grid>
 
-        <CollectionView x:Name="MessagesCollection" Grid.Row="1" RemainingItemsThreshold="2"
-                        RemainingItemsThresholdReached="OnMessagesRemainingItemsThresholdReached"
-                        ItemsUpdatingScrollMode="KeepScrollOffset" Scrolled="OnMessagesScrolled" Margin="8,4">
+        <CollectionView x:Name="MessagesCollection" Grid.Row="1"
+                        ItemsUpdatingScrollMode="KeepItemsInView" Scrolled="OnMessagesScrolled" Margin="8,4">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid Padding="4,3" ColumnDefinitions="*,Auto,*">

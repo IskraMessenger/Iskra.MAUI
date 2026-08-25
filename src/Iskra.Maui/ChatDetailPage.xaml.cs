@@ -212,12 +212,15 @@ public partial class ChatDetailPage : ContentPage
         try
         {
             var take = Math.Max(MessagesPageSize, _loadedRows.Count);
-            var page = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
-            ReleaseListPayloadBlobs(page);
-            _hasMoreRows = page.Count == take;
+            // Newest page from DB, then chronological (oldest → newest) for the bubble list.
+            var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
+            ReleaseListPayloadBlobs(pageDesc);
+            _hasMoreRows = pageDesc.Count == take;
             _loadedRows.Clear();
-            _loadedRows.AddRange(page);
-            SyncMessageItems(page);
+            _loadedRows.AddRange(pageDesc);
+            SyncMessageItems(ToChronological(pageDesc));
+            // After layout so ScrollTo hits the last bubble.
+            Dispatcher.Dispatch(() => ScrollToLatest(animate: false));
         }
         finally
         {
@@ -235,15 +238,18 @@ public partial class ChatDetailPage : ContentPage
         if (_isLoadingRows || !_hasMoreRows)
             return;
         _isLoadingRows = true;
+        _suppressLoadMore = true;
         try
         {
-            var page = await _repo.ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize)
+            var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize)
                 .ConfigureAwait(true);
-            ReleaseListPayloadBlobs(page);
-            _hasMoreRows = page.Count == MessagesPageSize;
-            _loadedRows.AddRange(page);
-            foreach (var m in page)
-                _messageItems.Add(BuildMessageRowVm(m));
+            ReleaseListPayloadBlobs(pageDesc);
+            _hasMoreRows = pageDesc.Count == MessagesPageSize;
+            _loadedRows.AddRange(pageDesc);
+            // Older history goes above the currently visible window.
+            var older = ToChronological(pageDesc);
+            for (var i = 0; i < older.Count; i++)
+                _messageItems.Insert(i, BuildMessageRowVm(older[i]));
         }
         finally
         {
@@ -251,20 +257,34 @@ public partial class ChatDetailPage : ContentPage
         }
     }
 
-    private void SyncMessageItems(IReadOnlyList<ChatMessageEntity> page)
+    /// <summary>DB pages are newest-first; UI shows oldest→newest by SentUtcTicks (then Id).</summary>
+    private static List<ChatMessageEntity> ToChronological(IReadOnlyList<ChatMessageEntity> newestFirst) =>
+        newestFirst
+            .OrderBy(m => m.SentUtcTicks)
+            .ThenBy(m => m.Id)
+            .ToList();
+
+    private void SyncMessageItems(IReadOnlyList<ChatMessageEntity> chronological)
     {
-        while (_messageItems.Count > page.Count)
+        while (_messageItems.Count > chronological.Count)
             _messageItems.RemoveAt(_messageItems.Count - 1);
 
-        for (var i = 0; i < page.Count; i++)
+        for (var i = 0; i < chronological.Count; i++)
         {
             var previous = i < _messageItems.Count ? _messageItems[i] : null;
-            var next = BuildMessageRowVm(page[i]);
+            var next = BuildMessageRowVm(chronological[i]);
             if (previous == null)
                 _messageItems.Add(next);
             else if (!MessageRowsEqual(previous, next))
                 _messageItems[i] = next;
         }
+    }
+
+    private void ScrollToLatest(bool animate)
+    {
+        if (_messageItems.Count == 0)
+            return;
+        MessagesCollection.ScrollTo(_messageItems[^1], position: ScrollToPosition.End, animate: animate);
     }
 
     private static bool MessageRowsEqual(MessageRowVm a, MessageRowVm b) =>
@@ -427,13 +447,14 @@ public partial class ChatDetailPage : ContentPage
     {
         if (Math.Abs(e.VerticalDelta) > 0.5)
             _suppressLoadMore = false;
-    }
 
-    private async void OnMessagesRemainingItemsThresholdReached(object? sender, EventArgs e)
-    {
-        if (_suppressLoadMore)
+        // Chronological list: older pages load when the user scrolls toward the top.
+        if (_suppressLoadMore || _isLoadingRows || !_hasMoreRows)
             return;
-        await LoadNextMessagesPageAsync().ConfigureAwait(true);
+        if (e.FirstVisibleItemIndex > 1)
+            return;
+
+        _ = LoadNextMessagesPageAsync();
     }
 
     private async void OnSendClicked(object? sender, EventArgs e)
