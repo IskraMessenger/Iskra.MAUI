@@ -139,6 +139,7 @@ public partial class ContactsPage : ContentPage
         foreach (var c in chats)
         {
             seen.Add(c.PeerNetworkIdShort);
+            await TrySyncChatNicknameFromLanAsync(c).ConfigureAwait(true);
             _allRows.Add(new ContactRow
             {
                 Chat = c,
@@ -168,6 +169,25 @@ public partial class ContactsPage : ContentPage
         }
 
         ApplyFilter();
+    }
+
+    private async Task TrySyncChatNicknameFromLanAsync(ChatEntity chat)
+    {
+        if (!ChatRepository.IsPlaceholderNickname(chat.PeerNickname, chat.PeerNetworkIdShort))
+            return;
+
+        var id = chat.PeerNetworkIdShort.Trim();
+        foreach (var p in _p2p.LocalScan.Clients)
+        {
+            if (!string.Equals(p.NetworkId.ToShortString(), id, StringComparison.Ordinal))
+                continue;
+            var nick = p.Nickname?.Trim() ?? "";
+            if (ChatRepository.IsPlaceholderNickname(nick, id))
+                continue;
+            if (await _chats.TryUpdatePeerNicknameAsync(chat.Id, nick).ConfigureAwait(true))
+                chat.PeerNickname = nick;
+            return;
+        }
     }
 
     private bool IsOnline(string networkIdShort, DiscoveredLocalPeer? peer)

@@ -158,12 +158,32 @@ public partial class ChatsPage : ContentPage
         _allRows.Clear();
         foreach (var c in list)
         {
+            await TrySyncChatNicknameFromLanAsync(c).ConfigureAwait(true);
             var lastPage = await _chats.ListMessagesPageDescAsync(c.Id, 0, 1).ConfigureAwait(true);
             var last = lastPage.Count > 0 ? lastPage[0] : null;
             _allRows.Add(new ChatListRowVm(c, last, _p2p.LocalScan.IsPeerSeenRecentlyOnLan(c.PeerNetworkIdShort)));
         }
 
         ApplyFilter();
+    }
+
+    private async Task TrySyncChatNicknameFromLanAsync(ChatEntity chat)
+    {
+        if (!ChatRepository.IsPlaceholderNickname(chat.PeerNickname, chat.PeerNetworkIdShort))
+            return;
+
+        var id = chat.PeerNetworkIdShort.Trim();
+        foreach (var p in _p2p.LocalScan.Clients)
+        {
+            if (!string.Equals(p.NetworkId.ToShortString(), id, StringComparison.Ordinal))
+                continue;
+            var nick = p.Nickname?.Trim() ?? "";
+            if (ChatRepository.IsPlaceholderNickname(nick, id))
+                continue;
+            if (await _chats.TryUpdatePeerNicknameAsync(chat.Id, nick).ConfigureAwait(true))
+                chat.PeerNickname = nick;
+            return;
+        }
     }
 
     private void OnSearchChanged(object? sender, TextChangedEventArgs e)

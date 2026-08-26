@@ -6,6 +6,9 @@ namespace Iskra.Maui;
 
 internal static class IncomingMessageSound
 {
+    private const string MessageSoundFile = "GChord.ogg";
+    private const string NewChatSoundFile = "new_chat.ogg";
+
     private static int _hooked;
 
 #if WINDOWS
@@ -22,36 +25,42 @@ internal static class IncomingMessageSound
         {
             if (e.Outgoing)
                 return;
-            MainThread.BeginInvokeOnMainThread(() => _ = PlayAsync(logger));
+            MainThread.BeginInvokeOnMainThread(() => _ = PlayAsync(MessageSoundFile, logger));
+        };
+        repo.ChatCreated += (_, e) =>
+        {
+            if (!e.Remote)
+                return;
+            MainThread.BeginInvokeOnMainThread(() => _ = PlayAsync(NewChatSoundFile, logger));
         };
     }
 
-    private static async Task PlayAsync(ILogger logger)
+    private static async Task PlayAsync(string fileName, ILogger logger)
     {
         try
         {
 #if WINDOWS
-            await PlayWindowsAsync().ConfigureAwait(true);
+            await PlayWindowsAsync(fileName).ConfigureAwait(true);
 #elif ANDROID
-            await PlayAndroidAsync().ConfigureAwait(true);
+            await PlayAndroidAsync(fileName).ConfigureAwait(true);
 #endif
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Incoming message sound failed");
+            logger.LogDebug(ex, "Notification sound failed ({File})", fileName);
         }
     }
 
 #if WINDOWS
-    private static async Task PlayWindowsAsync()
+    private static async Task PlayWindowsAsync(string fileName)
     {
-        var cache = Path.Combine(FileSystem.CacheDirectory, "GChord.ogg");
+        var cache = Path.Combine(FileSystem.CacheDirectory, fileName);
         if (!File.Exists(cache))
         {
-            await using var src = await FileSystem.OpenAppPackageFileAsync("GChord.ogg").ConfigureAwait(true);
+            await using var src = await FileSystem.OpenAppPackageFileAsync(fileName).ConfigureAwait(true);
             await using var dst = File.Create(cache);
             await src.CopyToAsync(dst).ConfigureAwait(true);
-            AppLog.BinaryLoaded("sound", "GChord.ogg", dst.Length);
+            AppLog.BinaryLoaded("sound", fileName, dst.Length);
         }
 
         var file = await global::Windows.Storage.StorageFile.GetFileFromPathAsync(cache);
@@ -76,15 +85,15 @@ internal static class IncomingMessageSound
         player.Play();
     }
 #elif ANDROID
-    private static async Task PlayAndroidAsync()
+    private static async Task PlayAndroidAsync(string fileName)
     {
-        var cache = Path.Combine(FileSystem.CacheDirectory, "GChord.ogg");
+        var cache = Path.Combine(FileSystem.CacheDirectory, fileName);
         if (!File.Exists(cache))
         {
-            await using var src = await FileSystem.OpenAppPackageFileAsync("GChord.ogg").ConfigureAwait(true);
+            await using var src = await FileSystem.OpenAppPackageFileAsync(fileName).ConfigureAwait(true);
             await using var dst = File.Create(cache);
             await src.CopyToAsync(dst).ConfigureAwait(true);
-            AppLog.BinaryLoaded("sound", "GChord.ogg", dst.Length);
+            AppLog.BinaryLoaded("sound", fileName, dst.Length);
         }
 
         var path = cache;

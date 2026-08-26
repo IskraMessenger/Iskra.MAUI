@@ -97,6 +97,7 @@ public partial class ChatDetailPage : ContentPage
         PeerAvatarFill.BackgroundColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
         PeerIdLabel.Text = $"Узел: {chat.PeerNetworkIdShort}";
         _peerNetworkIdShort = chat.PeerNetworkIdShort;
+        await TryRefreshPeerNicknameDisplayAsync(chat).ConfigureAwait(true);
         var user = _auth.CurrentUser;
         if (user == null)
         {
@@ -144,6 +145,7 @@ public partial class ChatDetailPage : ContentPage
     {
         base.OnDisappearing();
         _ = StopVoiceRecordingAndDiscardAsync();
+        VoiceMessagePlayer.Stop();
         _p2p.LocalScan.ClientsChanged -= OnPeerLanPresenceChanged;
         if (_presenceRefreshTimer != null)
             _presenceRefreshTimer.Stop();
@@ -212,12 +214,15 @@ public partial class ChatDetailPage : ContentPage
         try
         {
             var take = Math.Max(MessagesPageSize, _loadedRows.Count);
-            var page = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
-            ReleaseListPayloadBlobs(page);
-            _hasMoreRows = page.Count == take;
+            // DB page is newest-first; display ascending (oldest top, newest bottom).
+            var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
+            ReleaseListPayloadBlobs(pageDesc);
+            _hasMoreRows = pageDesc.Count == take;
             _loadedRows.Clear();
-            _loadedRows.AddRange(page);
-            SyncMessageItems(page);
+            _loadedRows.AddRange(pageDesc);
+            var chronological = pageDesc.Reverse().ToList();
+            SyncMessageItems(chronological);
+            ScrollMessagesToEnd();
         }
         finally
         {
@@ -237,17 +242,33 @@ public partial class ChatDetailPage : ContentPage
         _isLoadingRows = true;
         try
         {
-            var page = await _repo.ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize)
+            var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize)
                 .ConfigureAwait(true);
-            ReleaseListPayloadBlobs(page);
-            _hasMoreRows = page.Count == MessagesPageSize;
-            _loadedRows.AddRange(page);
-            foreach (var m in page)
-                _messageItems.Add(BuildMessageRowVm(m));
+            ReleaseListPayloadBlobs(pageDesc);
+            _hasMoreRows = pageDesc.Count == MessagesPageSize;
+            _loadedRows.AddRange(pageDesc);
+            // Older page (DESC) → chronological, prepend so newest stay at bottom.
+            var chronologicalOlder = pageDesc.Reverse().ToList();
+            for (var i = 0; i < chronologicalOlder.Count; i++)
+                _messageItems.Insert(i, BuildMessageRowVm(chronologicalOlder[i]));
         }
         finally
         {
             _isLoadingRows = false;
+        }
+    }
+
+    private void ScrollMessagesToEnd()
+    {
+        if (_messageItems.Count == 0)
+            return;
+        try
+        {
+            MessagesCollection.ScrollTo(_messageItems[^1], position: ScrollToPosition.End, animate: false);
+        }
+        catch
+        {
+            // CollectionView may not be ready yet.
         }
     }
 
@@ -274,6 +295,8 @@ public partial class ChatDetailPage : ContentPage
         a.FileBodyText == b.FileBodyText &&
         a.IsImage == b.IsImage &&
         a.IsFile == b.IsFile &&
+        a.IsVoice == b.IsVoice &&
+        a.VoiceReady == b.VoiceReady &&
         a.IsTransferOffer == b.IsTransferOffer &&
         a.ShowDelivery == b.ShowDelivery &&
         a.DeliveryGlyph == b.DeliveryGlyph &&
@@ -323,7 +346,7 @@ public partial class ChatDetailPage : ContentPage
             {
                 ChatTransferState.Transferring => "загрузка...",
                 ChatTransferState.Failed => "ошибка, нажмите для повтора",
-                _ => "нажмите строку — Скачать"
+                _ => "нажмите — скачать"
             };
             return AttachmentPlaceholder(m, isTransferOffer: true, ds, color, show, glyph, gColor, bubble, ts, stateText);
         }
@@ -336,6 +359,8 @@ public partial class ChatDetailPage : ContentPage
             IsImage = false,
             IsFile = false,
             IsTransferOffer = false,
+            IsVoice = false,
+            VoiceReady = false,
             MessageId = m.Id,
             MessageColor = color,
             ShowDelivery = show,
@@ -362,16 +387,34 @@ public partial class ChatDetailPage : ContentPage
     {
         var kb = (AttachmentSizeBytes(m) + 1023) / 1024;
         var name = AttachmentDisplayName(m);
-        var action = stateText ?? "нажмите строку — Скачать";
+        var isVoice = IsVoiceAttachment(m);
+        var voiceReady = isVoice && IsVoiceLocallyAvailable(m, isTransferOffer);
+        string fileBody;
+        if (isVoice)
+        {
+            var icon = voiceReady ? "▶️" : "⬇️";
+            var hint = voiceReady
+                ? "нажмите — слушать"
+                : (stateText ?? "нажмите — скачать");
+            fileBody = $"{icon} {name} · {kb} КБ · {hint}";
+        }
+        else
+        {
+            var action = stateText ?? "нажмите строку — Скачать";
+            fileBody = $"{name} · {kb} КБ · {action}";
+        }
+
         return new MessageRowVm
         {
             CaptionLine = AttachmentKindCaption(m),
             TextBody = "",
-            FileBodyText = $"{name} · {kb} КБ · {action}",
+            FileBodyText = fileBody,
             ShowTextBody = false,
             IsImage = IsImageAttachment(m),
             IsFile = true,
             IsTransferOffer = isTransferOffer,
+            IsVoice = isVoice,
+            VoiceReady = voiceReady,
             MessageId = m.Id,
             MessageColor = color,
             ShowDelivery = show,
@@ -382,6 +425,19 @@ public partial class ChatDetailPage : ContentPage
             BubbleColor = bubble,
             TimeLabel = ts
         };
+    }
+
+    private static bool IsVoiceLocallyAvailable(ChatMessageEntity m, bool isTransferOffer)
+    {
+        if (m.Outgoing)
+            return true;
+        if (m.ImageBlob is { Length: > 0 })
+            return true;
+        if ((ChatTransferState)m.TransferState == ChatTransferState.Received)
+            return true;
+        if (!isTransferOffer && m.PayloadKind is (int)ChatPayloadKind.File or (int)ChatPayloadKind.Image)
+            return true;
+        return false;
     }
 
     private static int AttachmentSizeBytes(ChatMessageEntity m) =>
@@ -402,15 +458,20 @@ public partial class ChatDetailPage : ContentPage
 
     private static string AttachmentKindCaption(ChatMessageEntity m)
     {
+        if (IsVoiceAttachment(m))
+            return "голосовое";
         if (IsImageAttachment(m))
             return "фото";
-        if (string.Equals(m.TransferPayloadKind, "voice", StringComparison.OrdinalIgnoreCase) ||
-            (m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ?? false))
-            return "голосовое";
         if (IsVideoAttachment(m))
             return "видео";
         return "документ";
     }
+
+    private static bool IsVoiceAttachment(ChatMessageEntity m) =>
+        string.Equals(m.TransferPayloadKind, "voice", StringComparison.OrdinalIgnoreCase) ||
+        (m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (m.TransferFileName?.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (m.Text?.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) ?? false);
 
     private static bool IsImageAttachment(ChatMessageEntity m) =>
         m.PayloadKind == (int)ChatPayloadKind.Image ||
@@ -425,13 +486,16 @@ public partial class ChatDetailPage : ContentPage
     {
         if (Math.Abs(e.VerticalDelta) > 0.5)
             _suppressLoadMore = false;
+
+        // Chronological list: load older messages when the user scrolls near the top.
+        if (!_suppressLoadMore && e.FirstVisibleItemIndex <= 1 && e.VerticalDelta < 0)
+            _ = LoadNextMessagesPageAsync();
     }
 
     private async void OnMessagesRemainingItemsThresholdReached(object? sender, EventArgs e)
     {
-        if (_suppressLoadMore)
-            return;
-        await LoadNextMessagesPageAsync().ConfigureAwait(true);
+        // Kept for CollectionView; primary load-more is top-scroll in OnMessagesScrolled.
+        await Task.CompletedTask.ConfigureAwait(true);
     }
 
     private async void OnSendClicked(object? sender, EventArgs e)
@@ -800,16 +864,44 @@ public partial class ChatDetailPage : ContentPage
     private async Task OpenOrDownloadAttachmentAsync(int messageId)
     {
         var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
-        if (row?.ImageBlob is { Length: > 0 })
+        if (row == null)
+        {
+            await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
+            return;
+        }
+
+        if (IsVoiceAttachment(row))
+        {
+            if (row.ImageBlob is { Length: > 0 })
+            {
+                await PlayVoiceAttachmentAsync(row.ImageBlob).ConfigureAwait(true);
+                return;
+            }
+
+            var canDownload = _p2pSession != null &&
+                              !row.Outgoing &&
+                              !string.IsNullOrWhiteSpace(row.TransferId);
+            if (!canDownload)
+            {
+                await DisplayAlert("Голосовое", "Файл ещё не доступен для скачивания.", "OK")
+                    .ConfigureAwait(true);
+                return;
+            }
+
+            await DownloadThenShowAsync(messageId).ConfigureAwait(true);
+            return;
+        }
+
+        if (row.ImageBlob is { Length: > 0 })
         {
             await DisplayAttachmentAsync(row).ConfigureAwait(true);
             return;
         }
 
-        var canDownload = _p2pSession != null &&
-                          row is { Outgoing: false } &&
-                          !string.IsNullOrWhiteSpace(row.TransferId);
-        if (!canDownload)
+        var canDownloadFile = _p2pSession != null &&
+                              !row.Outgoing &&
+                              !string.IsNullOrWhiteSpace(row.TransferId);
+        if (!canDownloadFile)
         {
             await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
             return;
@@ -845,6 +937,12 @@ public partial class ChatDetailPage : ContentPage
         var row = await WaitForMessageBlobAsync(messageId).ConfigureAwait(true);
         if (row?.ImageBlob is { Length: > 0 })
         {
+            if (IsVoiceAttachment(row))
+            {
+                await PlayVoiceAttachmentAsync(row.ImageBlob).ConfigureAwait(true);
+                return;
+            }
+
             await DisplayAttachmentAsync(row).ConfigureAwait(true);
             return;
         }
@@ -853,23 +951,18 @@ public partial class ChatDetailPage : ContentPage
             await DisplayAlert("Файл", "Скачано, но файл ещё не готов. Нажмите ещё раз.", "OK").ConfigureAwait(true);
     }
 
-    private async Task<ChatMessageEntity?> WaitForMessageBlobAsync(int messageId)
+    private async Task PlayVoiceAttachmentAsync(byte[] oggBytes)
     {
-        for (var i = 0; i < 8; i++)
+        try
         {
-            var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
-            if (row?.ImageBlob is { Length: > 0 })
-                return row;
-            await Task.Delay(120).ConfigureAwait(true);
+            AppLog.BinaryLoaded("play-voice", "voice.ogg", oggBytes.Length);
+            await VoiceMessagePlayer.PlayAsync(oggBytes, _logger).ConfigureAwait(true);
         }
-
-        return await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
-    }
-
-    private async Task PrepareBinarySendAsync()
-    {
-        // Same probe as text: GetClients so servers-first PutBlob / SendMessage can find the peer.
-        await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Voice play failed");
+            await DisplayAlert("Воспроизведение", ex.Message, "OK").ConfigureAwait(true);
+        }
     }
 
     private async Task DisplayAttachmentAsync(ChatMessageEntity row)
@@ -877,6 +970,12 @@ public partial class ChatDetailPage : ContentPage
         if (row.ImageBlob is not { Length: > 0 } blob)
         {
             await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
+            return;
+        }
+
+        if (IsVoiceAttachment(row))
+        {
+            await PlayVoiceAttachmentAsync(blob).ConfigureAwait(true);
             return;
         }
 
@@ -912,6 +1011,60 @@ public partial class ChatDetailPage : ContentPage
             Title = "Сохранить или отправить документ",
             File = new ShareFile(temp)
         }).ConfigureAwait(true);
+    }
+
+    private async Task<ChatMessageEntity?> WaitForMessageBlobAsync(int messageId)
+    {
+        for (var i = 0; i < 8; i++)
+        {
+            var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
+            if (row?.ImageBlob is { Length: > 0 })
+                return row;
+            await Task.Delay(120).ConfigureAwait(true);
+        }
+
+        return await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
+    }
+
+    private async Task PrepareBinarySendAsync()
+    {
+        // Same probe as text: GetClients so servers-first PutBlob / SendMessage can find the peer.
+        await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
+    }
+
+    private async Task TryRefreshPeerNicknameDisplayAsync(ChatEntity chat)
+    {
+        var id = chat.PeerNetworkIdShort.Trim();
+        var display = ResolvePeerDisplayName(chat);
+        if (!string.Equals(display, chat.PeerNickname, StringComparison.Ordinal))
+        {
+            await _repo.TryUpdatePeerNicknameAsync(chat.Id, display).ConfigureAwait(true);
+            chat.PeerNickname = display;
+        }
+
+        Title = display;
+        PeerNameLabel.Text = display;
+        PeerAvatarInitials.Text = IskraTheme.Initials(display);
+        PeerIdLabel.Text = $"Узел: {id}";
+    }
+
+    private string ResolvePeerDisplayName(ChatEntity chat)
+    {
+        var id = chat.PeerNetworkIdShort.Trim();
+        var nick = chat.PeerNickname?.Trim() ?? "";
+        if (!ChatRepository.IsPlaceholderNickname(nick, id))
+            return nick;
+
+        foreach (var p in _p2p.LocalScan.Clients)
+        {
+            if (!string.Equals(p.NetworkId.ToShortString(), id, StringComparison.Ordinal))
+                continue;
+            var discovered = p.Nickname?.Trim() ?? "";
+            if (!ChatRepository.IsPlaceholderNickname(discovered, id))
+                return discovered;
+        }
+
+        return nick.Length > 0 ? nick : id;
     }
 
     private static string EnsureMediaFileName(string name, ChatMessageEntity row)

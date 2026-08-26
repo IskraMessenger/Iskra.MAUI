@@ -16,8 +16,10 @@
         <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
 
+        <!-- Unpackaged WinUI (same as ShortP2P.MauiApp). Do not set EnableMsixTooling here:
+             it is evaluated after NuGet props and breaks WinUI's CustomBeforeMicrosoftCommonTargets chain
+             (Microsoft.WinUI.targets CheckForInvalidCustomBeforeMicrosoftCommonTargets), especially in Rider. -->
         <WindowsPackageType>None</WindowsPackageType>
-        <EnableMsixTooling>true</EnableMsixTooling>
         <Platforms>AnyCPU;x64;ARM64</Platforms>
 
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
@@ -50,8 +52,16 @@
         <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     </PropertyGroup>
 
+    <!-- Release AOT crashes on BlueStacks (and some emulators): SIGSEGV in libmonosgen-2.0.so
+         (mono_class_vtable_checked). Debug (no AOT) starts fine — keep JIT for Release Android. -->
+    <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release'">
+        <RunAOTCompilation>false</RunAOTCompilation>
+        <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    </PropertyGroup>
+
     <ItemGroup>
         <MauiAsset Include="..\..\ShortP2P\sounds\GChord.ogg" Link="Resources\Raw\GChord.ogg" />
+        <MauiAsset Include="..\..\Misc\new_chat.ogg" Link="Resources\Raw\new_chat.ogg" />
     </ItemGroup>
 
     <ItemGroup>

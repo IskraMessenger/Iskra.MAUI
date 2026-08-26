@@ -20,6 +20,13 @@ public sealed class MessageRowVm
     public bool IsFile { get; init; }
 
     public bool IsTransferOffer { get; init; }
+
+    /// <summary>Голосовое (.ogg / opus): ⬇️ скачать или ▶️ играть.</summary>
+    public bool IsVoice { get; init; }
+
+    /// <summary>True — локально доступно для воспроизведения; false — нужно скачать.</summary>
+    public bool VoiceReady { get; init; }
+
     public int MessageId { get; init; }
     public required Color MessageColor { get; init; }
     public bool ShowDelivery { get; init; }

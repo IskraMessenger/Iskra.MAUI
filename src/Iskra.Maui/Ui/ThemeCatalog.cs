@@ -3,6 +3,7 @@ namespace Iskra.Maui;
 public enum ThemeKind
 {
     DarkFlame,
+    Night,
     LightFlame,
     ColdBlue,
     Forest,
@@ -34,6 +35,7 @@ public static class ThemeCatalog
     public static readonly ThemeKind[] All =
     [
         ThemeKind.DarkFlame,
+        ThemeKind.Night,
         ThemeKind.LightFlame,
         ThemeKind.ColdBlue,
         ThemeKind.Forest,
@@ -42,6 +44,7 @@ public static class ThemeCatalog
 
     public static ThemePalette Get(ThemeKind kind) => kind switch
     {
+        ThemeKind.Night => Night,
         ThemeKind.LightFlame => LightFlame,
         ThemeKind.ColdBlue => ColdBlue,
         ThemeKind.Forest => Forest,
@@ -68,6 +71,27 @@ public static class ThemeCatalog
         Color.FromArgb("#FFFFFF"),
         Color.FromArgb("#34C759"),
         Color.FromArgb("#636366"),
+        Color.FromArgb("#FF453A"));
+
+    // Ночная AMOLED-палитра: почти чёрный фон, холодный акцент
+    private static readonly ThemePalette Night = new(
+        "Ночная",
+        true,
+        Color.FromArgb("#6B8AFF"),
+        Color.FromArgb("#5470E0"),
+        Color.FromArgb("#000000"),
+        Color.FromArgb("#0E0E12"),
+        Color.FromArgb("#1A1A22"),
+        Color.FromArgb("#E8EAF0"),
+        Color.FromArgb("#6E7380"),
+        Color.FromArgb("#1C1C24"),
+        Color.FromArgb("#16161C"),
+        Color.FromArgb("#6B8AFF"),
+        Color.FromArgb("#0A0A0E"),
+        Color.FromArgb("#9EB0FF"),
+        Color.FromArgb("#0A0A0E"),
+        Color.FromArgb("#34C759"),
+        Color.FromArgb("#4A4A52"),
         Color.FromArgb("#FF453A"));
 
     // Светлый макет с тёплым оранжевым
