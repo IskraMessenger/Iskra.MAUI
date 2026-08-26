@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.Extensions.Logging;
+using Iskra.Maui.Localization;
 using ShortP2P.Auth;
 using ShortP2P.Auth.Data;
 using ShortP2P.Client.Qr;
@@ -44,9 +45,24 @@ public partial class NetworkPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        Title = Loc.T("tab.network");
+        ApplyLocalizedUi();
         _p2p.LocalScan.ClientsChanged -= OnClientsChanged;
         _p2p.LocalScan.ClientsChanged += OnClientsChanged;
         Refresh();
+    }
+
+    private void ApplyLocalizedUi()
+    {
+        NodesTitle.Text = Loc.T("network.nodes");
+        MyQrSectionLabel.Text = Loc.T("network.my_qr");
+        AddChatButton.Text = Loc.T("network.add_chat");
+        MyQrButton.Text = Loc.T("network.my_qr");
+        MyAddressesButton.Text = Loc.T("network.my_addresses");
+        CopyKeyButton.Text = Loc.T("network.copy_key");
+        LanScanButton.Text = Loc.T("settings.lan");
+        RoutingButton.Text = Loc.T("settings.routing");
+        ServersButton.Text = Loc.T("network.servers");
     }
 
     protected override void OnDisappearing()
@@ -77,18 +93,18 @@ public partial class NetworkPage : ContentPage
                 IdShort = id,
                 Initials = IskraTheme.Initials(nick),
                 AvatarColor = IskraTheme.AvatarColor(id),
-                Status = online ? "онлайн" : "офлайн",
+                Status = online ? Loc.T("online") : Loc.T("offline"),
                 Hops = p.TransportKind switch
                 {
                     TransportKind.Udp => "1 hop",
                     TransportKind.Bluetooth => "1 hop",
-                    TransportKind.MessengerServer => "сервер",
+                    TransportKind.MessengerServer => Loc.T("network.servers"),
                     _ => p.TransportKind.ToString()
                 }
             });
         }
 
-        NodesTitle.Text = $"Узлы в сети ({_nodes.Count})";
+        NodesTitle.Text = Loc.Tf("network.nodes_count", _nodes.Count);
         RenderQr(u);
     }
 
@@ -126,7 +142,7 @@ public partial class NetworkPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Сеть", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("tab.network"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 

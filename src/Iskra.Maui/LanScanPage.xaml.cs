@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Iskra.Maui.Localization;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Client.Routing;
@@ -24,17 +25,18 @@ public sealed class LanScanRow
             TransportKind.Udp => "UDP",
             TransportKind.Bluetooth => "Bluetooth",
             TransportKind.Infrared => "IrDA",
-            TransportKind.MessengerServer => "Server",
+            TransportKind.MessengerServer => Loc.T("network.servers"),
             _ => p.TransportKind.ToString()
         };
         var seen = p.LastSeenUtc.ToLocalTime().ToString("g");
+        var presence = isPeerOnline ? Loc.T("online") : Loc.T("offline");
         return new LanScanRow
         {
             Peer = p,
             IsPeerOnline = isPeerOnline,
             Nickname = string.IsNullOrEmpty(p.Nickname) ? "—" : p.Nickname,
             NetworkIdShort = idShort,
-            DetailLine = $"{transport} · {(isPeerOnline ? "online" : "offline")} · last {seen}"
+            DetailLine = Loc.Tf("lan.detail", transport, presence, Loc.Tf("lan.last", seen))
         };
     }
 }
@@ -60,6 +62,9 @@ public partial class LanScanPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        Title = Loc.T("lan.title");
+        HintLabel.Text = Loc.T("lan.hint");
+        ScanButton.Text = Loc.T("lan.scan");
         _p2p.LocalScan.ClientsChanged += OnClientsChanged;
         RefreshRows();
     }
@@ -92,7 +97,7 @@ public partial class LanScanPage : ContentPage
     {
         ScanButton.IsEnabled = false;
         var sec = (int)Math.Round(LocalNetworkScanner.DefaultScanListenDuration.TotalSeconds);
-        StatusLabel.Text = $"Listening {sec} s…";
+        StatusLabel.Text = Loc.Tf("lan.listening", sec);
         try
         {
             await _p2p.LocalScan.ScanAsync(LocalNetworkScanner.DefaultScanListenDuration).ConfigureAwait(true);
@@ -131,17 +136,18 @@ public partial class LanScanPage : ContentPage
 
                     break;
                 case LanChatStartKind.WaitingForPeer:
-                    await DisplayAlert("LAN", result.Message ?? "", "OK").ConfigureAwait(true);
+                    await DisplayAlert(Loc.T("lan.title"), result.Message ?? "", Loc.T("ok")).ConfigureAwait(true);
                     break;
                 case LanChatStartKind.Failed:
-                    await DisplayAlert("LAN", result.Message ?? "Error", "OK").ConfigureAwait(true);
+                    await DisplayAlert(Loc.T("lan.title"), result.Message ?? Loc.T("error"), Loc.T("ok"))
+                        .ConfigureAwait(true);
                     break;
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "LAN scan peer activation");
-            await DisplayAlert("LAN", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("lan.title"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 }

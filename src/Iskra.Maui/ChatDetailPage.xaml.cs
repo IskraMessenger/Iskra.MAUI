@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
@@ -86,7 +87,7 @@ public partial class ChatDetailPage : ContentPage
         var chat = await _repo.GetChatAsync(ChatId).ConfigureAwait(true);
         if (chat == null)
         {
-            await DisplayAlert("Error", "Chat not found.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), Loc.T("chat.not_found"), Loc.T("ok")).ConfigureAwait(true);
             await Navigation.PopAsync().ConfigureAwait(true);
             return;
         }
@@ -95,7 +96,9 @@ public partial class ChatDetailPage : ContentPage
         PeerNameLabel.Text = chat.PeerNickname;
         PeerAvatarInitials.Text = IskraTheme.Initials(chat.PeerNickname);
         PeerAvatarFill.BackgroundColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
-        PeerIdLabel.Text = $"Узел: {chat.PeerNetworkIdShort}";
+        PeerIdLabel.Text = Loc.Tf("chat.node", chat.PeerNetworkIdShort);
+        ClearChatButton.Text = Loc.T("chat.delete");
+        MessageEntry.Placeholder = Loc.T("chat.message_ph");
         _peerNetworkIdShort = chat.PeerNetworkIdShort;
         await TryRefreshPeerNicknameDisplayAsync(chat).ConfigureAwait(true);
         var user = _auth.CurrentUser;
@@ -134,7 +137,7 @@ public partial class ChatDetailPage : ContentPage
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Could not start UDP for chat {ChatId}", chat.Id);
-                await DisplayAlert("P2P", $"Could not start UDP: {ex.Message}", "OK").ConfigureAwait(true);
+                await DisplayAlert(Loc.T("error"), Loc.Tf("chat.udp_fail", ex.Message), Loc.T("ok")).ConfigureAwait(true);
             }
 
         await ReloadMessagesAsync().ConfigureAwait(true);
@@ -344,9 +347,9 @@ public partial class ChatDetailPage : ContentPage
 
             var stateText = state switch
             {
-                ChatTransferState.Transferring => "загрузка...",
-                ChatTransferState.Failed => "ошибка, нажмите для повтора",
-                _ => "нажмите — скачать"
+                ChatTransferState.Transferring => Loc.T("chat.state.loading"),
+                ChatTransferState.Failed => Loc.T("chat.state.failed"),
+                _ => Loc.T("chat.state.tap_download")
             };
             return AttachmentPlaceholder(m, isTransferOffer: true, ds, color, show, glyph, gColor, bubble, ts, stateText);
         }
@@ -394,14 +397,14 @@ public partial class ChatDetailPage : ContentPage
         {
             var icon = voiceReady ? "▶️" : "⬇️";
             var hint = voiceReady
-                ? "нажмите — слушать"
-                : (stateText ?? "нажмите — скачать");
-            fileBody = $"{icon} {name} · {kb} КБ · {hint}";
+                ? Loc.T("chat.state.tap_play")
+                : (stateText ?? Loc.T("chat.state.tap_download"));
+            fileBody = $"{icon} {name} · {Loc.Tf("chat.kb", kb)} · {hint}";
         }
         else
         {
-            var action = stateText ?? "нажмите строку — Скачать";
-            fileBody = $"{name} · {kb} КБ · {action}";
+            var action = stateText ?? Loc.T("chat.state.tap_row");
+            fileBody = $"{name} · {Loc.Tf("chat.kb", kb)} · {action}";
         }
 
         return new MessageRowVm
@@ -459,12 +462,12 @@ public partial class ChatDetailPage : ContentPage
     private static string AttachmentKindCaption(ChatMessageEntity m)
     {
         if (IsVoiceAttachment(m))
-            return "голосовое";
+            return Loc.T("chat.caption.voice");
         if (IsImageAttachment(m))
-            return "фото";
+            return Loc.T("chat.caption.image");
         if (IsVideoAttachment(m))
-            return "видео";
-        return "документ";
+            return Loc.T("chat.caption.video");
+        return Loc.T("chat.caption.file");
     }
 
     private static bool IsVoiceAttachment(ChatMessageEntity m) =>
@@ -554,7 +557,7 @@ public partial class ChatDetailPage : ContentPage
         var mic = await Permissions.RequestAsync<Permissions.Microphone>().ConfigureAwait(true);
         if (mic != PermissionStatus.Granted)
         {
-            ShowDeliveryIssue("Нет разрешения на запись звука.");
+            ShowDeliveryIssue(Loc.T("chat.mic_denied"));
             return;
         }
 
@@ -581,7 +584,7 @@ public partial class ChatDetailPage : ContentPage
         {
             if (_voice == null)
             {
-                ShowDeliveryIssue("Не удалось получить записанный голосовой файл.");
+                ShowDeliveryIssue(Loc.T("chat.voice_file_fail"));
                 return;
             }
 
@@ -645,7 +648,7 @@ public partial class ChatDetailPage : ContentPage
         {
             var pick = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = "Изображение (JPEG, PNG, GIF)",
+                PickerTitle = Loc.T("chat.image_picker"),
                 FileTypes = FilePickerFileType.Images
             }).ConfigureAwait(true);
             if (pick == null)
@@ -653,7 +656,7 @@ public partial class ChatDetailPage : ContentPage
 
             if (!ImageAttachHelper.TryGetMimeFromExtension(pick.FileName, out var mime))
             {
-                await DisplayAlert("Файл", "Допустимы только .jpg, .jpeg, .png, .gif", "OK").ConfigureAwait(true);
+                await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.only_images"), Loc.T("ok")).ConfigureAwait(true);
                 return;
             }
 
@@ -664,13 +667,13 @@ public partial class ChatDetailPage : ContentPage
             AppLog.BinaryLoaded("image", pick.FileName, bytes.Length);
             if (bytes.Length < 12)
             {
-                await DisplayAlert("Файл", "Файл слишком маленький.", "OK").ConfigureAwait(true);
+                await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.file_too_small"), Loc.T("ok")).ConfigureAwait(true);
                 return;
             }
 
             if (!ImageAttachHelper.SniffMatchesMime(bytes.AsSpan(0, Math.Min(12, bytes.Length)), mime))
             {
-                await DisplayAlert("Файл", "Содержимое не совпадает с расширением файла.", "OK").ConfigureAwait(true);
+                await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.file_mismatch"), Loc.T("ok")).ConfigureAwait(true);
                 return;
             }
 
@@ -711,7 +714,7 @@ public partial class ChatDetailPage : ContentPage
         {
             var pick = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = "Документ или видео (до 10 МБ)",
+                PickerTitle = Loc.T("chat.doc_picker"),
                 FileTypes = OfficeDocFileTypes
             }).ConfigureAwait(true);
             if (pick == null)
@@ -719,9 +722,7 @@ public partial class ChatDetailPage : ContentPage
 
             if (!TryGetDocumentOrVideoMime(pick.FileName, out var mime))
             {
-                await DisplayAlert("Файл",
-                        "Допустимы офисные документы и видео (.mp4, .mov, .avi, .webm, .ogv, .wmv).",
-                        "OK")
+                await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.only_docs_video"), Loc.T("ok"))
                     .ConfigureAwait(true);
                 return;
             }
@@ -733,7 +734,7 @@ public partial class ChatDetailPage : ContentPage
             AppLog.BinaryLoaded("document", pick.FileName, bytes.Length);
             if (bytes.Length == 0)
             {
-                await DisplayAlert("Файл", "Файл пустой.", "OK").ConfigureAwait(true);
+                await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.file_empty"), Loc.T("ok")).ConfigureAwait(true);
                 return;
             }
 
@@ -744,7 +745,8 @@ public partial class ChatDetailPage : ContentPage
                 var headLen = Math.Min(4096, bytes.Length);
                 if (!DocumentAttachHelper.SniffMatchesMime(bytes.AsSpan(0, headLen), mime))
                 {
-                    await DisplayAlert("Файл", "Содержимое не совпадает с типом файла.", "OK").ConfigureAwait(true);
+                    await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.file_type_mismatch"), Loc.T("ok"))
+                        .ConfigureAwait(true);
                     return;
                 }
             }
@@ -761,9 +763,9 @@ public partial class ChatDetailPage : ContentPage
                         .ConfigureAwait(true);
                     if (!prepared.Ok || prepared.Bytes == null)
                     {
-                        await DisplayAlert("Видео",
-                                prepared.Error ?? "Не удалось перекодировать в 144p (256×144).",
-                                "OK")
+                        await DisplayAlert(Loc.T("chat.video"),
+                                prepared.Error ?? Loc.Tf("chat.video_transcode_fail", MediaEconomy.VideoResolutionLabel),
+                                Loc.T("ok"))
                             .ConfigureAwait(true);
                         return;
                     }
@@ -771,7 +773,7 @@ public partial class ChatDetailPage : ContentPage
                     bytes = prepared.Bytes;
                     mime = prepared.Mime;
                     sendName = prepared.FileName;
-                    AppLog.BinaryLoaded("video-144p", sendName, bytes.Length);
+                    AppLog.BinaryLoaded("video-economy", sendName, bytes.Length);
                 }
                 finally
                 {
@@ -788,15 +790,14 @@ public partial class ChatDetailPage : ContentPage
             else if (bytes.Length > _media.MaxDocumentBytes)
             {
                 var limMb = (_media.MaxDocumentBytes + (1024 * 1024 - 1)) / (1024 * 1024);
-                await DisplayAlert("Размер", $"Файл больше {limMb} МБ (лимит maxDocumentBytes в chat-media.json).",
-                        "OK")
+                await DisplayAlert(Loc.T("chat.size"), Loc.Tf("chat.size_over", limMb), Loc.T("ok"))
                     .ConfigureAwait(true);
                 return;
             }
 
             if (bytes.Length > _media.MaxDocumentBytes)
             {
-                await DisplayAlert("Размер", "После сжатия видео всё ещё больше лимита вложения.", "OK")
+                await DisplayAlert(Loc.T("chat.size"), Loc.T("chat.size_still"), Loc.T("ok"))
                     .ConfigureAwait(true);
                 return;
             }
@@ -857,7 +858,7 @@ public partial class ChatDetailPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Open attachment failed");
-            await DisplayAlert("Файл", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("chat.file"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 
@@ -866,7 +867,7 @@ public partial class ChatDetailPage : ContentPage
         var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
         if (row == null)
         {
-            await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.msg_missing"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
@@ -883,7 +884,7 @@ public partial class ChatDetailPage : ContentPage
                               !string.IsNullOrWhiteSpace(row.TransferId);
             if (!canDownload)
             {
-                await DisplayAlert("Голосовое", "Файл ещё не доступен для скачивания.", "OK")
+                await DisplayAlert(Loc.T("chat.voice"), Loc.T("chat.voice_not_ready"), Loc.T("ok"))
                     .ConfigureAwait(true);
                 return;
             }
@@ -903,7 +904,7 @@ public partial class ChatDetailPage : ContentPage
                               !string.IsNullOrWhiteSpace(row.TransferId);
         if (!canDownloadFile)
         {
-            await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.msg_missing"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
@@ -948,7 +949,7 @@ public partial class ChatDetailPage : ContentPage
         }
 
         if (downloaded)
-            await DisplayAlert("Файл", "Скачано, но файл ещё не готов. Нажмите ещё раз.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.download_retry"), Loc.T("ok")).ConfigureAwait(true);
     }
 
     private async Task PlayVoiceAttachmentAsync(byte[] oggBytes)
@@ -961,7 +962,7 @@ public partial class ChatDetailPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Voice play failed");
-            await DisplayAlert("Воспроизведение", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("chat.playback"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 
@@ -969,7 +970,7 @@ public partial class ChatDetailPage : ContentPage
     {
         if (row.ImageBlob is not { Length: > 0 } blob)
         {
-            await DisplayAlert("Файл", "Сообщение не найдено или пустое.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.msg_missing"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
@@ -1000,7 +1001,7 @@ public partial class ChatDetailPage : ContentPage
         {
             await Launcher.Default.OpenAsync(new OpenFileRequest
             {
-                Title = "Видео",
+                Title = Loc.T("chat.video"),
                 File = new ReadOnlyFile(temp)
             }).ConfigureAwait(true);
             return;
@@ -1008,7 +1009,7 @@ public partial class ChatDetailPage : ContentPage
 
         await Share.Default.RequestAsync(new ShareFileRequest
         {
-            Title = "Сохранить или отправить документ",
+            Title = Loc.T("chat.save_doc"),
             File = new ShareFile(temp)
         }).ConfigureAwait(true);
     }
@@ -1045,7 +1046,7 @@ public partial class ChatDetailPage : ContentPage
         Title = display;
         PeerNameLabel.Text = display;
         PeerAvatarInitials.Text = IskraTheme.Initials(display);
-        PeerIdLabel.Text = $"Узел: {id}";
+        PeerIdLabel.Text = Loc.Tf("chat.node", id);
     }
 
     private string ResolvePeerDisplayName(ChatEntity chat)
@@ -1126,17 +1127,18 @@ public partial class ChatDetailPage : ContentPage
         if (askIfOverDefault && !ultra)
         {
             var limKb = (limit + 1023) / 1024;
-            var want = await DisplayAlert("Размер",
-                $"Файл {(bytes.Length + 1023) / 1024} КБ больше лимита {limKb} КБ. Сжать изображение?",
-                "Сжать",
-                "Отмена").ConfigureAwait(true);
+            var want = await DisplayAlert(Loc.T("chat.size"),
+                Loc.Tf("chat.image_over", (bytes.Length + 1023) / 1024, limKb),
+                Loc.T("chat.compress_action"),
+                Loc.T("cancel")).ConfigureAwait(true);
             if (!want)
                 return null;
         }
 
         if (!ImageAttachmentCompressor.TryCompressToMaxBytes(bytes, limit, out var compressed, out var err))
         {
-            await DisplayAlert("Сжатие", err ?? "Не удалось уложиться в лимит.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("chat.compress"), err ?? Loc.T("chat.compress_fail"), Loc.T("ok"))
+                .ConfigureAwait(true);
             return null;
         }
 
@@ -1170,8 +1172,43 @@ public partial class ChatDetailPage : ContentPage
         if (_p2pSession == null)
             return;
         ClearDeliveryIssue();
+
+        var photoLabel = Loc.T("preview.photo");
+        var videoLabel = Loc.T("chat.video");
+        var choice = await DisplayActionSheet(Loc.T("chat.camera"), Loc.T("cancel"), null, photoLabel, videoLabel)
+            .ConfigureAwait(true);
+        if (string.IsNullOrEmpty(choice) || choice == Loc.T("cancel"))
+            return;
+
+        if (choice == photoLabel)
+            await CaptureAndSendCameraPhotoAsync().ConfigureAwait(true);
+        else if (choice == videoLabel)
+            await CaptureAndSendCameraVideoAsync().ConfigureAwait(true);
+    }
+
+    private async Task CaptureAndSendCameraPhotoAsync()
+    {
         try
         {
+            if (!MediaPicker.Default.IsCaptureSupported)
+            {
+                await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_unsupported"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+
+            var cam = await Permissions.RequestAsync<Permissions.Camera>().ConfigureAwait(true);
+            if (cam != PermissionStatus.Granted)
+            {
+                await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_perm"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+
+#if ANDROID
+            await EnsureLegacyStorageWriteAsync().ConfigureAwait(true);
+#endif
+
             var photo = await MediaPicker.Default.CapturePhotoAsync().ConfigureAwait(true);
             if (photo == null)
                 return;
@@ -1180,17 +1217,21 @@ public partial class ChatDetailPage : ContentPage
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms).ConfigureAwait(true);
             var bytes = ms.ToArray();
-            AppLog.BinaryLoaded("camera-image", photo.FileName, bytes.Length);
+            var fileName = string.IsNullOrWhiteSpace(photo.FileName)
+                ? $"camera-{DateTime.UtcNow:yyyyMMdd-HHmmss}.jpg"
+                : photo.FileName;
+            AppLog.BinaryLoaded("camera-photo", fileName, bytes.Length);
             if (bytes.Length < 12)
             {
-                await DisplayAlert("Камера", "Не удалось получить снимок.", "OK").ConfigureAwait(true);
+                await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_photo_fail"), Loc.T("ok"))
+                    .ConfigureAwait(true);
                 return;
             }
 
-            var mime = "image/jpeg";
-            if (ImageAttachHelper.TryGetMimeFromExtension(photo.FileName, out var sniffed))
-                mime = sniffed;
-            var fitted = await TryFitOutgoingImageAsync(bytes, mime, askIfOverDefault: false).ConfigureAwait(true);
+            if (!ImageAttachHelper.TryGetMimeFromExtension(fileName, out var mime))
+                mime = "image/jpeg";
+
+            var fitted = await TryFitOutgoingImageAsync(bytes, mime, askIfOverDefault: true).ConfigureAwait(true);
             if (fitted == null)
                 return;
             bytes = fitted.Value.Bytes;
@@ -1198,17 +1239,33 @@ public partial class ChatDetailPage : ContentPage
 
             _media.ValidateMime(mime);
             await PrepareBinarySendAsync().ConfigureAwait(true);
-            await _p2pSession.SendImageAsync(bytes, mime).ConfigureAwait(true);
+            await _p2pSession!.SendImageAsync(bytes, mime).ConfigureAwait(true);
             ClearDeliveryIssue();
         }
         catch (OutboundMessageQueuedException ex)
         {
-            _logger.LogInformation(ex, "Camera image queued until peer is on LAN");
+            _logger.LogInformation(ex, "Camera photo queued until peer is on LAN");
             ShowDeliveryIssue(ex.Message);
+        }
+        catch (FeatureNotSupportedException)
+        {
+            await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_unsupported"), Loc.T("ok"))
+                .ConfigureAwait(true);
+        }
+        catch (PermissionException)
+        {
+            await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_perm"), Loc.T("ok"))
+                .ConfigureAwait(true);
+        }
+        catch (FileNotFoundException ex) when (IsAppxManifestMissing(ex))
+        {
+            _logger.LogWarning(ex, "Camera photo failed: AppxManifest missing");
+            await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_windows_manifest"), Loc.T("ok"))
+                .ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Send camera image failed");
+            _logger.LogWarning(ex, "Send camera photo failed");
             ShowDeliveryIssue(ex.Message);
         }
         finally
@@ -1216,6 +1273,169 @@ public partial class ChatDetailPage : ContentPage
             await ReloadMessagesAsync().ConfigureAwait(true);
         }
     }
+
+    private async Task CaptureAndSendCameraVideoAsync()
+    {
+        try
+        {
+            // Same role as WinForms CameraRecordForm: record a camera video message.
+            if (!MediaPicker.Default.IsCaptureSupported)
+            {
+                await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_unsupported"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+
+            var cam = await Permissions.RequestAsync<Permissions.Camera>().ConfigureAwait(true);
+            if (cam != PermissionStatus.Granted)
+            {
+                await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_perm"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+
+            var mic = await Permissions.RequestAsync<Permissions.Microphone>().ConfigureAwait(true);
+            if (mic != PermissionStatus.Granted)
+            {
+                await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_mic_perm"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+
+#if ANDROID
+            await EnsureLegacyStorageWriteAsync().ConfigureAwait(true);
+#endif
+
+            var video = await MediaPicker.Default.CaptureVideoAsync().ConfigureAwait(true);
+            if (video == null)
+                return;
+
+            await using var stream = await video.OpenReadAsync().ConfigureAwait(true);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms).ConfigureAwait(true);
+            var bytes = ms.ToArray();
+            var fileName = string.IsNullOrWhiteSpace(video.FileName)
+                ? $"camera-{DateTime.UtcNow:yyyyMMdd-HHmmss}.mp4"
+                : video.FileName;
+            AppLog.BinaryLoaded("camera-video", fileName, bytes.Length);
+            if (bytes.Length < 32)
+            {
+                await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_fail"), Loc.T("ok")).ConfigureAwait(true);
+                return;
+            }
+
+            if (!TryGetDocumentOrVideoMime(fileName, out var mime))
+                mime = "video/mp4";
+
+            await SyncUltraEconomyAsync().ConfigureAwait(true);
+            if (MediaEconomy.IsEnabled(_p2p))
+            {
+                var temp = Path.Combine(FileSystem.CacheDirectory,
+                    $"iskra_cam_{DateTime.UtcNow.Ticks}{Path.GetExtension(fileName)}");
+                if (string.IsNullOrEmpty(Path.GetExtension(temp)))
+                    temp += ".mp4";
+                await File.WriteAllBytesAsync(temp, bytes).ConfigureAwait(true);
+                try
+                {
+                    var prepared = await Video144pTranscoder.PrepareAsync(temp, fileName, mime, true)
+                        .ConfigureAwait(true);
+                    if (!prepared.Ok || prepared.Bytes == null)
+                    {
+                        await DisplayAlert(Loc.T("chat.video"),
+                                prepared.Error ?? Loc.Tf("chat.video_transcode_fail", MediaEconomy.VideoResolutionLabel),
+                                Loc.T("ok"))
+                            .ConfigureAwait(true);
+                        return;
+                    }
+
+                    bytes = prepared.Bytes;
+                    mime = prepared.Mime;
+                    fileName = prepared.FileName;
+                    AppLog.BinaryLoaded("camera-video-economy", fileName, bytes.Length);
+                }
+                finally
+                {
+                    try
+                    {
+                        File.Delete(temp);
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                }
+            }
+            else if (bytes.Length > _media.MaxDocumentBytes)
+            {
+                var limMb = (_media.MaxDocumentBytes + (1024 * 1024 - 1)) / (1024 * 1024);
+                await DisplayAlert(Loc.T("chat.size"), Loc.Tf("chat.size_over", limMb), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+
+            if (bytes.Length > _media.MaxDocumentBytes)
+            {
+                await DisplayAlert(Loc.T("chat.size"), Loc.T("chat.size_still"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+
+            _media.ValidateDocumentMime(mime);
+            await PrepareBinarySendAsync().ConfigureAwait(true);
+            await _p2pSession!.SendFileAsync(fileName, bytes, mime).ConfigureAwait(true);
+            ClearDeliveryIssue();
+        }
+        catch (OutboundMessageQueuedException ex)
+        {
+            _logger.LogInformation(ex, "Camera video queued until peer is on LAN");
+            ShowDeliveryIssue(ex.Message);
+        }
+        catch (FeatureNotSupportedException)
+        {
+            await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_unsupported"), Loc.T("ok"))
+                .ConfigureAwait(true);
+        }
+        catch (PermissionException)
+        {
+            await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_perm"), Loc.T("ok"))
+                .ConfigureAwait(true);
+        }
+        catch (FileNotFoundException ex) when (IsAppxManifestMissing(ex))
+        {
+            _logger.LogWarning(ex, "Camera video failed: AppxManifest missing");
+            await DisplayAlert(Loc.T("chat.camera"), Loc.T("chat.camera_windows_manifest"), Loc.T("ok"))
+                .ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Send camera video failed");
+            ShowDeliveryIssue(ex.Message);
+        }
+        finally
+        {
+            await ReloadMessagesAsync().ConfigureAwait(true);
+        }
+    }
+
+    private static bool IsAppxManifestMissing(FileNotFoundException ex) =>
+        ex.FileName?.Contains("AppxManifest.xml", StringComparison.OrdinalIgnoreCase) == true ||
+        ex.Message.Contains("AppxManifest.xml", StringComparison.OrdinalIgnoreCase);
+
+#if ANDROID
+    private static async Task EnsureLegacyStorageWriteAsync()
+    {
+        try
+        {
+            var status = await Permissions.CheckStatusAsync<Permissions.StorageWrite>().ConfigureAwait(true);
+            if (status != PermissionStatus.Granted)
+                await Permissions.RequestAsync<Permissions.StorageWrite>().ConfigureAwait(true);
+        }
+        catch
+        {
+            // StorageWrite may be no-op / unavailable on newer APIs — capture can still use app cache.
+        }
+    }
+#endif
 
     private static Color GetPaletteColor(string key)
     {
@@ -1236,14 +1456,14 @@ public partial class ChatDetailPage : ContentPage
 
         var online = _p2p.LocalScan.IsPeerSeenRecentlyOnLan(_peerNetworkIdShort);
         PeerPresenceDot.Fill = online ? IskraTheme.Online : IskraTheme.Danger;
-        PeerStatusLabel.Text = online ? "Онлайн" : "Офлайн";
+        PeerStatusLabel.Text = online ? Loc.T("online") : Loc.T("offline");
         PeerStatusLabel.TextColor = online ? IskraTheme.Online : IskraTheme.Muted;
     }
 
     private void ShowDeliveryIssue(string message)
     {
         DeliveryIssueLabel.Text = string.IsNullOrWhiteSpace(message)
-            ? "Проблема с доставкой текущего сообщения."
+            ? Loc.T("chat.delivery_issue")
             : message.Trim();
         DeliveryIssueLabel.IsVisible = true;
     }
@@ -1260,10 +1480,10 @@ public partial class ChatDetailPage : ContentPage
             return;
 
         var confirm = await DisplayAlert(
-            "Удалить переписку",
-            "Все сообщения будут удалены с этого устройства. Недоставленные отправки будут отменены.",
-            "Удалить",
-            "Отмена").ConfigureAwait(true);
+            Loc.T("chat.clear_title"),
+            Loc.T("chat.clear_body"),
+            Loc.T("delete"),
+            Loc.T("cancel")).ConfigureAwait(true);
         if (!confirm)
             return;
 
@@ -1271,12 +1491,13 @@ public partial class ChatDetailPage : ContentPage
         try
         {
             var ok = await _p2pSession.ClearMessagesAsync().ConfigureAwait(true);
-            if (!ok) await DisplayAlert("Ошибка", "Не удалось удалить переписку.", "OK").ConfigureAwait(true);
+            if (!ok)
+                await DisplayAlert(Loc.T("error"), Loc.T("chat.clear_fail"), Loc.T("ok")).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Clear chat failed for chat {ChatId}", ChatId);
-            await DisplayAlert("Ошибка", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
         finally
         {

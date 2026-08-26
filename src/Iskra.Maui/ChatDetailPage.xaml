@@ -29,7 +29,7 @@
                 <Label x:Name="PeerIdLabel" FontSize="10" TextColor="{DynamicResource MutedText}"
                        LineBreakMode="TailTruncation" />
             </VerticalStackLayout>
-            <Button Grid.Column="3" Text="Удалить" FontSize="12" BackgroundColor="Transparent" TextColor="{DynamicResource Danger}"
+            <Button x:Name="ClearChatButton" Grid.Column="3" FontSize="12" BackgroundColor="Transparent" TextColor="{DynamicResource Danger}"
                     Padding="4" Clicked="OnClearChatClicked" />
         </Grid>
 
@@ -80,7 +80,7 @@
                     Clicked="OnAttachDocumentClicked" />
             <Border Grid.Column="4" Stroke="{DynamicResource Hairline}" StrokeThickness="1"
                     StrokeShape="RoundRectangle 18" Padding="10,0" BackgroundColor="{DynamicResource FieldBackground}">
-                <Entry x:Name="MessageEntry" Placeholder="Сообщение..." MaxLength="32768"
+                <Entry x:Name="MessageEntry" MaxLength="32768"
                        BackgroundColor="Transparent" FontSize="15" />
             </Border>
             <Button Grid.Column="5" Text="➤" FontSize="16" Padding="0" CornerRadius="24" WidthRequest="44"

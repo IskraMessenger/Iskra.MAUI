@@ -1,16 +1,12 @@
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
-
 
 namespace Iskra.Maui;
 
 public partial class RegisterPage : ContentPage
 {
-    private const string RequirementsHint =
-        "Не менее 8 символов, латиница, минимум одна заглавная буква и цифра. Можно спецсимволы: " +
-        UserPasswordPolicy.AllowedSpecialCharacters;
-
     private readonly AuthService _auth;
     private readonly ILogger<RegisterPage> _logger;
 
@@ -19,7 +15,26 @@ public partial class RegisterPage : ContentPage
         InitializeComponent();
         _auth = auth;
         _logger = logger;
-        PasswordHintLabel.Text = RequirementsHint;
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        ApplyLocalizedUi();
+        SetPasswordHint(RequirementsHint(), muted: true);
+    }
+
+    private static string RequirementsHint() =>
+        Loc.Tf("register.pass_hint", UserPasswordPolicy.AllowedSpecialCharacters);
+
+    private void ApplyLocalizedUi()
+    {
+        Title = Loc.T("register.header");
+        TitleLabel.Text = Loc.T("register.title");
+        SubtitleLabel.Text = Loc.T("register.subtitle");
+        NicknameEntry.Placeholder = Loc.T("login.nick");
+        PasswordEntry.Placeholder = Loc.T("login.password");
+        RegisterButton.Text = Loc.T("register.button");
     }
 
     private void OnPasswordTextChanged(object? sender, TextChangedEventArgs e)
@@ -27,13 +42,13 @@ public partial class RegisterPage : ContentPage
         var pass = e.NewTextValue ?? "";
         if (string.IsNullOrEmpty(pass))
         {
-            SetPasswordHint(RequirementsHint, muted: true);
+            SetPasswordHint(RequirementsHint(), muted: true);
             return;
         }
 
         if (UserPasswordPolicy.TryValidate(pass, out var error))
         {
-            SetPasswordHint("Пароль соответствует требованиям.", muted: true, ok: true);
+            SetPasswordHint(Loc.T("register.pass_ok"), muted: true, ok: true);
             return;
         }
 
@@ -49,7 +64,7 @@ public partial class RegisterPage : ContentPage
         {
             var reason = DescribePasswordError(policyError!.Value);
             _logger.LogWarning("Registration failed for {Nickname}: {Reason}", nick, reason);
-            await DisplayAlert("Регистрация", reason, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("register.header"), reason, Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
@@ -57,13 +72,15 @@ public partial class RegisterPage : ContentPage
         if (!ok)
         {
             _logger.LogWarning("Registration failed for {Nickname}: {Reason}", nick, err);
-            await DisplayAlert("Регистрация", LocalizeRegisterError(err), "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("register.header"), LocalizeRegisterError(err), Loc.T("ok"))
+                .ConfigureAwait(true);
             return;
         }
 
         var id = _auth.CurrentUser?.NetworkIdShort ?? "";
         AppLog.Ui.LogInformation("Registration success for {Nickname} id={Id}", nick, id);
-        await DisplayAlert("Аккаунт создан", $"Сетевой идентификатор:\n{id}", "OK").ConfigureAwait(true);
+        await DisplayAlert(Loc.T("register.created"), Loc.Tf("register.network_id", id), Loc.T("ok"))
+            .ConfigureAwait(true);
 
         Application.Current!.MainPage = MauiProgram.Services.GetRequiredService<AppShell>();
     }
@@ -82,20 +99,20 @@ public partial class RegisterPage : ContentPage
 
     private static string DescribePasswordError(UserPasswordPolicyError error) => error switch
     {
-        UserPasswordPolicyError.Empty => "Введите пароль.",
-        UserPasswordPolicyError.TooShort => "Пароль должен быть не короче 8 символов.",
+        UserPasswordPolicyError.Empty => Loc.T("pass.empty"),
+        UserPasswordPolicyError.TooShort => Loc.T("pass.too_short"),
         UserPasswordPolicyError.InvalidCharacter =>
-            $"Только латиница, цифры и спецсимволы: {UserPasswordPolicy.AllowedSpecialCharacters}",
-        UserPasswordPolicyError.MissingUppercase => "Добавьте хотя бы одну заглавную латинскую букву.",
-        UserPasswordPolicyError.MissingLetter => "Добавьте хотя бы одну латинскую букву.",
-        UserPasswordPolicyError.MissingDigit => "Добавьте хотя бы одну цифру.",
-        _ => "Пароль не соответствует требованиям."
+            Loc.Tf("pass.invalid_char", UserPasswordPolicy.AllowedSpecialCharacters),
+        UserPasswordPolicyError.MissingUppercase => Loc.T("pass.need_upper"),
+        UserPasswordPolicyError.MissingLetter => Loc.T("pass.need_letter"),
+        UserPasswordPolicyError.MissingDigit => Loc.T("pass.need_digit"),
+        _ => Loc.T("pass.invalid")
     };
 
     private static string LocalizeRegisterError(string? err) => err switch
     {
-        "Nickname and password are required." => "Укажите ник и пароль.",
-        "This nickname is already registered." => "Этот ник уже зарегистрирован.",
-        _ => err ?? "Не удалось зарегистрироваться."
+        "Nickname and password are required." => Loc.T("register.need_nick_pass"),
+        "This nickname is already registered." => Loc.T("register.nick_taken"),
+        _ => err ?? Loc.T("register.failed")
     };
 }

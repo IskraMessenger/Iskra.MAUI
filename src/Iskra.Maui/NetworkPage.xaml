@@ -4,13 +4,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Iskra.Maui"
              x:Class="Iskra.Maui.NetworkPage"
-             Title="Сеть"
+             Title="Network"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{DynamicResource PageBackground}">
     <ScrollView>
         <VerticalStackLayout Spacing="14" Padding="0,0,0,20">
             <local:AppHeaderView x:Name="Header" />
-            <Label x:Name="NodesTitle" Text="Узлы в сети" FontAttributes="Bold" FontSize="16"
+            <Label x:Name="NodesTitle" FontAttributes="Bold" FontSize="16"
                    TextColor="{DynamicResource MidnightBlue}" Margin="16,0" />
             <CollectionView x:Name="NodesCollection" HeightRequest="180">
                 <CollectionView.ItemTemplate>
@@ -32,7 +32,8 @@
                                        LineBreakMode="TailTruncation" />
                             </VerticalStackLayout>
                             <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
-                                <Label Text="{Binding Status}" FontSize="11" TextColor="{DynamicResource OnlineGreen}" HorizontalOptions="End" />
+                                <Label Text="{Binding Status}" FontSize="11" TextColor="{DynamicResource OnlineGreen}"
+                                       HorizontalOptions="End" />
                                 <Label Text="{Binding Hops}" FontSize="11" TextColor="{DynamicResource MutedText}"
                                        HorizontalOptions="End" />
                             </VerticalStackLayout>
@@ -40,21 +41,25 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
-            <Label Text="Мой QR" FontAttributes="Bold" FontSize="16"
+            <Label x:Name="MyQrSectionLabel" FontAttributes="Bold" FontSize="16"
                    TextColor="{DynamicResource MidnightBlue}" Margin="16,4,16,0" />
             <Image x:Name="QrImage" HeightRequest="200" WidthRequest="200" Aspect="AspectFit"
                    HorizontalOptions="Center" BackgroundColor="{DynamicResource Surface}" />
-            <Grid Margin="16,4" ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="10">
-                <Button Text="Добавить чат" Clicked="OnAddChatClicked" Style="{StaticResource NetworkTile}" />
-                <Button Grid.Column="1" Text="Мой QR" Clicked="OnMyQrClicked" Style="{StaticResource NetworkTile}" />
-                <Button Grid.Column="2" Text="Мои адреса" Clicked="OnMyAddressesClicked" Style="{StaticResource NetworkTile}" />
-                <Button Grid.Row="1" Text="Копировать ключ" Clicked="OnCopyKeysClicked" Style="{StaticResource NetworkTile}" />
-                <Button Grid.Row="1" Grid.Column="1" Text="LAN-сканирование" Clicked="OnLanScanClicked"
+            <Grid Margin="16,4" ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10"
+                  RowSpacing="10">
+                <Button x:Name="AddChatButton" Clicked="OnAddChatClicked" Style="{StaticResource NetworkTile}" />
+                <Button x:Name="MyQrButton" Grid.Column="1" Clicked="OnMyQrClicked"
                         Style="{StaticResource NetworkTile}" />
-                <Button Grid.Row="1" Grid.Column="2" Text="P2P-маршрутизация" Clicked="OnRoutingClicked"
+                <Button x:Name="MyAddressesButton" Grid.Column="2" Clicked="OnMyAddressesClicked"
+                        Style="{StaticResource NetworkTile}" />
+                <Button x:Name="CopyKeyButton" Grid.Row="1" Clicked="OnCopyKeysClicked"
+                        Style="{StaticResource NetworkTile}" />
+                <Button x:Name="LanScanButton" Grid.Row="1" Grid.Column="1" Clicked="OnLanScanClicked"
+                        Style="{StaticResource NetworkTile}" />
+                <Button x:Name="RoutingButton" Grid.Row="1" Grid.Column="2" Clicked="OnRoutingClicked"
                         Style="{StaticResource NetworkTile}" />
             </Grid>
-            <Button Text="Серверы" Clicked="OnServersClicked" Margin="16,0"
+            <Button x:Name="ServersButton" Clicked="OnServersClicked" Margin="16,0"
                     BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}" />
         </VerticalStackLayout>
     </ScrollView>

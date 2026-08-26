@@ -11,7 +11,7 @@ public enum ThemeKind
 }
 
 public sealed record ThemePalette(
-    string Title,
+    string TitleKey,
     bool IsDark,
     Color Accent,
     Color AccentDark,
@@ -28,7 +28,10 @@ public sealed record ThemePalette(
     Color ButtonText,
     Color Online,
     Color Offline,
-    Color Danger);
+    Color Danger)
+{
+    public string Title => Localization.Loc.T(TitleKey);
+}
 
 public static class ThemeCatalog
 {
@@ -52,9 +55,8 @@ public static class ThemeCatalog
         _ => DarkFlame
     };
 
-    // Тёмный макет с оранжевым акцентом
     private static readonly ThemePalette DarkFlame = new(
-        "Тёмная",
+        "theme.dark",
         true,
         Color.FromArgb("#FF6A00"),
         Color.FromArgb("#E55E00"),
@@ -73,9 +75,8 @@ public static class ThemeCatalog
         Color.FromArgb("#636366"),
         Color.FromArgb("#FF453A"));
 
-    // Ночная AMOLED-палитра: почти чёрный фон, холодный акцент
     private static readonly ThemePalette Night = new(
-        "Ночная",
+        "theme.night",
         true,
         Color.FromArgb("#6B8AFF"),
         Color.FromArgb("#5470E0"),
@@ -94,9 +95,8 @@ public static class ThemeCatalog
         Color.FromArgb("#4A4A52"),
         Color.FromArgb("#FF453A"));
 
-    // Светлый макет с тёплым оранжевым
     private static readonly ThemePalette LightFlame = new(
-        "Светлая",
+        "theme.light",
         false,
         Color.FromArgb("#E39B2B"),
         Color.FromArgb("#C4841F"),
@@ -116,7 +116,7 @@ public static class ThemeCatalog
         Color.FromArgb("#D94C4C"));
 
     private static readonly ThemePalette ColdBlue = new(
-        "Холодная",
+        "theme.cold",
         true,
         Color.FromArgb("#00B0FF"),
         Color.FromArgb("#0091EA"),
@@ -136,7 +136,7 @@ public static class ThemeCatalog
         Color.FromArgb("#FF6B6B"));
 
     private static readonly ThemePalette Forest = new(
-        "Лес",
+        "theme.forest",
         true,
         Color.FromArgb("#00C853"),
         Color.FromArgb("#00A844"),
@@ -156,7 +156,7 @@ public static class ThemeCatalog
         Color.FromArgb("#FF5252"));
 
     private static readonly ThemePalette Mono = new(
-        "Моно",
+        "theme.mono",
         true,
         Color.FromArgb("#E6E6E6"),
         Color.FromArgb("#C8C8C8"),

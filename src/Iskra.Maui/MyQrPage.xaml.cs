@@ -1,3 +1,4 @@
+using Iskra.Maui.Localization;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Auth.Data;
@@ -22,6 +23,9 @@ public partial class MyQrPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        Title = Loc.T("myqr.title");
+        HintLabel.Text = Loc.T("myqr.hint");
+        ShareButton.Text = Loc.T("share");
         var u = _auth.CurrentUser;
         if (u == null)
         {
@@ -45,7 +49,7 @@ public partial class MyQrPage : ContentPage
     {
         if (_currentQrPng == null || _currentQrPng.Length == 0)
         {
-            await DisplayAlert("QR", "QR-код пока не готов.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("qr.title"), Loc.T("qr.not_ready"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
@@ -56,14 +60,15 @@ public partial class MyQrPage : ContentPage
             await File.WriteAllBytesAsync(path, _currentQrPng).ConfigureAwait(true);
             await Share.Default.RequestAsync(new ShareFileRequest
             {
-                Title = "Поделиться QR-кодом",
+                Title = Loc.T("qr.share"),
                 File = new ShareFile(path)
             }).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Share QR failed");
-            await DisplayAlert("QR", $"Не удалось поделиться QR-кодом: {ex.Message}", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("qr.title"), Loc.Tf("qr.share_fail", ex.Message), Loc.T("ok"))
+                .ConfigureAwait(true);
         }
     }
 }

@@ -8,17 +8,17 @@
     FlyoutBehavior="Disabled">
 
     <TabBar>
-        <Tab Title="Чаты" Icon="tab_chats.png">
-            <ShellContent x:Name="ChatsHost" Title="Чаты" />
+        <Tab x:Name="ChatsTab" Title="Chats" Icon="tab_chats.png">
+            <ShellContent x:Name="ChatsHost" Title="Chats" />
         </Tab>
-        <Tab Title="Контакты" Icon="tab_contacts.png">
-            <ShellContent x:Name="ContactsHost" Title="Контакты" />
+        <Tab x:Name="ContactsTab" Title="Contacts" Icon="tab_contacts.png">
+            <ShellContent x:Name="ContactsHost" Title="Contacts" />
         </Tab>
-        <Tab Title="Сеть" Icon="tab_network.png">
-            <ShellContent x:Name="NetworkHost" Title="Сеть" />
+        <Tab x:Name="NetworkTab" Title="Network" Icon="tab_network.png">
+            <ShellContent x:Name="NetworkHost" Title="Network" />
         </Tab>
-        <Tab Title="Настройки" Icon="tab_settings.png">
-            <ShellContent x:Name="SettingsHost" Title="Настройки" />
+        <Tab x:Name="SettingsTab" Title="Settings" Icon="tab_settings.png">
+            <ShellContent x:Name="SettingsHost" Title="Settings" />
         </Tab>
     </TabBar>
 </Shell>

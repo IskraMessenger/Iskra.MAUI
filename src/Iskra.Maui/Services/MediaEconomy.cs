@@ -1,29 +1,43 @@
 using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Services;
+using Iskra.Maui.Localization;
 
 namespace Iskra.Maui.Services;
 
 /// <summary>
-/// Ультраэкономия трафика: Opus 4.8 кбит/с, фото до 50 КБ, видео 144p (256×144).
+/// Traffic-saving mode (WinForms-aligned): Opus 6 kbit/s, photos ≤50 KB, video 160×120.
+/// Toggle: Settings → Ultra economy / Ультраэкономия (persisted in P2pRoutingSettings).
 /// </summary>
 internal static class MediaEconomy
 {
     private const string PrefKey = "iskra.ultra_economy";
 
-    public const int SpeechBitrateBps = 4_800;
+    /// <summary>WinForms <c>VoiceRecordHelper.TrafficSavingBitrate</c>.</summary>
+    public const int SpeechBitrateBps = 6_000;
+
+    /// <summary>WinForms <c>VoiceRecordHelper.DefaultBitrate</c>.</summary>
     public const int DefaultSpeechBitrateBps = 18_000;
+
     public const int MaxImageBytes = 50 * 1024;
-    public const int VideoWidth = 256;
-    public const int VideoHeight = 144;
-    public const int VideoBitrateBps = 150_000;
+
+    /// <summary>WinForms <c>VideoAttachHelper.TrafficSavingVideoWidth</c>.</summary>
+    public const int VideoWidth = 160;
+
+    /// <summary>WinForms <c>VideoAttachHelper.TrafficSavingVideoHeight</c>.</summary>
+    public const int VideoHeight = 120;
+
+    /// <summary>WinForms camera economy video bitrate.</summary>
+    public const int VideoBitrateBps = 250_000;
+
+    public const int NormalVideoWidth = 320;
+    public const int NormalVideoHeight = 240;
 
     public static string Hint =>
-        $"Речь {SpeechBitrateBps / 1000.0:0.0} кбит/с, фото до {MaxImageBytes / 1024} КБ, видео {VideoHeight}p ({VideoWidth}×{VideoHeight})";
+        Loc.Tf("economy.hint", SpeechBitrateBps / 1000.0, MaxImageBytes / 1024, VideoWidth, VideoHeight);
 
-    public static bool IsEnabled(UserP2pRuntime p2p) =>
-        Preferences.Default.ContainsKey(PrefKey)
-            ? Preferences.Default.Get(PrefKey, false)
-            : p2p.Settings.TrafficSavingEnabled;
+    public static string VideoResolutionLabel => $"{VideoWidth}×{VideoHeight}";
+
+    public static bool IsEnabled(UserP2pRuntime p2p) => p2p.Settings.TrafficSavingEnabled;
 
     public static void Apply(UserP2pRuntime p2p, bool enabled)
     {

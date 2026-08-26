@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.Extensions.Logging;
+using Iskra.Maui.Localization;
 using ShortP2P.Auth;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
@@ -43,6 +44,10 @@ public partial class ContactsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        Title = Loc.T("tab.contacts");
+        SearchEntry.Placeholder = Loc.T("contacts.search");
+        ScanButton.Text = Loc.T("contacts.scan");
+        EmptyContactsLabel.Text = Loc.T("contacts.empty");
         _p2p.LocalScan.ClientsChanged -= OnClientsChanged;
         _p2p.LocalScan.ClientsChanged += OnClientsChanged;
         var u = _auth.CurrentUser;
@@ -100,7 +105,7 @@ public partial class ContactsPage : ContentPage
         _scanning = true;
         ScanButton.IsEnabled = false;
         var sec = (int)Math.Round(LocalNetworkScanner.DefaultScanListenDuration.TotalSeconds);
-        ScanStatusLabel.Text = $"Сканируем LAN и серверы {sec} с…";
+        ScanStatusLabel.Text = Loc.Tf("contacts.scanning_detail", sec);
         ScanSpinner.IsRunning = true;
         ScanStatusRow.IsVisible = true;
         try
@@ -111,7 +116,7 @@ public partial class ContactsPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Contacts scan");
-            await DisplayAlert("Контакты", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("tab.contacts"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
         finally
         {
@@ -138,7 +143,7 @@ public partial class ContactsPage : ContentPage
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var c in chats)
         {
-            seen.Add(c.PeerNetworkIdShort);
+            seen.Add(ChatRepository.CanonicalPeerNetworkId(c.PeerNetworkIdShort));
             await TrySyncChatNicknameFromLanAsync(c).ConfigureAwait(true);
             _allRows.Add(new ContactRow
             {
@@ -153,9 +158,10 @@ public partial class ContactsPage : ContentPage
 
         foreach (var p in _p2p.LocalScan.Clients)
         {
-            var id = p.NetworkId.ToShortString();
-            if (seen.Contains(id))
+            var id = ChatRepository.CanonicalPeerNetworkId(p.NetworkId.ToShortString());
+            if (id.Length == 0 || seen.Contains(id))
                 continue;
+            seen.Add(id);
             var nick = string.IsNullOrWhiteSpace(p.Nickname) ? id : p.Nickname;
             _allRows.Add(new ContactRow
             {
@@ -176,10 +182,10 @@ public partial class ContactsPage : ContentPage
         if (!ChatRepository.IsPlaceholderNickname(chat.PeerNickname, chat.PeerNetworkIdShort))
             return;
 
-        var id = chat.PeerNetworkIdShort.Trim();
+        var id = ChatRepository.CanonicalPeerNetworkId(chat.PeerNetworkIdShort);
         foreach (var p in _p2p.LocalScan.Clients)
         {
-            if (!string.Equals(p.NetworkId.ToShortString(), id, StringComparison.Ordinal))
+            if (!ChatRepository.PeerNetworkIdsEqual(p.NetworkId.ToShortString(), id))
                 continue;
             var nick = p.Nickname?.Trim() ?? "";
             if (ChatRepository.IsPlaceholderNickname(nick, id))
@@ -197,7 +203,7 @@ public partial class ContactsPage : ContentPage
         return _p2p.LocalScan.IsPeerSeenRecentlyOnLan(networkIdShort) ||
                (peer?.MessengerServerOnline ?? false) ||
                _p2p.LocalScan.Clients.Any(c =>
-                   string.Equals(c.NetworkId.ToShortString(), networkIdShort, StringComparison.Ordinal) &&
+                   ChatRepository.PeerNetworkIdsEqual(c.NetworkId.ToShortString(), networkIdShort) &&
                    c.MessengerServerOnline);
     }
 
@@ -219,7 +225,7 @@ public partial class ContactsPage : ContentPage
         {
             TransportKind.Udp => "LAN",
             TransportKind.Bluetooth => "Bluetooth",
-            TransportKind.MessengerServer => "сервер",
+            TransportKind.MessengerServer => Loc.T("network.servers"),
             _ => p.TransportKind.ToString()
         };
 
@@ -237,7 +243,7 @@ public partial class ContactsPage : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Контакты", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("tab.contacts"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 }

@@ -16,7 +16,7 @@
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                     <Label Text="&#x1F50D;" FontSize="14" VerticalOptions="Center"
                            TextColor="{DynamicResource MutedText}" />
-                    <Entry x:Name="SearchEntry" Grid.Column="1" Placeholder="Поиск"
+                    <Entry x:Name="SearchEntry" Grid.Column="1"
                            PlaceholderColor="{DynamicResource MutedText}" BackgroundColor="Transparent"
                            FontSize="15" TextChanged="OnSearchChanged" />
                 </Grid>
@@ -29,7 +29,7 @@
         <CollectionView x:Name="ChatsCollection" Grid.Row="2" SelectionMode="Single"
                         SelectionChanged="OnChatSelected">
             <CollectionView.EmptyView>
-                <Label Text="Нет чатов. Нажмите + чтобы добавить."
+                <Label x:Name="EmptyChatsLabel"
                        TextColor="{DynamicResource MutedText}" HorizontalOptions="Center"
                        VerticalOptions="Center" Margin="24" />
             </CollectionView.EmptyView>

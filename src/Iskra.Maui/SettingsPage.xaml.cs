@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Extensions.Logging;
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using ShortP2P.Auth;
 using ShortP2P.Client.Bluetooth;
@@ -27,7 +28,11 @@ public partial class SettingsPage : ContentPage
         _store = store;
         _bluetoothTransport = bluetoothTransport;
         _logger = logger;
+        LanguageService.Changed += OnLanguageChanged;
     }
+
+    private void OnLanguageChanged(object? sender, EventArgs e) =>
+        MainThread.BeginInvokeOnMainThread(async () => await LoadAsync().ConfigureAwait(true));
 
     protected override async void OnAppearing()
     {
@@ -37,6 +42,7 @@ public partial class SettingsPage : ContentPage
 
     private async Task LoadAsync()
     {
+        ApplyLocalizedChrome();
         var u = _auth.CurrentUser;
         Header.Bind(u, _p2p);
         if (u != null)
@@ -57,13 +63,67 @@ public partial class SettingsPage : ContentPage
         RoutingSwitch.IsToggled = _p2p.Settings.AdvertisedPeerCapabilities.HasFlag(PresencePeerCapabilities.PeerSearch);
         EconomySwitch.IsToggled = _p2p.Settings.TrafficSavingEnabled;
         _suppressToggle = false;
-        BluetoothHint.Text = BluetoothSwitch.IsToggled ? "Включено" : "Выключено";
-        LanHint.Text = LanSwitch.IsToggled ? "Включено" : "Выключено";
-        RoutingHint.Text = RoutingSwitch.IsToggled ? "Включено" : "Выключено";
-        EconomyHint.Text = EconomySwitch.IsToggled ? MediaEconomy.Hint : "Выключено";
+        BluetoothHint.Text = BluetoothSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
+        LanHint.Text = LanSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
+        RoutingHint.Text = RoutingSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
+        EconomyHint.Text = EconomySwitch.IsToggled ? MediaEconomy.Hint : Loc.T("off");
         StorageLabel.Text = FormatStorage();
+        RebuildLanguageChips();
         RebuildThemeChips();
         await Task.CompletedTask.ConfigureAwait(true);
+    }
+
+    private void ApplyLocalizedChrome()
+    {
+        Title = Loc.T("settings.title");
+        LanguageSectionLabel.Text = Loc.T("lang.section");
+        AppearanceLabel.Text = Loc.T("settings.appearance");
+        BluetoothLabel.Text = Loc.T("settings.bluetooth");
+        UdpLabel.Text = Loc.T("settings.udp");
+        LanLabel.Text = Loc.T("settings.lan");
+        RoutingLabel.Text = Loc.T("settings.routing");
+        EconomyLabel.Text = Loc.T("settings.economy");
+        StorageTitleLabel.Text = Loc.T("settings.storage");
+        ExportKeysButton.Text = Loc.T("settings.export_keys");
+        RoutingOpenButton.Text = Loc.T("settings.routing_open");
+        ConnectionTestButton.Text = Loc.T("settings.connection_test");
+        LogsButton.Text = Loc.T("settings.logs");
+        AboutButton.Text = Loc.T("settings.about");
+        LogoutButton.Text = Loc.T("settings.logout");
+        var warn = LanguageService.TranslationWarning(LanguageService.Current);
+        LanguageWarningLabel.Text = warn;
+        LanguageWarningLabel.IsVisible = LanguageService.ShowTranslationWarning;
+    }
+
+    private void RebuildLanguageChips()
+    {
+        LanguageChips.Children.Clear();
+        foreach (var lang in new[]
+                 {
+                     AppLanguage.Russian, AppLanguage.English, AppLanguage.Spanish, AppLanguage.ChineseSimplified
+                 })
+        {
+            var selected = lang == LanguageService.Current;
+            var btn = new Button
+            {
+                Text = LanguageService.NativeName(lang),
+                FontSize = 13,
+                BackgroundColor = selected ? IskraTheme.Accent : IskraTheme.Current.Surface,
+                TextColor = selected ? IskraTheme.Current.ButtonText : IskraTheme.Text,
+                Padding = new Thickness(12, 8)
+            };
+            var captured = lang;
+            btn.Clicked += (_, _) =>
+            {
+                if (captured == LanguageService.Current)
+                    return;
+                var warn = LanguageService.TranslationWarning(captured);
+                if (!string.IsNullOrEmpty(warn))
+                    _ = DisplayAlert(LanguageService.NativeName(captured), warn, Loc.T("ok"));
+                LanguageService.Set(captured);
+            };
+            LanguageChips.Children.Add(btn);
+        }
     }
 
     private void RebuildThemeChips()
@@ -117,7 +177,7 @@ public partial class SettingsPage : ContentPage
                 foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
                     bytes += new FileInfo(f).Length;
             var mb = bytes / (1024.0 * 1024.0);
-            return mb >= 1024 ? $"Использовано {mb / 1024:0.0} ГБ" : $"Использовано {mb:0.0} МБ";
+            return mb >= 1024 ? Loc.Tf("settings.storage_gb", mb / 1024) : Loc.Tf("settings.storage_mb", mb);
         }
         catch
         {
@@ -127,21 +187,21 @@ public partial class SettingsPage : ContentPage
 
     private async void OnBluetoothToggled(object? sender, ToggledEventArgs e)
     {
-        BluetoothHint.Text = e.Value ? "Включено" : "Выключено";
+        BluetoothHint.Text = e.Value ? Loc.T("on") : Loc.T("off");
         if (!_suppressToggle)
             await SaveAsync(s => s.EnableBluetoothTransport = e.Value).ConfigureAwait(true);
     }
 
     private async void OnLanToggled(object? sender, ToggledEventArgs e)
     {
-        LanHint.Text = e.Value ? "Включено" : "Выключено";
+        LanHint.Text = e.Value ? Loc.T("on") : Loc.T("off");
         if (!_suppressToggle)
             await SaveAsync(s => s.EnableUdpTransport = e.Value).ConfigureAwait(true);
     }
 
     private async void OnRoutingToggled(object? sender, ToggledEventArgs e)
     {
-        RoutingHint.Text = e.Value ? "Включено" : "Выключено";
+        RoutingHint.Text = e.Value ? Loc.T("on") : Loc.T("off");
         if (_suppressToggle)
             return;
         await SaveAsync(s =>
@@ -156,7 +216,7 @@ public partial class SettingsPage : ContentPage
 
     private async void OnEconomyToggled(object? sender, ToggledEventArgs e)
     {
-        EconomyHint.Text = e.Value ? MediaEconomy.Hint : "Выключено";
+        EconomyHint.Text = e.Value ? MediaEconomy.Hint : Loc.T("off");
         MediaEconomy.Apply(_p2p, e.Value);
         if (!_suppressToggle)
             await SaveAsync(s => s.TrafficSavingEnabled = e.Value).ConfigureAwait(true);
@@ -199,8 +259,7 @@ public partial class SettingsPage : ContentPage
         await Navigation.PushAsync(MauiProgram.Services.GetRequiredService<LogsPage>()).ConfigureAwait(true);
 
     private async void OnAboutClicked(object? sender, EventArgs e) =>
-        await DisplayAlert("Iskra", "Mesh-мессенджер без групп.\nВерсия 0.1\nAndroid 5.0 (API 21)+", "OK")
-            .ConfigureAwait(true);
+        await DisplayAlert("Iskra", Loc.T("settings.about_body"), Loc.T("ok")).ConfigureAwait(true);
 
     private async void OnLogoutClicked(object? sender, EventArgs e)
     {

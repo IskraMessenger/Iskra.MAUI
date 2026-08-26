@@ -1,3 +1,4 @@
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 
 namespace Iskra.Maui;
@@ -23,25 +24,17 @@ public class LogsPage : ContentPage
         LineBreakMode = LineBreakMode.CharacterWrap
     };
 
+    private readonly ToolbarItem _copyItem = new() { Order = ToolbarItemOrder.Primary, Priority = 0 };
+    private readonly ToolbarItem _refreshItem = new() { Order = ToolbarItemOrder.Primary, Priority = 1 };
+
     private IDispatcherTimer? _refreshTimer;
 
     public LogsPage()
     {
-        Title = "Logs";
-        ToolbarItems.Add(new ToolbarItem
-        {
-            Text = "Copy",
-            Order = ToolbarItemOrder.Primary,
-            Priority = 0,
-            Command = new Command(async () => await CopyLogsAsync())
-        });
-        ToolbarItems.Add(new ToolbarItem
-        {
-            Text = "Refresh",
-            Order = ToolbarItemOrder.Primary,
-            Priority = 1,
-            Command = new Command(RefreshLogs)
-        });
+        _copyItem.Command = new Command(async () => await CopyLogsAsync());
+        _refreshItem.Command = new Command(RefreshLogs);
+        ToolbarItems.Add(_copyItem);
+        ToolbarItems.Add(_refreshItem);
         _logEditor.SetValue(Grid.RowProperty, 1);
         Content = new Grid
         {
@@ -58,6 +51,9 @@ public class LogsPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        Title = Loc.T("logs.title");
+        _copyItem.Text = Loc.T("copy");
+        _refreshItem.Text = Loc.T("refresh");
         RefreshLogs();
         EnsureRefreshTimerStarted();
     }
@@ -88,8 +84,8 @@ public class LogsPage : ContentPage
     {
         var text = AppLogReader.ReadTodayLog(out var path);
         _pathLabel.Text = path == null
-            ? "Log file: (not created yet)"
-            : $"Log file: {path}";
+            ? Loc.T("logs.path_none")
+            : Loc.Tf("logs.path", path);
         _logEditor.Text = text;
     }
 
@@ -99,6 +95,6 @@ public class LogsPage : ContentPage
             return;
 
         await Clipboard.Default.SetTextAsync(_logEditor.Text).ConfigureAwait(true);
-        await DisplayAlert("Copied", "Log text copied to clipboard.", "OK").ConfigureAwait(true);
+        await DisplayAlert(Loc.T("copied"), Loc.T("logs.copied"), Loc.T("ok")).ConfigureAwait(true);
     }
 }

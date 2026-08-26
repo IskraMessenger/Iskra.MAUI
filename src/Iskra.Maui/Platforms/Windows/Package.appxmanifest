@@ -47,6 +47,8 @@
 
     <Capabilities>
         <rescap:Capability Name="runFullTrust"/>
+        <!-- Required by MAUI Permissions.Camera / MediaPicker on unpackaged WinUI (AppxManifest.xml next to exe). -->
+        <DeviceCapability Name="webcam"/>
         <DeviceCapability Name="microphone"/>
     </Capabilities>
 

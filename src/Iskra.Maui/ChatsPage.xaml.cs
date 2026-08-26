@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
@@ -18,6 +19,8 @@ public partial class ChatsPage : ContentPage
     private readonly ILogger<ChatsPage> _logger;
     private readonly MessengerServerManager _messengerServers;
     private readonly UserP2pRuntime _p2p;
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private int _refreshPending;
     private IDispatcherTimer? _presenceRefreshTimer;
     private string _search = "";
 
@@ -59,6 +62,9 @@ public partial class ChatsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        Title = Loc.T("tab.chats");
+        SearchEntry.Placeholder = Loc.T("search");
+        EmptyChatsLabel.Text = Loc.T("chats.empty");
         _chats.ChatListChanged -= OnChatListChangedFromInvite;
         _chats.ChatListChanged += OnChatListChangedFromInvite;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
@@ -106,11 +112,9 @@ public partial class ChatsPage : ContentPage
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             await DisplayAlert(
-                "Угроза безопасности",
-                $"Сертификат сервера {e.Server.BaseUrl} не совпадает с сохранённым fingerprint.\n\n" +
-                $"Ожидался: {e.ExpectedFingerprint}\nПолучен: {e.ActualFingerprint}\n\n" +
-                "Сервер отключён и помечен как недоверенный.",
-                "OK").ConfigureAwait(true);
+                Loc.T("security.threat_title"),
+                Loc.Tf("security.threat_body", e.Server.BaseUrl, e.ExpectedFingerprint, e.ActualFingerprint),
+                Loc.T("ok")).ConfigureAwait(true);
         });
     }
 
@@ -143,6 +147,28 @@ public partial class ChatsPage : ContentPage
 
     private async Task RefreshAsync()
     {
+        if (!await _refreshGate.WaitAsync(0).ConfigureAwait(true))
+        {
+            Interlocked.Exchange(ref _refreshPending, 1);
+            return;
+        }
+
+        try
+        {
+            do
+            {
+                Interlocked.Exchange(ref _refreshPending, 0);
+                await RefreshCoreAsync().ConfigureAwait(true);
+            } while (Interlocked.Exchange(ref _refreshPending, 0) == 1);
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    private async Task RefreshCoreAsync()
+    {
         var u = _auth.CurrentUser;
         if (u == null)
         {
@@ -154,6 +180,7 @@ public partial class ChatsPage : ContentPage
         }
 
         Header.Bind(u, _p2p);
+        // Local SQLite only — presence affects the green dot, never membership.
         var list = await _chats.ListChatsAsync(u.Id).ConfigureAwait(true);
         _allRows.Clear();
         foreach (var c in list)
@@ -172,10 +199,10 @@ public partial class ChatsPage : ContentPage
         if (!ChatRepository.IsPlaceholderNickname(chat.PeerNickname, chat.PeerNetworkIdShort))
             return;
 
-        var id = chat.PeerNetworkIdShort.Trim();
+        var id = ChatRepository.CanonicalPeerNetworkId(chat.PeerNetworkIdShort);
         foreach (var p in _p2p.LocalScan.Clients)
         {
-            if (!string.Equals(p.NetworkId.ToShortString(), id, StringComparison.Ordinal))
+            if (!ChatRepository.PeerNetworkIdsEqual(p.NetworkId.ToShortString(), id))
                 continue;
             var nick = p.Nickname?.Trim() ?? "";
             if (ChatRepository.IsPlaceholderNickname(nick, id))
@@ -229,9 +256,9 @@ public partial class ChatsPage : ContentPage
         if (u == null)
             return;
 
-        var confirm = await DisplayAlert("Удалить чат",
-            $"Удалить «{chat.PeerNickname}» только на этом устройстве? Все сообщения будут удалены.",
-            "Удалить", "Отмена").ConfigureAwait(true);
+        var confirm = await DisplayAlert(Loc.T("chats.delete_title"),
+            Loc.Tf("chats.delete_body", chat.PeerNickname),
+            Loc.T("delete"), Loc.T("cancel")).ConfigureAwait(true);
         if (!confirm)
             return;
 

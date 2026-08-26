@@ -1,3 +1,4 @@
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Bluetooth;
@@ -10,7 +11,6 @@ namespace Iskra.Maui;
 
 public class RoutingSettingsPage : ContentPage
 {
-    private const string ErrorHeader = "Error";
     private readonly List<BluetoothRadioInfo> _adapterRadios = [];
     private readonly Switch _advertisePeerSearch = new();
     private readonly Entry _attempts = new() { Keyboard = Keyboard.Numeric };
@@ -22,11 +22,24 @@ public class RoutingSettingsPage : ContentPage
     private readonly Switch _enableUdpTransport = new();
     private readonly Picker _linkTechnology = new();
     private readonly ILogger<RoutingSettingsPage> _logger;
-    private readonly Entry _maxHops = new() { Keyboard = Keyboard.Numeric, Placeholder = "1–3" };
+    private readonly Entry _maxHops = new() { Keyboard = Keyboard.Numeric };
     private readonly UserP2pRuntime _runtime;
     private readonly Entry _searchTimeoutMs = new() { Keyboard = Keyboard.Numeric };
     private readonly P2pRoutingSettingsStore _store;
     private readonly Switch _suggestBluetoothPairing = new();
+
+    private readonly Label _maxDepthLabel = new();
+    private readonly Label _attemptsLabel = new();
+    private readonly Label _delayLabel = new();
+    private readonly Label _timeoutLabel = new();
+    private readonly Label _speedLabel = new();
+    private readonly Label _udpLabel = new();
+    private readonly Label _btLabel = new();
+    private readonly Label _btAdapterLabel = new();
+    private readonly Label _btPairLabel = new();
+    private readonly Label _shareRoutesLabel = new();
+    private readonly Button _saveButton = new();
+
     private bool _trafficSavingEnabled;
 
     public RoutingSettingsPage(P2pRoutingSettingsStore store, UserP2pRuntime runtime,
@@ -40,7 +53,7 @@ public class RoutingSettingsPage : ContentPage
         _logger = logger;
         foreach (var p in LinkTechnologyPresetExtensions.AllPresets)
             _linkTechnology.Items.Add(p.GetDisplayLabel());
-        Title = "P2P routing";
+        _saveButton.Command = new Command(async () => await SaveAsync());
         Content = new ScrollView
         {
             Content = new VerticalStackLayout
@@ -49,30 +62,31 @@ public class RoutingSettingsPage : ContentPage
                 Spacing = 12,
                 Children =
                 {
-                    new Label { Text = "Max search depth (edges, 1–3)" },
+                    _maxDepthLabel,
                     _maxHops,
-                    new Label { Text = "Send failure: search attempts" },
+                    _attemptsLabel,
                     _attempts,
-                    new Label { Text = "Pause between attempts (ms)" },
+                    _delayLabel,
                     _delayMs,
-                    new Label { Text = "FIND wait timeout (ms)" },
+                    _timeoutLabel,
                     _searchTimeoutMs,
-                    new Label { Text = "Connection speed (in presence ping; affects ping interval)" },
+                    _speedLabel,
                     _linkTechnology,
-                    new Label { Text = "UDP transport" },
+                    _udpLabel,
                     _enableUdpTransport,
-                    new Label { Text = "Bluetooth transport" },
+                    _btLabel,
                     _enableBluetoothTransport,
-                    new Label { Text = "Bluetooth adapter (for contacts)" },
+                    _btAdapterLabel,
                     _bluetoothAdapter,
-                    new Label { Text = "Suggest Bluetooth pairing" },
+                    _btPairLabel,
                     _suggestBluetoothPairing,
-                    new Label { Text = "Share route table on UDP request (PeerSearch)" },
+                    _shareRoutesLabel,
                     _advertisePeerSearch,
-                    new Button { Text = "Save", Command = new Command(async () => await SaveAsync()) }
+                    _saveButton
                 }
             }
         };
+        ApplyLocalizedUi();
     }
 
     protected override async void OnAppearing()
@@ -80,6 +94,7 @@ public class RoutingSettingsPage : ContentPage
         try
         {
             base.OnAppearing();
+            ApplyLocalizedUi();
             var s = await _store.LoadAsync().ConfigureAwait(true);
             _maxHops.Text = s.MaxSearchHops.ToString();
             _attempts.Text = s.SendFailureSearchAttempts.ToString();
@@ -100,6 +115,23 @@ public class RoutingSettingsPage : ContentPage
         }
     }
 
+    private void ApplyLocalizedUi()
+    {
+        Title = Loc.T("routing.title");
+        _maxDepthLabel.Text = Loc.T("routing.max_depth");
+        _attemptsLabel.Text = Loc.T("routing.attempts");
+        _delayLabel.Text = Loc.T("routing.delay");
+        _timeoutLabel.Text = Loc.T("routing.timeout");
+        _speedLabel.Text = Loc.T("routing.speed");
+        _udpLabel.Text = Loc.T("routing.udp");
+        _btLabel.Text = Loc.T("routing.bt");
+        _btAdapterLabel.Text = Loc.T("routing.bt_adapter");
+        _btPairLabel.Text = Loc.T("routing.bt_pair");
+        _shareRoutesLabel.Text = Loc.T("routing.share_routes");
+        _saveButton.Text = Loc.T("save");
+        _maxHops.Placeholder = Loc.T("routing.depth_ph");
+    }
+
     private async Task LoadBluetoothAdaptersAsync(P2pRoutingSettings settings)
     {
         _bluetoothAdapter.Items.Clear();
@@ -110,7 +142,7 @@ public class RoutingSettingsPage : ContentPage
             _adapterRadios.AddRange(radios);
             foreach (var r in radios)
             {
-                var suffix = r.IsDefault ? " — default" : string.Empty;
+                var suffix = r.IsDefault ? Loc.T("routing.default") : string.Empty;
                 _bluetoothAdapter.Items.Add($"{r.DisplayName} ({r.MacString}){suffix}");
             }
 
@@ -135,7 +167,7 @@ public class RoutingSettingsPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not list Bluetooth adapters");
-            _bluetoothAdapter.Items.Add("(adapters unavailable)");
+            _bluetoothAdapter.Items.Add(Loc.T("routing.adapters_unavailable"));
             _bluetoothAdapter.SelectedIndex = 0;
         }
     }
@@ -159,25 +191,25 @@ public class RoutingSettingsPage : ContentPage
     {
         if (!int.TryParse(_maxHops.Text, out var mh) || mh is < 1 or > 3)
         {
-            await DisplayAlert(ErrorHeader, "Max depth must be 1–3.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), Loc.T("routing.err_depth"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
         if (!int.TryParse(_attempts.Text, out var at) || at < 1)
         {
-            await DisplayAlert(ErrorHeader, "Attempts must be ≥ 1.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), Loc.T("routing.err_attempts"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
         if (!int.TryParse(_delayMs.Text, out var dm) || dm < 0)
         {
-            await DisplayAlert(ErrorHeader, "Delay must be ≥ 0 ms.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), Loc.T("routing.err_delay"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
         if (!int.TryParse(_searchTimeoutMs.Text, out var st) || st < 500)
         {
-            await DisplayAlert(ErrorHeader, "Search timeout must be ≥ 500 ms.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), Loc.T("routing.err_timeout"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 

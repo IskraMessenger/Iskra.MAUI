@@ -4,6 +4,7 @@ using ShortP2P.Client.Bluetooth;
 using ShortP2P.Client.Services;
 using ShortP2P.Crypto;
 using ShortP2P.Transport;
+using Iskra.Maui.Localization;
 
 namespace Iskra.Maui;
 
@@ -28,7 +29,7 @@ internal static class ProfileShare
 
         var text = MyTransportEndpointsText.Build(u, p2p.Settings, bt);
         await Clipboard.Default.SetTextAsync(text).ConfigureAwait(true);
-        await host.DisplayAlert("Скопировано", "Адреса скопированы в буфер обмена.", "OK").ConfigureAwait(true);
+        await host.DisplayAlert(Loc.T("copied"), Loc.T("copied.addresses"), Loc.T("ok")).ConfigureAwait(true);
     }
 
     public static async Task CopyKeysAsync(Page host, AuthService auth)
@@ -39,6 +40,6 @@ internal static class ProfileShare
         var pub = RsaKeySerializer.SerializePublic(auth.GetCurrentPublicKey());
         var text = $"Network id: {u.NetworkIdShort}\nPublic key JSON:\n{pub}";
         await Clipboard.Default.SetTextAsync(text).ConfigureAwait(true);
-        await host.DisplayAlert("Скопировано", "Идентификатор и публичный ключ скопированы.", "OK").ConfigureAwait(true);
+        await host.DisplayAlert(Loc.T("copied"), Loc.T("copied.keys"), Loc.T("ok")).ConfigureAwait(true);
     }
 }

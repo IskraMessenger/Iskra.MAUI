@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Data;
@@ -17,23 +18,89 @@ public sealed class MessengerServersPage : ContentPage
         Keyboard = Keyboard.Url
     };
 
-    private readonly Button _addButton = new() { Text = "Добавить сервер" };
-    private readonly Button _importButton = new() { Text = "Импортировать сервер" };
+    private readonly Button _addButton = new();
+    private readonly Button _importButton = new();
     private readonly CollectionView _list = new() { SelectionMode = SelectionMode.None };
     private readonly ObservableCollection<MessengerServerRowVm> _rows = [];
     private readonly MessengerServerManager _manager;
     private readonly ILogger<MessengerServersPage> _logger;
     private readonly Label _status = new() { FontSize = 12, TextColor = Colors.Gray };
+    private readonly Label _introLabel = new() { FontSize = 12, TextColor = Colors.Gray };
+    private readonly Label _baseUrlLabel = new();
+    private readonly Label _activeHintLabel = new() { FontSize = 12, TextColor = Colors.Gray };
     private bool _suppressActiveToggle;
 
     public MessengerServersPage(MessengerServerManager manager, ILogger<MessengerServersPage> logger)
     {
         _manager = manager;
         _logger = logger;
-        Title = "Messenger servers";
 
         _list.ItemsSource = _rows;
-        _list.ItemTemplate = new DataTemplate(() =>
+        _addButton.Clicked += OnAddClicked;
+        _importButton.Clicked += OnImportClicked;
+
+        var root = new Grid
+        {
+            Padding = 16,
+            RowSpacing = 10,
+            RowDefinitions =
+            {
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Star),
+                new RowDefinition(GridLength.Auto)
+            }
+        };
+        root.Add(_introLabel, 0, 0);
+        root.Add(new VerticalStackLayout
+        {
+            Spacing = 8,
+            Children =
+            {
+                _baseUrlLabel,
+                _baseUrlEntry,
+                _addButton,
+                _importButton
+            }
+        }, 0, 1);
+        root.Add(_status, 0, 2);
+        root.Add(_list, 0, 3);
+        root.Add(_activeHintLabel, 0, 4);
+        Content = root;
+        ApplyLocalizedUi();
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        ApplyLocalizedUi();
+        _manager.TrustThreatDetected -= OnTrustThreat;
+        _manager.TrustThreatDetected += OnTrustThreat;
+        await ReloadAsync().ConfigureAwait(true);
+    }
+
+    protected override void OnDisappearing()
+    {
+        _manager.TrustThreatDetected -= OnTrustThreat;
+        base.OnDisappearing();
+    }
+
+    private void ApplyLocalizedUi()
+    {
+        Title = Loc.T("servers.title");
+        _introLabel.Text = Loc.T("servers.intro");
+        _baseUrlLabel.Text = Loc.T("servers.base_url");
+        _addButton.Text = Loc.T("servers.add");
+        _importButton.Text = Loc.T("servers.import");
+        _activeHintLabel.Text = Loc.T("servers.active_hint");
+        _list.ItemTemplate = CreateItemTemplate();
+        foreach (var row in _rows)
+            row.RefreshMeta();
+    }
+
+    private DataTemplate CreateItemTemplate() =>
+        new(() =>
         {
             var url = new Label { FontSize = 16 };
             url.SetBinding(Label.TextProperty, nameof(MessengerServerRowVm.BaseUrl));
@@ -48,21 +115,21 @@ public sealed class MessengerServersPage : ContentPage
 
             var share = new Button
             {
-                Text = "Поделиться",
+                Text = Loc.T("servers.share"),
                 Padding = new Thickness(10, 4)
             };
             share.Clicked += OnShareClicked;
 
             var recheck = new Button
             {
-                Text = "Проверить",
+                Text = Loc.T("servers.check"),
                 Padding = new Thickness(10, 4)
             };
             recheck.Clicked += OnRecheckClicked;
 
             var delete = new Button
             {
-                Text = "Удалить",
+                Text = Loc.T("servers.delete"),
                 BackgroundColor = Colors.DarkRed,
                 TextColor = Colors.White,
                 Padding = new Thickness(10, 4)
@@ -98,65 +165,6 @@ public sealed class MessengerServersPage : ContentPage
             };
         });
 
-        _addButton.Clicked += OnAddClicked;
-        _importButton.Clicked += OnImportClicked;
-
-        var root = new Grid
-        {
-            Padding = 16,
-            RowSpacing = 10,
-            RowDefinitions =
-            {
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Auto),
-                new RowDefinition(GridLength.Star),
-                new RowDefinition(GridLength.Auto)
-            }
-        };
-        root.Add(new Label
-        {
-            Text =
-                "До 32 HTTPS-серверов. При добавлении сохраняется fingerprint сертификата. Если сервер не отвечает, он помечается как неактивный; при несовпадении fingerprint — как недоверенный.",
-            FontSize = 12,
-            TextColor = Colors.Gray
-        }, 0, 0);
-        root.Add(new VerticalStackLayout
-        {
-            Spacing = 8,
-            Children =
-            {
-                new Label { Text = "Base URL" },
-                _baseUrlEntry,
-                _addButton,
-                _importButton
-            }
-        }, 0, 1);
-        root.Add(_status, 0, 2);
-        root.Add(_list, 0, 3);
-        root.Add(new Label
-        {
-            Text = "Active = использовать сервер. Выключенный сервер не опрашивается.",
-            FontSize = 12,
-            TextColor = Colors.Gray
-        }, 0, 4);
-        Content = root;
-    }
-
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
-        _manager.TrustThreatDetected -= OnTrustThreat;
-        _manager.TrustThreatDetected += OnTrustThreat;
-        await ReloadAsync().ConfigureAwait(true);
-    }
-
-    protected override void OnDisappearing()
-    {
-        _manager.TrustThreatDetected -= OnTrustThreat;
-        base.OnDisappearing();
-    }
-
     private void OnTrustThreat(object? sender, MessengerServerTrustThreatEventArgs e)
     {
         MainThread.BeginInvokeOnMainThread(async () => await ReloadAsync().ConfigureAwait(true));
@@ -171,7 +179,7 @@ public sealed class MessengerServersPage : ContentPage
             _rows.Clear();
             foreach (var s in servers.OrderByDescending(x => x.UpdatedUtcTicks))
                 _rows.Add(new MessengerServerRowVm(s));
-            _status.Text = $"Серверов: {_rows.Count} / {MessengerServerLimits.MaxServersPerUser}";
+            _status.Text = Loc.Tf("servers.count", _rows.Count, MessengerServerLimits.MaxServersPerUser);
         }
         catch (Exception ex)
         {
@@ -189,24 +197,24 @@ public sealed class MessengerServersPage : ContentPage
         var url = _baseUrlEntry.Text?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(url))
         {
-            await DisplayAlert("Ошибка", "Укажите Base URL сервера.", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), Loc.T("servers.need_url"), Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
         _addButton.IsEnabled = false;
-        _status.Text = "Подключение и регистрация…";
+        _status.Text = Loc.T("servers.connecting");
         try
         {
             var entity = await _manager.AddServerAsync(url).ConfigureAwait(true);
             AppLog.ServerResponse("AddServer", entity.BaseUrl, $"id={entity.Id} trusted={entity.Trusted}");
             _baseUrlEntry.Text = "";
-            _status.Text = $"Добавлен: {entity.BaseUrl}";
+            _status.Text = Loc.Tf("servers.added", entity.BaseUrl);
             await ReloadAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Add messenger server");
-            await DisplayAlert("Ошибка", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
             _status.Text = ex.Message;
         }
         finally
@@ -222,7 +230,7 @@ public sealed class MessengerServersPage : ContentPage
 
         if (!MessengerServerQrService.TryBuildPayload(row.BaseUrl, out var payload, out var err))
         {
-            await DisplayAlert("Поделиться сервером", err ?? "Не удалось собрать QR-код сервера.", "OK")
+            await DisplayAlert(Loc.T("servers.share_title"), err ?? Loc.T("servers.share_fail"), Loc.T("ok"))
                 .ConfigureAwait(true);
             return;
         }
@@ -235,7 +243,7 @@ public sealed class MessengerServersPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Share messenger server QR {Id}", row.Id);
-            await DisplayAlert("Поделиться сервером", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("servers.share_title"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 
@@ -246,14 +254,14 @@ public sealed class MessengerServersPage : ContentPage
         {
             picked = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = "Файл с QR-кодом сервера",
+                PickerTitle = Loc.T("servers.qr_picker"),
                 FileTypes = FilePickerFileType.Images
             }).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Pick messenger server QR file");
-            await DisplayAlert("Импортировать сервер", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("servers.import_title"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
@@ -272,44 +280,44 @@ public sealed class MessengerServersPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Read messenger server QR file");
-            await DisplayAlert("Импортировать сервер", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("servers.import_title"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
         if (!MessengerServerQrService.TryDecodeImage(bytes, out var payload, out var err))
         {
             _logger.LogWarning("Messenger server QR decode failed from file: {Error}", err);
-            await DisplayAlert("Импортировать сервер", err ?? "Не удалось прочитать QR-код сервера.", "OK")
+            await DisplayAlert(Loc.T("servers.import_title"), err ?? Loc.T("servers.import_read_fail"), Loc.T("ok"))
                 .ConfigureAwait(true);
             return;
         }
 
         var url = MessengerServerQrCodec.ToBaseUrl(payload);
         _importButton.IsEnabled = false;
-        _status.Text = "Импорт сервера…";
+        _status.Text = Loc.T("servers.importing");
         try
         {
             var existing = await _manager.FindExistingByEndpointAsync(url).ConfigureAwait(true);
             if (existing != null)
             {
-                _status.Text = $"Сервер уже добавлен: {existing.BaseUrl}";
+                _status.Text = Loc.Tf("servers.already_status", existing.BaseUrl);
                 await DisplayAlert(
-                    "Импортировать сервер",
-                    $"Этот сервер уже есть в списке:\n{existing.BaseUrl}",
-                    "OK").ConfigureAwait(true);
+                    Loc.T("servers.import_title"),
+                    Loc.Tf("servers.already_body", existing.BaseUrl),
+                    Loc.T("ok")).ConfigureAwait(true);
                 return;
             }
 
             var entity = await _manager.AddServerAsync(url).ConfigureAwait(true);
             AppLog.ServerResponse("ImportServer", entity.BaseUrl, $"id={entity.Id}");
-            _status.Text = $"Импортирован: {entity.BaseUrl}";
+            _status.Text = Loc.Tf("servers.imported", entity.BaseUrl);
             await ReloadAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Import messenger server from QR");
             _status.Text = ex.Message;
-            await DisplayAlert("Импортировать сервер", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("servers.import_title"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
         finally
         {
@@ -331,9 +339,9 @@ public sealed class MessengerServersPage : ContentPage
                 switchControl.IsToggled = false;
             _suppressActiveToggle = false;
             await DisplayAlert(
-                "Недоверенный сервер",
-                "Fingerprint не совпал. Удалите сервер и добавьте заново, только если доверяете новому сертификату.",
-                "OK").ConfigureAwait(true);
+                Loc.T("servers.untrusted_title"),
+                Loc.T("servers.untrusted_body"),
+                Loc.T("ok")).ConfigureAwait(true);
             return;
         }
 
@@ -354,7 +362,7 @@ public sealed class MessengerServersPage : ContentPage
             if (sw is Switch switchControl)
                 switchControl.IsToggled = !e.Value;
             _suppressActiveToggle = false;
-            await DisplayAlert("Ошибка", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 
@@ -365,7 +373,7 @@ public sealed class MessengerServersPage : ContentPage
 
         if (bindable is Button button)
             button.IsEnabled = false;
-        _status.Text = $"Проверка {row.BaseUrl}…";
+        _status.Text = Loc.Tf("servers.checking", row.BaseUrl);
         try
         {
             var result = await _manager.RecheckServerAsync(row.Id).ConfigureAwait(true);
@@ -374,29 +382,27 @@ public sealed class MessengerServersPage : ContentPage
             switch (result.Status)
             {
                 case MessengerServerRecheckStatus.AvailableAndTrusted:
-                    _status.Text = $"Сервер доступен, сертификат совпадает: {result.Server.BaseUrl}";
+                    _status.Text = Loc.Tf("servers.available_status", result.Server.BaseUrl);
                     await DisplayAlert(
-                        "Проверка сервера",
-                        "Сервер доступен, отпечаток сертификата совпадает.\nСтатус: active, доверенный.",
-                        "OK").ConfigureAwait(true);
+                        Loc.T("servers.recheck_title"),
+                        Loc.T("servers.recheck_ok"),
+                        Loc.T("ok")).ConfigureAwait(true);
                     break;
                 case MessengerServerRecheckStatus.Unreachable:
-                    _status.Text = $"Сервер недоступен: {result.Server.BaseUrl}";
+                    _status.Text = Loc.Tf("servers.unreachable_status", result.Server.BaseUrl);
                     await DisplayAlert(
-                        "Проверка сервера",
+                        Loc.T("servers.recheck_title"),
                         string.IsNullOrWhiteSpace(result.ErrorMessage)
-                            ? "Сервер недоступен. Помечен как неактивный (доверенный статус сохранён)."
-                            : $"Сервер недоступен. Помечен как неактивный (доверенный статус сохранён).\n\n{result.ErrorMessage}",
-                        "OK").ConfigureAwait(true);
+                            ? Loc.T("servers.recheck_unreachable")
+                            : Loc.Tf("servers.recheck_unreachable_detail", result.ErrorMessage),
+                        Loc.T("ok")).ConfigureAwait(true);
                     break;
                 case MessengerServerRecheckStatus.FingerprintMismatch:
-                    _status.Text = $"Fingerprint не совпал: {result.Server.BaseUrl}";
+                    _status.Text = Loc.Tf("servers.fp_status", result.Server.BaseUrl);
                     await DisplayAlert(
-                        "Проверка сервера",
-                        "Сертификат сервера не совпадает с сохранённым fingerprint.\n" +
-                        $"Ожидался: {result.ExpectedFingerprint}\nПолучен: {result.ActualFingerprint}\n\n" +
-                        "Сервер отключён и помечен как недоверенный.",
-                        "OK").ConfigureAwait(true);
+                        Loc.T("servers.recheck_title"),
+                        Loc.Tf("servers.recheck_fp", result.ExpectedFingerprint, result.ActualFingerprint),
+                        Loc.T("ok")).ConfigureAwait(true);
                     break;
             }
         }
@@ -404,7 +410,7 @@ public sealed class MessengerServersPage : ContentPage
         {
             _logger.LogWarning(ex, "Recheck messenger server {Id}", row.Id);
             _status.Text = ex.Message;
-            await DisplayAlert("Ошибка", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
         finally
         {
@@ -419,10 +425,10 @@ public sealed class MessengerServersPage : ContentPage
             return;
 
         var ok = await DisplayAlert(
-            "Удалить сервер?",
-            $"{row.BaseUrl}\nУчётная запись на сервере не удаляется — только запись на этом устройстве.",
-            "Удалить",
-            "Отмена").ConfigureAwait(true);
+            Loc.T("servers.delete_title"),
+            Loc.Tf("servers.delete_body", row.BaseUrl),
+            Loc.T("servers.delete"),
+            Loc.T("cancel")).ConfigureAwait(true);
         if (!ok)
             return;
 
@@ -435,7 +441,7 @@ public sealed class MessengerServersPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Delete messenger server {Id}", row.Id);
-            await DisplayAlert("Ошибка", ex.Message, "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("error"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
         }
     }
 
@@ -495,10 +501,10 @@ public sealed class MessengerServersPage : ContentPage
                 : fp.Length <= 16
                     ? fp
                     : fp[..8] + "…" + fp[^8..];
-            var trust = trusted ? "trusted" : "UNTRUSTED";
-            var act = active ? "active" : "off";
-            var reg = registered ? "registered" : "not registered";
-            return $"{trust} · {act} · {reg} · fp {shortFp}";
+            var trust = trusted ? Loc.T("servers.meta_trusted") : Loc.T("servers.meta_untrusted");
+            var act = active ? Loc.T("servers.meta_active") : Loc.T("servers.meta_off");
+            var reg = registered ? Loc.T("servers.meta_registered") : Loc.T("servers.meta_not_registered");
+            return Loc.Tf("servers.meta", trust, act, reg, shortFp);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

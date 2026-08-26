@@ -12,12 +12,12 @@
                    HorizontalOptions="Center" />
             <Label Text="Iskra" FontSize="32" FontAttributes="Bold"
                    TextColor="{DynamicResource Accent}" HorizontalOptions="Center" />
-            <Label Text="Вход по нику и паролю. Ключ хранится на этом устройстве."
-                   FontSize="14" TextColor="{DynamicResource MutedText}" HorizontalTextAlignment="Center" />
-            <Entry x:Name="NicknameEntry" Placeholder="Ник" />
-            <Entry x:Name="PasswordEntry" Placeholder="Пароль" IsPassword="True" />
-            <Button Text="Войти" Clicked="OnLoginClicked" />
-            <Button Text="Создать аккаунт" Clicked="OnRegisterNavigateClicked"
+            <Label x:Name="SubtitleLabel" FontSize="14" TextColor="{DynamicResource MutedText}"
+                   HorizontalTextAlignment="Center" />
+            <Entry x:Name="NicknameEntry" />
+            <Entry x:Name="PasswordEntry" IsPassword="True" />
+            <Button x:Name="SignInButton" Clicked="OnLoginClicked" />
+            <Button x:Name="CreateAccountButton" Clicked="OnRegisterNavigateClicked"
                     BackgroundColor="Transparent" TextColor="{DynamicResource Accent}" />
         </VerticalStackLayout>
     </ScrollView>

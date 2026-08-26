@@ -2,6 +2,7 @@ using ShortP2P.Auth;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Discovery;
+using Iskra.Maui.Localization;
 
 namespace Iskra.Maui;
 
@@ -29,10 +30,11 @@ internal static class ChatNav
                     await OpenChatAsync(host.Navigation, result.Chat.Id).ConfigureAwait(true);
                 break;
             case LanChatStartKind.WaitingForPeer:
-                await host.DisplayAlert("Сеть", result.Message ?? "", "OK").ConfigureAwait(true);
+                await host.DisplayAlert(Loc.T("network.title"), result.Message ?? "", Loc.T("ok")).ConfigureAwait(true);
                 break;
             case LanChatStartKind.Failed:
-                await host.DisplayAlert("Сеть", result.Message ?? "Ошибка", "OK").ConfigureAwait(true);
+                await host.DisplayAlert(Loc.T("network.title"), result.Message ?? Loc.T("network.error"), Loc.T("ok"))
+                    .ConfigureAwait(true);
                 break;
         }
     }
@@ -40,16 +42,16 @@ internal static class ChatNav
     public static string Preview(ChatMessageEntity? m)
     {
         if (m == null)
-            return "Нет сообщений";
+            return Loc.T("preview.none");
         if (m.PayloadKind == (int)ChatPayloadKind.Image)
-            return "Фото";
+            return Loc.T("preview.photo");
         if (m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) == true)
-            return "Голосовое сообщение";
+            return Loc.T("preview.voice");
         if (m.PayloadKind is (int)ChatPayloadKind.File or (int)ChatPayloadKind.TransferOffer)
             return string.IsNullOrWhiteSpace(m.TransferFileName)
-                ? (string.IsNullOrWhiteSpace(m.Text) ? "Файл" : m.Text)
+                ? (string.IsNullOrWhiteSpace(m.Text) ? Loc.T("preview.file") : m.Text)
                 : m.TransferFileName;
-        return string.IsNullOrWhiteSpace(m.Text) ? "Сообщение" : m.Text.Replace('\n', ' ');
+        return string.IsNullOrWhiteSpace(m.Text) ? Loc.T("preview.message") : m.Text.Replace('\n', ' ');
     }
 
     public static string TimeLabel(long utcTicks)

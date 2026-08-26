@@ -4,7 +4,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Iskra.Maui"
              x:Class="Iskra.Maui.SettingsPage"
-             Title="Настройки"
+             Title="Settings"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{DynamicResource PageBackground}">
     <ScrollView>
@@ -25,13 +25,19 @@
                 </VerticalStackLayout>
             </Grid>
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" />
-            <Label Text="Оформление" FontSize="13" TextColor="{DynamicResource MutedText}"
+            <Label x:Name="LanguageSectionLabel" FontSize="13" TextColor="{DynamicResource MutedText}"
+                   Margin="16,16,16,8" />
+            <VerticalStackLayout x:Name="LanguageChips" Spacing="8" Padding="16,0,16,8" />
+            <Label x:Name="LanguageWarningLabel" FontSize="12" TextColor="#FF9500"
+                   Margin="16,0,16,12" IsVisible="False" LineBreakMode="WordWrap" />
+            <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" />
+            <Label x:Name="AppearanceLabel" FontSize="13" TextColor="{DynamicResource MutedText}"
                    Margin="16,16,16,8" />
             <HorizontalStackLayout x:Name="ThemeChips" Spacing="10" Padding="16,0,16,12" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" />
             <Grid Padding="16,12" ColumnDefinitions="*,Auto">
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="Bluetooth" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
+                    <Label x:Name="BluetoothLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
                     <Label x:Name="BluetoothHint" FontSize="12" TextColor="{DynamicResource MutedText}" />
                 </VerticalStackLayout>
                 <Switch x:Name="BluetoothSwitch" Grid.Column="1" OnColor="{DynamicResource Accent}"
@@ -39,7 +45,7 @@
             </Grid>
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
             <Grid Padding="16,12" ColumnDefinitions="*,Auto">
-                <Label Text="UDP (локальный порт)" FontSize="16" TextColor="{DynamicResource MidnightBlue}"
+                <Label x:Name="UdpLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}"
                        VerticalOptions="Center" />
                 <Label x:Name="UdpPortLabel" Grid.Column="1" FontSize="15" TextColor="{DynamicResource MutedText}"
                        VerticalOptions="Center" />
@@ -47,7 +53,7 @@
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
             <Grid Padding="16,12" ColumnDefinitions="*,Auto">
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="LAN-сканирование" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
+                    <Label x:Name="LanLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
                     <Label x:Name="LanHint" FontSize="12" TextColor="{DynamicResource MutedText}" />
                 </VerticalStackLayout>
                 <Switch x:Name="LanSwitch" Grid.Column="1" OnColor="{DynamicResource Accent}" Toggled="OnLanToggled" />
@@ -55,7 +61,7 @@
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
             <Grid Padding="16,12" ColumnDefinitions="*,Auto">
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="P2P-маршрутизация" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
+                    <Label x:Name="RoutingLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
                     <Label x:Name="RoutingHint" FontSize="12" TextColor="{DynamicResource MutedText}" />
                 </VerticalStackLayout>
                 <Switch x:Name="RoutingSwitch" Grid.Column="1" OnColor="{DynamicResource Accent}"
@@ -64,7 +70,7 @@
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
             <Grid Padding="16,12" ColumnDefinitions="*,Auto">
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="Ультраэкономия" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
+                    <Label x:Name="EconomyLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
                     <Label x:Name="EconomyHint" FontSize="12" TextColor="{DynamicResource MutedText}"
                            LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
@@ -73,27 +79,29 @@
             </Grid>
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
             <Grid Padding="16,12" ColumnDefinitions="*,Auto">
-                <Label Text="Хранилище" FontSize="16" TextColor="{DynamicResource MidnightBlue}" VerticalOptions="Center" />
+                <Label x:Name="StorageTitleLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}"
+                       VerticalOptions="Center" />
                 <Label x:Name="StorageLabel" Grid.Column="1" FontSize="14" TextColor="{DynamicResource MutedText}"
                        VerticalOptions="Center" />
             </Grid>
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
-            <Button Text="Экспорт ключей" Clicked="OnExportKeysClicked" BackgroundColor="Transparent"
+            <Button x:Name="ExportKeysButton" Clicked="OnExportKeysClicked" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
-            <Button Text="P2P-маршрутизация…" Clicked="OnOpenRoutingClicked" BackgroundColor="Transparent"
+            <Button x:Name="RoutingOpenButton" Clicked="OnOpenRoutingClicked" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
-            <Button Text="Тест соединения" Clicked="OnConnectionTestClicked" BackgroundColor="Transparent"
+            <Button x:Name="ConnectionTestButton" Clicked="OnConnectionTestClicked" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
-            <Button Text="Журнал" Clicked="OnLogsClicked" BackgroundColor="Transparent"
+            <Button x:Name="LogsButton" Clicked="OnLogsClicked" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
-            <Button Text="О приложении" Clicked="OnAboutClicked" BackgroundColor="Transparent"
+            <Button x:Name="AboutButton" Clicked="OnAboutClicked" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
-            <Button Text="Выйти" Clicked="OnLogoutClicked" BackgroundColor="Transparent" TextColor="{DynamicResource Danger}"
+            <Button x:Name="LogoutButton" Clicked="OnLogoutClicked" BackgroundColor="Transparent"
+                    TextColor="{DynamicResource Danger}"
                     HorizontalOptions="Fill" Padding="16,14" />
         </VerticalStackLayout>
     </ScrollView>

@@ -1,3 +1,4 @@
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Routing;
@@ -14,13 +15,13 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        LanguageService.Load();
         ThemeService.LoadAndApply();
         UiInteractionLog.HookApplication(this);
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        var login = MauiProgram.Services.GetRequiredService<LoginPage>();
         var logger = MauiProgram.Services.GetRequiredService<ILogger<App>>();
         logger.LogInformation("Application window created");
         if (Interlocked.Exchange(ref _permissionsBootstrapped, 1) == 0)
@@ -37,7 +38,11 @@ public partial class App : Application
             });
         if (Interlocked.Exchange(ref _deferredStart, 1) == 0)
             MainThread.BeginInvokeOnMainThread(() => _ = StartBackgroundServicesAsync(logger));
-        return new Window(new NavigationPage(login));
+
+        Page root = LanguageService.HasChosen
+            ? MauiProgram.Services.GetRequiredService<LoginPage>()
+            : new LanguageSelectPage();
+        return new Window(new NavigationPage(root));
     }
 
     private static async Task StartBackgroundServicesAsync(ILogger logger)

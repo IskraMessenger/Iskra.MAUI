@@ -1,3 +1,4 @@
+using Iskra.Maui.Localization;
 using ShortP2P.Client.Qr;
 
 namespace Iskra.Maui;
@@ -5,15 +6,17 @@ namespace Iskra.Maui;
 public sealed class MessengerServerQrPage : ContentPage
 {
     private readonly byte[] _qrPng;
+    private readonly string _caption;
+    private readonly Label _captionLabel = new() { FontSize = 12, TextColor = Colors.Gray };
+    private readonly Button _shareButton = new() { HorizontalOptions = LayoutOptions.Center };
+    private readonly Button _closeButton = new() { HorizontalOptions = LayoutOptions.Center };
 
     public MessengerServerQrPage(MessengerServerQrPayload payload, byte[] qrPng)
     {
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(qrPng);
         _qrPng = qrPng;
-
-        Title = "Поделиться сервером";
-        var caption = $"{payload.H}:{payload.P}";
+        _caption = $"{payload.H}:{payload.P}";
 
         var image = new Image
         {
@@ -25,10 +28,8 @@ public sealed class MessengerServerQrPage : ContentPage
             Source = ImageSource.FromStream(() => new MemoryStream(_qrPng))
         };
 
-        var share = new Button { Text = "Поделиться", HorizontalOptions = LayoutOptions.Center };
-        share.Clicked += OnShareClicked;
-        var close = new Button { Text = "Закрыть", HorizontalOptions = LayoutOptions.Center };
-        close.Clicked += async (_, _) => await Navigation.PopAsync().ConfigureAwait(true);
+        _shareButton.Clicked += OnShareClicked;
+        _closeButton.Clicked += async (_, _) => await Navigation.PopAsync().ConfigureAwait(true);
 
         Content = new ScrollView
         {
@@ -38,18 +39,28 @@ public sealed class MessengerServerQrPage : ContentPage
                 Spacing = 12,
                 Children =
                 {
-                    new Label
-                    {
-                        Text = $"QR-код сервера {caption}. Другой клиент может импортировать этот файл.",
-                        FontSize = 12,
-                        TextColor = Colors.Gray
-                    },
+                    _captionLabel,
                     image,
-                    share,
-                    close
+                    _shareButton,
+                    _closeButton
                 }
             }
         };
+        ApplyLocalizedUi();
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        ApplyLocalizedUi();
+    }
+
+    private void ApplyLocalizedUi()
+    {
+        Title = Loc.T("servers.share_title");
+        _captionLabel.Text = Loc.Tf("servers.qr_caption", _caption);
+        _shareButton.Text = Loc.T("share");
+        _closeButton.Text = Loc.T("close");
     }
 
     private async void OnShareClicked(object? sender, EventArgs e)
@@ -61,13 +72,14 @@ public sealed class MessengerServerQrPage : ContentPage
             await File.WriteAllBytesAsync(path, _qrPng).ConfigureAwait(true);
             await Share.Default.RequestAsync(new ShareFileRequest
             {
-                Title = "Поделиться сервером",
+                Title = Loc.T("servers.share_title"),
                 File = new ShareFile(path)
             }).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            await DisplayAlert("QR", $"Не удалось поделиться QR-кодом: {ex.Message}", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("qr.title"), Loc.Tf("qr.share_fail", ex.Message), Loc.T("ok"))
+                .ConfigureAwait(true);
         }
     }
 }

@@ -20,7 +20,9 @@
 
         <!-- Unpackaged WinUI (same as ShortP2P.MauiApp). Do not set EnableMsixTooling here:
              it is evaluated after NuGet props and breaks WinUI's CustomBeforeMicrosoftCommonTargets chain
-             (Microsoft.WinUI.targets CheckForInvalidCustomBeforeMicrosoftCommonTargets), especially in Rider. -->
+             (Microsoft.WinUI.targets CheckForInvalidCustomBeforeMicrosoftCommonTargets), especially in Rider.
+             Keep WindowsPackageType=None for F5; still ship AppxManifest.xml next to the exe
+             (CopyUnpackagedAppxManifest target) so MAUI Permissions.Camera/Microphone EnsureDeclared can Load() it. -->
         <WindowsPackageType>None</WindowsPackageType>
         <Platforms>AnyCPU;x64;ARM64</Platforms>
 
@@ -38,6 +40,29 @@
         <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and ('$(Platform)' == 'ARM64' or '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64')">win-arm64</RuntimeIdentifier>
         <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     </PropertyGroup>
+
+    <!-- Do not use @(AppxManifest) with WindowsPackageType=None (MSBuild errors). Explicitly copy so
+         Permissions.IsCapabilityDeclared finds AppxManifest.xml beside the unpackaged exe.
+         Cover both bin\$(Configuration)\… and bin\$(Platform)\$(Configuration)\… layouts. -->
+    <Target Name="CopyUnpackagedAppxManifest"
+            AfterTargets="Build"
+            Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(WindowsPackageType)' == 'None'">
+        <PropertyGroup>
+            <_AppxManifestSrc>$(MSBuildProjectDirectory)\Platforms\Windows\Package.appxmanifest</_AppxManifestSrc>
+            <_AppxManifestRidDir Condition="'$(RuntimeIdentifier)' != ''">$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_AppxManifestRidDir>
+            <_AppxManifestPlatformDir Condition="'$(Platform)' != '' and '$(Platform)' != 'AnyCPU' and '$(RuntimeIdentifier)' != ''">$(MSBuildProjectDirectory)\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_AppxManifestPlatformDir>
+        </PropertyGroup>
+        <ItemGroup>
+            <_AppxManifestDest Include="$(TargetDir)AppxManifest.xml" Condition="'$(TargetDir)' != ''" />
+            <_AppxManifestDest Include="$(_AppxManifestRidDir)AppxManifest.xml" Condition="'$(_AppxManifestRidDir)' != ''" />
+            <_AppxManifestDest Include="$(_AppxManifestPlatformDir)AppxManifest.xml" Condition="'$(_AppxManifestPlatformDir)' != ''" />
+        </ItemGroup>
+        <Copy SourceFiles="@(_AppxManifestDest->'$(_AppxManifestSrc)')"
+              DestinationFiles="@(_AppxManifestDest)"
+              SkipUnchangedFiles="true"
+              Condition="Exists('$(_AppxManifestSrc)') and '@(_AppxManifestDest)' != ''" />
+        <Message Importance="high" Text="Copied unpackaged AppxManifest.xml -> @(_AppxManifestDest)" />
+    </Target>
 
     <!--
       Min SDK 21 (Android 5.0). BLE GATT still needs API 31+ at runtime; older devices run without BT transport.

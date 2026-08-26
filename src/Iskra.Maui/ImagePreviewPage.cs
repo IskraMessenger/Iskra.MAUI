@@ -1,3 +1,5 @@
+using Iskra.Maui.Localization;
+
 namespace Iskra.Maui;
 
 /// <summary>Полноэкранный просмотр картинки из файла (байты грузятся только по клику).</summary>
@@ -5,11 +7,11 @@ public sealed class ImagePreviewPage : ContentPage
 {
     public ImagePreviewPage(string filePath)
     {
-        Title = "Изображение";
+        Title = Loc.T("image.title");
         BackgroundColor = Colors.Black;
         ToolbarItems.Add(new ToolbarItem
         {
-            Text = "Закрыть",
+            Text = Loc.T("close"),
             Command = new Command(async () => await CloseAsync())
         });
         Content = new Image

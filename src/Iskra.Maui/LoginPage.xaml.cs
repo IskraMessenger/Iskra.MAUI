@@ -1,3 +1,4 @@
+using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
@@ -20,8 +21,18 @@ public partial class LoginPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        ApplyLocalizedUi();
         if (await _auth.TryRestoreSessionAsync().ConfigureAwait(true) && _auth.CurrentUser != null)
             await GoToChatsAsync().ConfigureAwait(true);
+    }
+
+    private void ApplyLocalizedUi()
+    {
+        SubtitleLabel.Text = Loc.T("login.subtitle");
+        NicknameEntry.Placeholder = Loc.T("login.nick");
+        PasswordEntry.Placeholder = Loc.T("login.password");
+        SignInButton.Text = Loc.T("login.sign_in");
+        CreateAccountButton.Text = Loc.T("login.create_account");
     }
 
     private async void OnLoginClicked(object? sender, EventArgs e)
@@ -32,7 +43,8 @@ public partial class LoginPage : ContentPage
         if (!ok)
         {
             _logger.LogWarning("Login failed for {Nickname}: {Reason}", nick, err);
-            await DisplayAlert("Login", err ?? "Failed", "OK").ConfigureAwait(true);
+            await DisplayAlert(Loc.T("login.sign_in"), err ?? Loc.T("login.failed"), Loc.T("ok"))
+                .ConfigureAwait(true);
             return;
         }
 

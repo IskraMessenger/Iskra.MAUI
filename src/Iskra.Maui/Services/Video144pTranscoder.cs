@@ -1,5 +1,9 @@
 namespace Iskra.Maui.Services;
 
+/// <summary>
+/// Prepares outgoing video for economy mode (WinForms-aligned 160×120 when enabled).
+/// Full re-encode currently works on Windows; other platforms pass through bytes.
+/// </summary>
 internal static class Video144pTranscoder
 {
     public static bool IsVideoMime(string mime) =>
@@ -17,6 +21,7 @@ internal static class Video144pTranscoder
 #if WINDOWS
         return await TranscodeWindowsAsync(sourcePath, sourceFileName).ConfigureAwait(false);
 #else
+        // No portable transcoder on Android/iOS yet — send original (size still enforced by caller).
         var bytes = await File.ReadAllBytesAsync(sourcePath).ConfigureAwait(false);
         return (true, bytes, sourceMime, sourceFileName, null);
 #endif
@@ -28,7 +33,8 @@ internal static class Video144pTranscoder
     {
         try
         {
-            var destName = Path.GetFileNameWithoutExtension(sourceFileName) + "_144p.mp4";
+            var destName = Path.GetFileNameWithoutExtension(sourceFileName) +
+                           $"_{MediaEconomy.VideoWidth}x{MediaEconomy.VideoHeight}.mp4";
             var destPath = Path.Combine(FileSystem.CacheDirectory, $"iskra_vid_{DateTime.UtcNow.Ticks}.mp4");
             var src = await global::Windows.Storage.StorageFile.GetFileFromPathAsync(sourcePath);
             var folder = await global::Windows.Storage.StorageFolder.GetFolderFromPathAsync(FileSystem.CacheDirectory);
@@ -38,13 +44,13 @@ internal static class Video144pTranscoder
             var profile = global::Windows.Media.MediaProperties.MediaEncodingProfile.CreateMp4(
                 global::Windows.Media.MediaProperties.VideoEncodingQuality.Wvga);
             profile.Video = global::Windows.Media.MediaProperties.VideoEncodingProperties.CreateH264();
-            profile.Video.Width = MediaEconomy.VideoWidth;
-            profile.Video.Height = MediaEconomy.VideoHeight;
-            profile.Video.Bitrate = MediaEconomy.VideoBitrateBps;
+            profile.Video.Width = (uint)MediaEconomy.VideoWidth;
+            profile.Video.Height = (uint)MediaEconomy.VideoHeight;
+            profile.Video.Bitrate = (uint)MediaEconomy.VideoBitrateBps;
             profile.Video.FrameRate.Numerator = 15;
             profile.Video.FrameRate.Denominator = 1;
             if (profile.Audio != null)
-                profile.Audio.Bitrate = 16_000;
+                profile.Audio.Bitrate = (uint)MediaEconomy.SpeechBitrateBps;
 
             var transcoder = new global::Windows.Media.Transcoding.MediaTranscoder();
             var prepare = await transcoder.PrepareFileTranscodeAsync(src, dest, profile);

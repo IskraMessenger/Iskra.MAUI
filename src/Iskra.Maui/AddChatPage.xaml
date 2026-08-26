@@ -5,24 +5,23 @@
              x:Class="Iskra.Maui.AddChatPage"
              Title="Add P2P chat">
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Cancel" Clicked="OnCancelClicked" />
+        <ToolbarItem x:Name="CancelToolbar" Clicked="OnCancelClicked" />
     </ContentPage.ToolbarItems>
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="12">
-            <Label Text="Peer nickname" />
-            <Entry x:Name="PeerNickEntry" Placeholder="Alice" />
-            <Label Text="Peer network id (short)" />
-            <Entry x:Name="PeerIdEntry" Placeholder="from peer's profile" />
-            <Label Text="Peer RSA public key (JSON)" />
-            <Editor x:Name="PeerPubKeyEditor" Placeholder="Peer public key JSON (M, E)" AutoSize="TextChanges"
-                    MinimumHeightRequest="120" />
-            <Label Text="Peer host / IP" />
+            <Label x:Name="NickLabel" />
+            <Entry x:Name="PeerNickEntry" />
+            <Label x:Name="IdLabel" />
+            <Entry x:Name="PeerIdEntry" />
+            <Label x:Name="PubKeyLabel" />
+            <Editor x:Name="PeerPubKeyEditor" AutoSize="TextChanges" MinimumHeightRequest="120" />
+            <Label x:Name="HostLabel" />
             <Entry x:Name="PeerHostEntry" Text="127.0.0.1" />
-            <Label Text="Peer UDP data port" />
+            <Label x:Name="PortLabel" />
             <Entry x:Name="PeerPortEntry" Text="17201" Keyboard="Numeric" />
-            <Button Text="Scan QR (camera)…" Clicked="OnScanQrCameraClicked" />
-            <Button Text="Fill from QR image…" Clicked="OnScanQrClicked" />
-            <Button Text="Save" Clicked="OnSaveClicked" />
+            <Button x:Name="ScanCamButton" Clicked="OnScanQrCameraClicked" />
+            <Button x:Name="ScanImgButton" Clicked="OnScanQrClicked" />
+            <Button x:Name="SaveButton" Clicked="OnSaveClicked" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
