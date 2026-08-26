@@ -36,12 +36,35 @@ public static class MauiProgram
 
     public static Microsoft.Maui.Hosting.MauiApp CreateMauiApp()
     {
-        SQLitePCL.Batteries_V2.Init();
+#if ANDROID
+        Android.Util.Log.Info("Iskra", "MauiProgram.CreateMauiApp");
+#endif
+        try
+        {
+#if ANDROID
+            Android.Util.Log.Info("Iskra", "SQLite init");
+#endif
+            SQLitePCL.Batteries_V2.Init();
+#if ANDROID
+            Android.Util.Log.Info("Iskra", "SQLite init done");
+#endif
+        }
+        catch (Exception ex)
+        {
+#if ANDROID
+            Android.Util.Log.Error("Iskra", "SQLite init failed: " + ex);
+#endif
+            throw;
+        }
+
         AppLogPaths.Initialize();
         ConfigureNLog();
         ConfigureGlobalExceptionHandlers();
         HttpServerResponseLog.Hook();
+#if !ANDROID
+        // Mono Android aborts in assembly.c if AssemblyLoad does extra work (TypeLoadException).
         HookAssemblyLoadLogging();
+#endif
 
         var builder = Microsoft.Maui.Hosting.MauiApp.CreateBuilder();
         builder
@@ -130,16 +153,11 @@ public static class MauiProgram
         Services = app.Services;
         var logFactory = Services.GetRequiredService<ILoggerFactory>();
         AppLog.Initialize(logFactory);
-        Services.ApplyRouteDatabaseMigrationsAsync().GetAwaiter().GetResult();
         P2PSession.TrafficLogger = logFactory.CreateLogger<P2PSession>();
         IncomingMessageSound.EnsureHooked(Services.GetRequiredService<ChatRepository>(),
             logFactory.CreateLogger(nameof(IncomingMessageSound)));
         logFactory.CreateLogger<MauiHost>().LogInformation(
             "GUI application started. Logs directory: {LogsDir}", AppLogPaths.LogsDirectory);
-        var p2p = Services.GetRequiredService<UserP2pRuntime>();
-        p2p.LocalScan.ClientsChanged += (_, _) =>
-            AppLog.Network.LogInformation("Peer directory changed (LAN/server scan)");
-
         AppDomain.CurrentDomain.ProcessExit += (_, _) => LogManager.Shutdown();
         return app;
     }

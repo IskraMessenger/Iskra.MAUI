@@ -33,6 +33,8 @@ public sealed class MessageRowVm
     public required string DeliveryGlyph { get; init; }
     public required Color DeliveryGlyphColor { get; init; }
     public bool Outgoing { get; init; }
+    /// <summary>0 = входящее (слева), 2 = исходящее (справа). Без DataTrigger — на Android он роняет CollectionView.</summary>
+    public int BubbleColumn { get; init; }
     public MessageDeliveryStatus DeliveryStatus { get; init; }
     public bool IsRetryable => Outgoing && DeliveryStatus == MessageDeliveryStatus.Failed && MessageId > 0;
     public Color BubbleColor { get; init; } = Colors.White;

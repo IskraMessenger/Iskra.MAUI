@@ -35,39 +35,32 @@
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <SwipeView>
-                        <SwipeView.RightItems>
-                            <SwipeItems Mode="Execute">
-                                <SwipeItem Text="Удалить" BackgroundColor="{DynamicResource Danger}" Invoked="OnChatSwipeDelete" />
-                            </SwipeItems>
-                        </SwipeView.RightItems>
-                        <Grid Padding="16,10" ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
-                            <Grid WidthRequest="48" HeightRequest="48">
-                                <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
-                                        StrokeShape="RoundRectangle 24"
-                                        BackgroundColor="{Binding AvatarColor}"
-                                        HorizontalOptions="Center" VerticalOptions="Center" />
-                                <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="15"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                                <Ellipse WidthRequest="12" HeightRequest="12" Fill="#34C759"
-                                         HorizontalOptions="End" VerticalOptions="End" Stroke="White"
-                                         StrokeThickness="2" IsVisible="{Binding IsPeerOnline}" />
-                            </Grid>
-                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                <Label Text="{Binding PeerNickname}" FontSize="16" FontAttributes="Bold"
-                                       TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding LastPreview}" FontSize="13"
-                                       TextColor="{DynamicResource MutedText}" LineBreakMode="TailTruncation" />
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Start">
-                                <Label Text="{Binding TimeLabel}" FontSize="11"
-                                       TextColor="{DynamicResource MutedText}" HorizontalOptions="End" />
-                                <Label Text="{Binding DeliveryGlyph}" FontSize="12"
-                                       TextColor="{Binding DeliveryGlyphColor}" HorizontalOptions="End"
-                                       IsVisible="{Binding ShowDelivery}" />
-                            </VerticalStackLayout>
+                    <Grid Padding="16,10" ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
+                        <Grid WidthRequest="48" HeightRequest="48">
+                            <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 24"
+                                    BackgroundColor="{Binding AvatarColor}"
+                                    HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="15"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Ellipse WidthRequest="12" HeightRequest="12" Fill="#34C759"
+                                     HorizontalOptions="End" VerticalOptions="End" Stroke="White"
+                                     StrokeThickness="2" IsVisible="{Binding IsPeerOnline}" />
                         </Grid>
-                    </SwipeView>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="{Binding PeerNickname}" FontSize="16" FontAttributes="Bold"
+                                   TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding LastPreview}" FontSize="13"
+                                   TextColor="{DynamicResource MutedText}" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Start">
+                            <Label Text="{Binding TimeLabel}" FontSize="11"
+                                   TextColor="{DynamicResource MutedText}" HorizontalOptions="End" />
+                            <Label Text="{Binding DeliveryGlyph}" FontSize="12"
+                                   TextColor="{Binding DeliveryGlyphColor}" HorizontalOptions="End"
+                                   IsVisible="{Binding ShowDelivery}" />
+                        </VerticalStackLayout>
+                    </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>

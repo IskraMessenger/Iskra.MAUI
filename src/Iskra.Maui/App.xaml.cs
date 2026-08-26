@@ -1,6 +1,8 @@
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Routing;
+using ShortP2P.Client.Services;
+using ShortP2P.Discovery.RouteTables;
 
 namespace Iskra.Maui;
 
@@ -34,8 +36,33 @@ public partial class App : Application
                 }
             });
         if (Interlocked.Exchange(ref _deferredStart, 1) == 0)
-            MainThread.BeginInvokeOnMainThread(() => _ = ApplyBluetoothSettingsAsync(logger));
+            MainThread.BeginInvokeOnMainThread(() => _ = StartBackgroundServicesAsync(logger));
         return new Window(new NavigationPage(login));
+    }
+
+    private static async Task StartBackgroundServicesAsync(ILogger logger)
+    {
+        try
+        {
+            await MauiProgram.Services.ApplyRouteDatabaseMigrationsAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Route database migration failed");
+        }
+
+        try
+        {
+            var p2p = MauiProgram.Services.GetRequiredService<UserP2pRuntime>();
+            p2p.LocalScan.ClientsChanged += (_, _) =>
+                AppLog.Network.LogInformation("Peer directory changed (LAN/server scan)");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "P2P runtime start failed");
+        }
+
+        await ApplyBluetoothSettingsAsync(logger).ConfigureAwait(false);
     }
 
     private static async Task ApplyBluetoothSettingsAsync(ILogger logger)

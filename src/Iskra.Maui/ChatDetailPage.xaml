@@ -33,23 +33,17 @@
                     Padding="4" Clicked="OnClearChatClicked" />
         </Grid>
 
-        <CollectionView x:Name="MessagesCollection" Grid.Row="1" RemainingItemsThreshold="2"
-                        RemainingItemsThresholdReached="OnMessagesRemainingItemsThresholdReached"
-                        ItemsUpdatingScrollMode="KeepScrollOffset" Scrolled="OnMessagesScrolled" Margin="8,4">
+        <CollectionView x:Name="MessagesCollection" Grid.Row="1"
+                        ItemsUpdatingScrollMode="KeepItemsInView" Scrolled="OnMessagesScrolled" Margin="8,4">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="4,3">
+                    <Grid Padding="4,3" ColumnDefinitions="*,Auto,*">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Tapped="OnMessageRowTapped" />
                         </Grid.GestureRecognizers>
-                        <Border MaximumWidthRequest="280" Padding="10,8" StrokeThickness="0"
-                                StrokeShape="RoundRectangle 14" BackgroundColor="{Binding BubbleColor}"
-                                HorizontalOptions="Start">
-                            <Border.Triggers>
-                                <DataTrigger TargetType="Border" Binding="{Binding Outgoing}" Value="True">
-                                    <Setter Property="HorizontalOptions" Value="End" />
-                                </DataTrigger>
-                            </Border.Triggers>
+                        <Border Grid.Column="{Binding BubbleColumn}" MaximumWidthRequest="280" Padding="10,8"
+                                StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                                BackgroundColor="{Binding BubbleColor}">
                             <VerticalStackLayout Spacing="4">
                                 <Label Text="{Binding TextBody}" TextColor="{Binding MessageColor}"
                                        LineBreakMode="WordWrap" IsVisible="{Binding ShowTextBody}" />
