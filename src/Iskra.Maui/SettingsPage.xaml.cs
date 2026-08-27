@@ -55,21 +55,21 @@ public partial class SettingsPage : ContentPage
         }
 
         var persisted = await _store.LoadAsync().ConfigureAwait(true);
-        MediaEconomy.Apply(_p2p, persisted.TrafficSavingEnabled);
+        MediaEconomy.Apply(_p2p, persisted.TrafficQuality);
 
         _suppressToggle = true;
         BluetoothSwitch.IsToggled = _p2p.Settings.EnableBluetoothTransport;
         LanSwitch.IsToggled = _p2p.Settings.EnableUdpTransport;
         RoutingSwitch.IsToggled = _p2p.Settings.AdvertisedPeerCapabilities.HasFlag(PresencePeerCapabilities.PeerSearch);
-        EconomySwitch.IsToggled = _p2p.Settings.TrafficSavingEnabled;
         _suppressToggle = false;
         BluetoothHint.Text = BluetoothSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
         LanHint.Text = LanSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
         RoutingHint.Text = RoutingSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
-        EconomyHint.Text = EconomySwitch.IsToggled ? MediaEconomy.Hint : Loc.T("off");
+        EconomyHint.Text = MediaEconomy.Hint(_p2p.Settings.TrafficQuality);
         StorageLabel.Text = FormatStorage();
         RebuildLanguageChips();
         RebuildThemeChips();
+        RebuildEconomyChips();
         await Task.CompletedTask.ConfigureAwait(true);
     }
 
@@ -167,6 +167,47 @@ public partial class SettingsPage : ContentPage
         }
     }
 
+    private void RebuildEconomyChips()
+    {
+        EconomyChips.Children.Clear();
+        var current = _p2p.Settings.TrafficQuality;
+        foreach (var mode in MediaEconomy.AllModes)
+        {
+            var selected = mode == current;
+            var btn = new Button
+            {
+                Text = MediaEconomy.ModeLabel(mode),
+                FontSize = 13,
+                BackgroundColor = selected ? IskraTheme.Accent : IskraTheme.Current.Surface,
+                TextColor = selected ? IskraTheme.Current.ButtonText : IskraTheme.Text,
+                Padding = new Thickness(12, 8),
+                Margin = new Thickness(0, 0, 8, 8)
+            };
+            var captured = mode;
+            btn.Clicked += (_, _) => _ = SelectEconomyModeAsync(captured);
+            EconomyChips.Children.Add(btn);
+        }
+    }
+
+    private async Task SelectEconomyModeAsync(TrafficQualityMode mode)
+    {
+        if (_suppressToggle || mode == _p2p.Settings.TrafficQuality)
+            return;
+
+        EconomyHint.Text = MediaEconomy.Hint(mode);
+        MediaEconomy.Apply(_p2p, mode);
+        var ok = await SaveAsync(s => s.TrafficQuality = mode).ConfigureAwait(true);
+        if (!ok)
+        {
+            // Revert UI to whatever is actually persisted.
+            var persisted = await _store.LoadAsync().ConfigureAwait(true);
+            MediaEconomy.Apply(_p2p, persisted.TrafficQuality);
+            EconomyHint.Text = MediaEconomy.Hint(persisted.TrafficQuality);
+        }
+
+        RebuildEconomyChips();
+    }
+
     private static string FormatStorage()
     {
         try
@@ -214,15 +255,7 @@ public partial class SettingsPage : ContentPage
         }).ConfigureAwait(true);
     }
 
-    private async void OnEconomyToggled(object? sender, ToggledEventArgs e)
-    {
-        EconomyHint.Text = e.Value ? MediaEconomy.Hint : Loc.T("off");
-        MediaEconomy.Apply(_p2p, e.Value);
-        if (!_suppressToggle)
-            await SaveAsync(s => s.TrafficSavingEnabled = e.Value).ConfigureAwait(true);
-    }
-
-    private async Task SaveAsync(Action<P2pRoutingSettings> mutate)
+    private async Task<bool> SaveAsync(Action<P2pRoutingSettings> mutate)
     {
         try
         {
@@ -232,17 +265,19 @@ public partial class SettingsPage : ContentPage
             AppLog.SettingChanged("EnableBluetoothTransport", s.EnableBluetoothTransport);
             AppLog.SettingChanged("EnableUdpTransport", s.EnableUdpTransport);
             AppLog.SettingChanged("AdvertisedPeerCapabilities", s.AdvertisedPeerCapabilities);
-            AppLog.SettingChanged("UltraEconomy", s.TrafficSavingEnabled);
+            AppLog.SettingChanged("TrafficQuality", s.TrafficQuality);
             _p2p.Settings.EnableUdpTransport = s.EnableUdpTransport;
             _p2p.Settings.EnableBluetoothTransport = s.EnableBluetoothTransport;
             _p2p.Settings.AdvertisedPeerCapabilities = s.AdvertisedPeerCapabilities | PresencePeerCapabilities.Chat;
-            MediaEconomy.Apply(_p2p, s.TrafficSavingEnabled);
+            MediaEconomy.Apply(_p2p, s.TrafficQuality);
             _bluetoothTransport.ApplySettings(s);
             Header.Bind(_auth.CurrentUser, _p2p);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Save settings toggle");
+            return false;
         }
     }
 

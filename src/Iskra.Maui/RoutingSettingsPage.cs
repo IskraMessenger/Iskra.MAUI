@@ -40,7 +40,7 @@ public class RoutingSettingsPage : ContentPage
     private readonly Label _shareRoutesLabel = new();
     private readonly Button _saveButton = new();
 
-    private bool _trafficSavingEnabled;
+    private TrafficQualityMode _trafficQuality = TrafficQualityMode.Normal;
 
     public RoutingSettingsPage(P2pRoutingSettingsStore store, UserP2pRuntime runtime,
         IBluetoothRadioCatalog bluetoothCatalog, IBluetoothTransportProvider bluetoothTransport,
@@ -102,7 +102,7 @@ public class RoutingSettingsPage : ContentPage
             _searchTimeoutMs.Text = ((int)s.SearchWaitTimeout.TotalMilliseconds).ToString();
             var idx = Array.IndexOf(LinkTechnologyPresetExtensions.AllPresets, s.LinkTechnology);
             _linkTechnology.SelectedIndex = idx >= 0 ? idx : 0;
-            _trafficSavingEnabled = s.TrafficSavingEnabled;
+            _trafficQuality = s.TrafficQuality;
             _enableUdpTransport.IsToggled = s.EnableUdpTransport;
             _enableBluetoothTransport.IsToggled = s.EnableBluetoothTransport;
             _suggestBluetoothPairing.IsToggled = s.SuggestBluetoothPairing;
@@ -228,7 +228,7 @@ public class RoutingSettingsPage : ContentPage
             SendFailureRetryDelay = TimeSpan.FromMilliseconds(dm),
             SearchWaitTimeout = TimeSpan.FromMilliseconds(st),
             LinkTechnology = LinkTechnologyPresetExtensions.AllPresets[li],
-            TrafficSavingEnabled = _trafficSavingEnabled,
+            TrafficQuality = _trafficQuality,
             EnableUdpTransport = _enableUdpTransport.IsToggled,
             EnableBluetoothTransport = _enableBluetoothTransport.IsToggled,
             SuggestBluetoothPairing = _suggestBluetoothPairing.IsToggled,
@@ -246,12 +246,13 @@ public class RoutingSettingsPage : ContentPage
         AppLog.SettingChanged("SelectedBluetoothAdapter", settings.SelectedBluetoothAdapterMac);
         AppLog.SettingChanged("SuggestBluetoothPairing", settings.SuggestBluetoothPairing);
         AppLog.SettingChanged("AdvertisedPeerCapabilities", settings.AdvertisedPeerCapabilities);
+        AppLog.SettingChanged("TrafficQuality", settings.TrafficQuality);
         _runtime.Settings.MaxSearchHops = settings.MaxSearchHops;
         _runtime.Settings.SendFailureSearchAttempts = settings.SendFailureSearchAttempts;
         _runtime.Settings.SendFailureRetryDelay = settings.SendFailureRetryDelay;
         _runtime.Settings.SearchWaitTimeout = settings.SearchWaitTimeout;
         _runtime.Settings.LinkTechnology = settings.LinkTechnology;
-        MediaEconomy.Apply(_runtime, settings.TrafficSavingEnabled);
+        MediaEconomy.Apply(_runtime, settings.TrafficQuality);
         _runtime.Settings.EnableUdpTransport = settings.EnableUdpTransport;
         _runtime.Settings.EnableBluetoothTransport = settings.EnableBluetoothTransport;
         _runtime.Settings.SelectedBluetoothAdapterDeviceId = settings.SelectedBluetoothAdapterDeviceId;

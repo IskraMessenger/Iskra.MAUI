@@ -68,15 +68,13 @@
                         Toggled="OnRoutingToggled" />
             </Grid>
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
-            <Grid Padding="16,12" ColumnDefinitions="*,Auto">
-                <VerticalStackLayout Spacing="2">
-                    <Label x:Name="EconomyLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
-                    <Label x:Name="EconomyHint" FontSize="12" TextColor="{DynamicResource MutedText}"
-                           LineBreakMode="WordWrap" />
-                </VerticalStackLayout>
-                <Switch x:Name="EconomySwitch" Grid.Column="1" OnColor="{DynamicResource Accent}"
-                        Toggled="OnEconomyToggled" />
-            </Grid>
+            <VerticalStackLayout Padding="16,12" Spacing="8">
+                <Label x:Name="EconomyLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}" />
+                <Label x:Name="EconomyHint" FontSize="12" TextColor="{DynamicResource MutedText}"
+                       LineBreakMode="WordWrap" />
+                <FlexLayout x:Name="EconomyChips" Wrap="Wrap" Direction="Row" AlignItems="Start"
+                            JustifyContent="Start" />
+            </VerticalStackLayout>
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
             <Grid Padding="16,12" ColumnDefinitions="*,Auto">
                 <Label x:Name="StorageTitleLabel" FontSize="16" TextColor="{DynamicResource MidnightBlue}"

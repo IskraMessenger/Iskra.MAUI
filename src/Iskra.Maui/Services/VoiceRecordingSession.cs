@@ -30,7 +30,7 @@ internal sealed class VoiceRecordingSession : IAsyncDisposable
     {
         if (_recording)
             return;
-        _speechBitrateBps = Math.Clamp(speechBitrateBps, MediaEconomy.SpeechBitrateBps, 64_000);
+        _speechBitrateBps = Math.Clamp(speechBitrateBps, MediaEconomy.MinVoiceBitrateBps, 64_000);
 
 #if ANDROID
         if (!OperatingSystem.IsAndroidVersionAtLeast(29))

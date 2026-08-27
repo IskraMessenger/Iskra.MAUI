@@ -1,53 +1,70 @@
 using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Services;
+using ShortP2P.Discovery;
 using Iskra.Maui.Localization;
 
 namespace Iskra.Maui.Services;
 
 /// <summary>
-/// Traffic-saving mode (WinForms-aligned): Opus 6 kbit/s, photos ≤50 KB, video 160×120.
-/// Toggle: Settings → Ultra economy / Ультраэкономия (persisted in P2pRoutingSettings).
+/// Media quality / traffic modes aligned with ShortP2P <see cref="TrafficQualityMode"/>.
+/// Selection: Settings → traffic quality (persisted in P2pRoutingSettings.TrafficQuality).
 /// </summary>
 internal static class MediaEconomy
 {
-    private const string PrefKey = "iskra.ultra_economy";
-
-    /// <summary>WinForms <c>VoiceRecordHelper.TrafficSavingBitrate</c>.</summary>
-    public const int SpeechBitrateBps = 6_000;
-
-    /// <summary>WinForms <c>VoiceRecordHelper.DefaultBitrate</c>.</summary>
-    public const int DefaultSpeechBitrateBps = 18_000;
-
+    /// <summary>Soft image cap in Economy / UltraEconomy (Iskra-specific; WinForms does not compress photos).</summary>
     public const int MaxImageBytes = 50 * 1024;
 
-    /// <summary>WinForms <c>VideoAttachHelper.TrafficSavingVideoWidth</c>.</summary>
-    public const int VideoWidth = 160;
+    public const int MinVoiceBitrateBps = TrafficQualityModeExtensions.UltraEconomyVoiceBitrate;
 
-    /// <summary>WinForms <c>VideoAttachHelper.TrafficSavingVideoHeight</c>.</summary>
-    public const int VideoHeight = 120;
+    public const int DefaultSpeechBitrateBps = TrafficQualityModeExtensions.NormalVoiceBitrate;
 
-    /// <summary>WinForms camera economy video bitrate.</summary>
-    public const int VideoBitrateBps = 250_000;
+    public static TrafficQualityMode Mode(UserP2pRuntime p2p) => p2p.Settings.TrafficQuality;
 
-    public const int NormalVideoWidth = 320;
-    public const int NormalVideoHeight = 240;
+    public static bool UsesReducedMedia(UserP2pRuntime p2p) =>
+        Mode(p2p) is TrafficQualityMode.Economy or TrafficQualityMode.UltraEconomy;
 
-    public static string Hint =>
-        Loc.Tf("economy.hint", SpeechBitrateBps / 1000.0, MaxImageBytes / 1024, VideoWidth, VideoHeight);
-
-    public static string VideoResolutionLabel => $"{VideoWidth}×{VideoHeight}";
-
-    public static bool IsEnabled(UserP2pRuntime p2p) => p2p.Settings.TrafficSavingEnabled;
-
-    public static void Apply(UserP2pRuntime p2p, bool enabled)
+    public static void Apply(UserP2pRuntime p2p, TrafficQualityMode mode)
     {
-        Preferences.Default.Set(PrefKey, enabled);
-        p2p.Settings.TrafficSavingEnabled = enabled;
+        p2p.Settings.TrafficQuality = mode;
     }
 
-    public static int SpeechBitrate(UserP2pRuntime p2p) =>
-        IsEnabled(p2p) ? SpeechBitrateBps : DefaultSpeechBitrateBps;
+    public static int SpeechBitrate(UserP2pRuntime p2p) => Mode(p2p).GetVoiceBitrate();
+
+    public static (int Width, int Height) VideoResolution(UserP2pRuntime p2p) =>
+        Mode(p2p).GetVideoResolution();
+
+    public static string VideoResolutionLabel(UserP2pRuntime p2p)
+    {
+        var (w, h) = VideoResolution(p2p);
+        return $"{w}×{h}";
+    }
+
+    public static int CameraVideoBitrate(UserP2pRuntime p2p) => Mode(p2p).GetCameraVideoBitrate();
 
     public static int ImageLimit(ChatMediaOptions media, UserP2pRuntime p2p) =>
-        IsEnabled(p2p) ? MaxImageBytes : media.MaxImageBytes;
+        UsesReducedMedia(p2p) ? MaxImageBytes : media.MaxImageBytes;
+
+    public static string Hint(TrafficQualityMode mode)
+    {
+        var (w, h) = mode.GetVideoResolution();
+        var photoKb = mode is TrafficQualityMode.Normal ? null : (int?)(MaxImageBytes / 1024);
+        return photoKb is null
+            ? Loc.Tf("economy.hint_normal", mode.GetVoiceBitrate() / 1000.0, w, h)
+            : Loc.Tf("economy.hint", mode.GetVoiceBitrate() / 1000.0, photoKb.Value, w, h);
+    }
+
+    public static string ModeLabel(TrafficQualityMode mode) =>
+        mode switch
+        {
+            TrafficQualityMode.UltraEconomy => Loc.T("economy.mode.ultra"),
+            TrafficQualityMode.Economy => Loc.T("economy.mode.economy"),
+            _ => Loc.T("economy.mode.normal")
+        };
+
+    public static IReadOnlyList<TrafficQualityMode> AllModes { get; } =
+    [
+        TrafficQualityMode.Normal,
+        TrafficQualityMode.Economy,
+        TrafficQualityMode.UltraEconomy
+    ];
 }

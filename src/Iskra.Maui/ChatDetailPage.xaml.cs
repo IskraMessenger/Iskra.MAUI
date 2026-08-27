@@ -545,10 +545,10 @@ public partial class ChatDetailPage : ContentPage
         await StartVoiceRecordingAsync().ConfigureAwait(true);
     }
 
-    private async Task SyncUltraEconomyAsync()
+    private async Task SyncTrafficQualityAsync()
     {
         var persisted = await _routingStore.LoadAsync().ConfigureAwait(true);
-        MediaEconomy.Apply(_p2p, persisted.TrafficSavingEnabled);
+        MediaEconomy.Apply(_p2p, persisted.TrafficQuality);
     }
 
     private async Task StartVoiceRecordingAsync()
@@ -563,7 +563,7 @@ public partial class ChatDetailPage : ContentPage
 
         try
         {
-            await SyncUltraEconomyAsync().ConfigureAwait(true);
+            await SyncTrafficQualityAsync().ConfigureAwait(true);
             _voice = new VoiceRecordingSession();
             await _voice.StartAsync(MediaEconomy.SpeechBitrate(_p2p)).ConfigureAwait(true);
             VoiceButton.Text = "■";
@@ -751,20 +751,22 @@ public partial class ChatDetailPage : ContentPage
                 }
             }
 
-            await SyncUltraEconomyAsync().ConfigureAwait(true);
-            if (isVideo && MediaEconomy.IsEnabled(_p2p))
+            await SyncTrafficQualityAsync().ConfigureAwait(true);
+            if (isVideo && MediaEconomy.UsesReducedMedia(_p2p))
             {
                 var temp = Path.Combine(FileSystem.CacheDirectory,
                     $"iskra_in_{DateTime.UtcNow.Ticks}{Path.GetExtension(pick.FileName)}");
                 await File.WriteAllBytesAsync(temp, bytes).ConfigureAwait(true);
                 try
                 {
-                    var prepared = await Video144pTranscoder.PrepareAsync(temp, pick.FileName, mime, true)
+                    var prepared = await Video144pTranscoder
+                        .PrepareAsync(temp, pick.FileName, mime, MediaEconomy.Mode(_p2p))
                         .ConfigureAwait(true);
                     if (!prepared.Ok || prepared.Bytes == null)
                     {
                         await DisplayAlert(Loc.T("chat.video"),
-                                prepared.Error ?? Loc.Tf("chat.video_transcode_fail", MediaEconomy.VideoResolutionLabel),
+                                prepared.Error ?? Loc.Tf("chat.video_transcode_fail",
+                                    MediaEconomy.VideoResolutionLabel(_p2p)),
                                 Loc.T("ok"))
                             .ConfigureAwait(true);
                         return;
@@ -1118,13 +1120,13 @@ public partial class ChatDetailPage : ContentPage
     private async Task<(byte[] Bytes, string Mime)?> TryFitOutgoingImageAsync(
         byte[] bytes, string mime, bool askIfOverDefault)
     {
-        await SyncUltraEconomyAsync().ConfigureAwait(true);
-        var ultra = MediaEconomy.IsEnabled(_p2p);
-        var limit = ultra ? MediaEconomy.MaxImageBytes : _media.MaxImageBytes;
+        await SyncTrafficQualityAsync().ConfigureAwait(true);
+        var reduced = MediaEconomy.UsesReducedMedia(_p2p);
+        var limit = MediaEconomy.ImageLimit(_media, _p2p);
         if (bytes.Length <= limit)
             return (bytes, mime);
 
-        if (askIfOverDefault && !ultra)
+        if (askIfOverDefault && !reduced)
         {
             var limKb = (limit + 1023) / 1024;
             var want = await DisplayAlert(Loc.T("chat.size"),
@@ -1327,8 +1329,8 @@ public partial class ChatDetailPage : ContentPage
             if (!TryGetDocumentOrVideoMime(fileName, out var mime))
                 mime = "video/mp4";
 
-            await SyncUltraEconomyAsync().ConfigureAwait(true);
-            if (MediaEconomy.IsEnabled(_p2p))
+            await SyncTrafficQualityAsync().ConfigureAwait(true);
+            if (MediaEconomy.UsesReducedMedia(_p2p))
             {
                 var temp = Path.Combine(FileSystem.CacheDirectory,
                     $"iskra_cam_{DateTime.UtcNow.Ticks}{Path.GetExtension(fileName)}");
@@ -1337,12 +1339,14 @@ public partial class ChatDetailPage : ContentPage
                 await File.WriteAllBytesAsync(temp, bytes).ConfigureAwait(true);
                 try
                 {
-                    var prepared = await Video144pTranscoder.PrepareAsync(temp, fileName, mime, true)
+                    var prepared = await Video144pTranscoder
+                        .PrepareAsync(temp, fileName, mime, MediaEconomy.Mode(_p2p))
                         .ConfigureAwait(true);
                     if (!prepared.Ok || prepared.Bytes == null)
                     {
                         await DisplayAlert(Loc.T("chat.video"),
-                                prepared.Error ?? Loc.Tf("chat.video_transcode_fail", MediaEconomy.VideoResolutionLabel),
+                                prepared.Error ?? Loc.Tf("chat.video_transcode_fail",
+                                    MediaEconomy.VideoResolutionLabel(_p2p)),
                                 Loc.T("ok"))
                             .ConfigureAwait(true);
                         return;

@@ -17,7 +17,7 @@ internal static class OggOpusEncoder
 
         using var output = new MemoryStream();
         var encoder = OpusCodecFactory.CreateEncoder(OpusSampleRate, 1, OpusApplication.OPUS_APPLICATION_VOIP);
-        encoder.Bitrate = Math.Clamp(bitrateBps, MediaEconomy.SpeechBitrateBps, 64_000);
+        encoder.Bitrate = Math.Clamp(bitrateBps, MediaEconomy.MinVoiceBitrateBps, 64_000);
         var ogg = new OpusOggWriteStream(encoder, output, inputSampleRate: sampleRate, leaveOpen: true);
         if (channels == 1)
         {
