@@ -5,3 +5,4 @@ obj/
 *.suo
 src/Iskra.Maui/bin/
 src/Iskra.Maui/obj/
+dist/

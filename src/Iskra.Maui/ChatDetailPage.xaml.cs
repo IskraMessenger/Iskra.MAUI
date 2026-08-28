@@ -9,6 +9,7 @@ using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Routing;
 using ShortP2P.Client.Services;
+using ShortP2P.Client.Services.MessengerServers;
 
 namespace Iskra.Maui;
 
@@ -52,11 +53,13 @@ public partial class ChatDetailPage : ContentPage
     private readonly UserP2pRuntime _p2p;
     private readonly ChatMediaOptions _media;
     private readonly P2pRoutingSettingsStore _routingStore;
+    private readonly MessengerServerManager _messengerServers;
     private readonly ILogger<ChatDetailPage> _logger;
     private const int MessagesPageSize = 10;
     private readonly ObservableCollection<MessageRowVm> _messageItems = [];
     private readonly List<ChatMessageEntity> _loadedRows = [];
     private ChatP2PSession? _p2pSession;
+    private ChatEntity? _chat;
     private string? _peerNetworkIdShort;
     private IDispatcherTimer? _presenceRefreshTimer;
     private bool _hasMoreRows = true;
@@ -67,7 +70,8 @@ public partial class ChatDetailPage : ContentPage
     private VoiceRecordingSession? _voice;
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
-        P2pRoutingSettingsStore routingStore, ILogger<ChatDetailPage> logger)
+        P2pRoutingSettingsStore routingStore, MessengerServerManager messengerServers,
+        ILogger<ChatDetailPage> logger)
     {
         InitializeComponent();
         _auth = auth;
@@ -75,6 +79,7 @@ public partial class ChatDetailPage : ContentPage
         _p2p = p2p;
         _media = media;
         _routingStore = routingStore;
+        _messengerServers = messengerServers;
         _logger = logger;
         MessagesCollection.ItemsSource = _messageItems;
     }
@@ -97,14 +102,18 @@ public partial class ChatDetailPage : ContentPage
         PeerAvatarInitials.Text = IskraTheme.Initials(chat.PeerNickname);
         PeerAvatarFill.BackgroundColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
         PeerIdLabel.Text = Loc.Tf("chat.node", chat.PeerNetworkIdShort);
-        ClearChatButton.Text = Loc.T("chat.delete");
+        SetControlHint(ClearChatButton, Loc.T("chat.delete_hint"));
+        SetControlHint(EmergencyUntrustButton, Loc.T("safety.untrust_hint"));
         MessageEntry.Placeholder = Loc.T("chat.message_ph");
+        _chat = chat;
         _peerNetworkIdShort = chat.PeerNetworkIdShort;
+        RefreshSafetyLabel(chat);
         await TryRefreshPeerNicknameDisplayAsync(chat).ConfigureAwait(true);
         var user = _auth.CurrentUser;
         if (user == null)
         {
             _peerNetworkIdShort = null;
+            _chat = null;
             await Navigation.PopAsync().ConfigureAwait(true);
             return;
         }
@@ -122,6 +131,8 @@ public partial class ChatDetailPage : ContentPage
         }
 
         _p2p.LocalScan.ClientsChanged += OnPeerLanPresenceChanged;
+        _repo.PeerPublicKeyChanged += OnPeerPublicKeyChanged;
+        _messengerServers.FailoverCompleted += OnMessengerServerFailover;
         EnsurePresenceRefreshTimerStarted();
         var uiSync = SynchronizationContext.Current;
         _p2pSession = _p2p.GetSession(chat, user, _auth, _repo, uiSync);
@@ -150,9 +161,12 @@ public partial class ChatDetailPage : ContentPage
         _ = StopVoiceRecordingAndDiscardAsync();
         VoiceMessagePlayer.Stop();
         _p2p.LocalScan.ClientsChanged -= OnPeerLanPresenceChanged;
+        _repo.PeerPublicKeyChanged -= OnPeerPublicKeyChanged;
+        _messengerServers.FailoverCompleted -= OnMessengerServerFailover;
         if (_presenceRefreshTimer != null)
             _presenceRefreshTimer.Stop();
         _peerNetworkIdShort = null;
+        _chat = null;
         Interlocked.Increment(ref _reloadEpoch);
         if (_p2pSession != null)
         {
@@ -165,6 +179,56 @@ public partial class ChatDetailPage : ContentPage
     private void OnPeerLanPresenceChanged(object? sender, EventArgs e)
     {
         MainThread.BeginInvokeOnMainThread(RefreshPeerPresenceLabel);
+    }
+
+    private void RefreshSafetyLabel(ChatEntity chat)
+    {
+        SafetyNumberLabel.Text = PeerSafetyUi.ChatPanel(_auth, chat);
+    }
+
+    private static void SetControlHint(View view, string text)
+    {
+        ToolTipProperties.SetText(view, text);
+        SemanticProperties.SetHint(view, text);
+        SemanticProperties.SetDescription(view, text);
+    }
+
+    private void OnPeerPublicKeyChanged(object? sender, PeerPublicKeyChangedEventArgs e)
+    {
+        if (e.ChatId != ChatId)
+            return;
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            var fresh = await _repo.GetChatAsync(ChatId).ConfigureAwait(true);
+            if (fresh != null)
+            {
+                _chat = fresh;
+                Title = fresh.PeerNickname;
+                PeerNameLabel.Text = fresh.PeerNickname;
+                RefreshSafetyLabel(fresh);
+            }
+
+            await DisplayAlert(
+                Loc.T("safety.key_change_title"),
+                Loc.Tf("safety.key_change_body", e.PeerNickname, e.PreviousSafetyNumber, e.NewSafetyNumber),
+                Loc.T("ok")).ConfigureAwait(true);
+        });
+    }
+
+    private void OnMessengerServerFailover(object? sender, MessengerServerFailoverEventArgs e)
+    {
+        if (!e.SwitchedToMesh)
+            return;
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await DisplayAlert(Loc.T("safety.mesh_title"), Loc.T("safety.mesh_body"), Loc.T("ok"))
+                .ConfigureAwait(true);
+        });
+    }
+
+    private async void OnEmergencyUntrustClicked(object? sender, EventArgs e)
+    {
+        await PeerSafetyUi.MarkUntrustedAsync(_messengerServers, _chat, _logger, this).ConfigureAwait(true);
     }
 
     private void OnP2PMessagesChanged(object? sender, EventArgs e)
@@ -1049,6 +1113,7 @@ public partial class ChatDetailPage : ContentPage
         PeerNameLabel.Text = display;
         PeerAvatarInitials.Text = IskraTheme.Initials(display);
         PeerIdLabel.Text = Loc.Tf("chat.node", id);
+        RefreshSafetyLabel(chat);
     }
 
     private string ResolvePeerDisplayName(ChatEntity chat)

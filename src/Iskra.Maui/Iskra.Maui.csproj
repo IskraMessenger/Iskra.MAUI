@@ -24,7 +24,7 @@
              Keep WindowsPackageType=None for F5; still ship AppxManifest.xml next to the exe
              (CopyUnpackagedAppxManifest target) so MAUI Permissions.Camera/Microphone EnsureDeclared can Load() it. -->
         <WindowsPackageType>None</WindowsPackageType>
-        <Platforms>AnyCPU;x64;ARM64</Platforms>
+        <Platforms>AnyCPU;x86;x64;ARM64</Platforms>
 
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>

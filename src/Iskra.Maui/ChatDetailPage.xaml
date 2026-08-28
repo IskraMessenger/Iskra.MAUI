@@ -8,29 +8,42 @@
              Shell.TabBarIsVisible="False"
              BackgroundColor="{DynamicResource PageBackground}">
     <Grid RowDefinitions="Auto,*,Auto,Auto">
-        <Grid Padding="8,8,12,8" ColumnDefinitions="36,48,*,Auto" ColumnSpacing="8" BackgroundColor="{DynamicResource Surface}">
-            <Button Text="‹" FontSize="28" BackgroundColor="Transparent"
-                    TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
-            <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40">
-                <Border x:Name="PeerAvatarFill" WidthRequest="40" HeightRequest="40" StrokeThickness="0"
-                        StrokeShape="RoundRectangle 20" BackgroundColor="{DynamicResource Accent}" />
-                <Label x:Name="PeerAvatarInitials" TextColor="White" FontAttributes="Bold" FontSize="13"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
+        <Grid RowDefinitions="Auto,Auto" BackgroundColor="{DynamicResource Surface}">
+            <Grid Padding="8,8,12,4" ColumnDefinitions="36,48,*,Auto" ColumnSpacing="8">
+                <Button Text="‹" FontSize="28" BackgroundColor="Transparent"
+                        TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
+                <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40">
+                    <Border x:Name="PeerAvatarFill" WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                            StrokeShape="RoundRectangle 20" BackgroundColor="{DynamicResource Accent}" />
+                    <Label x:Name="PeerAvatarInitials" TextColor="White" FontAttributes="Bold" FontSize="13"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                </Grid>
+                <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+                    <Label x:Name="PeerNameLabel" FontSize="16" FontAttributes="Bold"
+                           TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
+                    <HorizontalStackLayout Spacing="6">
+                        <Ellipse x:Name="PeerPresenceDot" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                 Fill="#CD5C5C" />
+                        <Label x:Name="PeerStatusLabel" FontSize="11" TextColor="{DynamicResource MutedText}"
+                               VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    </HorizontalStackLayout>
+                    <Label x:Name="PeerIdLabel" FontSize="10" TextColor="{DynamicResource MutedText}"
+                           LineBreakMode="TailTruncation" />
+                </VerticalStackLayout>
+                <Button x:Name="ClearChatButton" Grid.Column="3" Text="&#x1F5D1;&#xFE0F;" FontSize="18"
+                        Padding="0" WidthRequest="40" HeightRequest="40"
+                        BackgroundColor="Transparent" VerticalOptions="Start"
+                        Clicked="OnClearChatClicked" />
             </Grid>
-            <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
-                <Label x:Name="PeerNameLabel" FontSize="16" FontAttributes="Bold"
-                       TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
-                <HorizontalStackLayout Spacing="6">
-                    <Ellipse x:Name="PeerPresenceDot" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
-                             Fill="#CD5C5C" />
-                    <Label x:Name="PeerStatusLabel" FontSize="11" TextColor="{DynamicResource MutedText}"
-                           VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                </HorizontalStackLayout>
-                <Label x:Name="PeerIdLabel" FontSize="10" TextColor="{DynamicResource MutedText}"
-                       LineBreakMode="TailTruncation" />
-            </VerticalStackLayout>
-            <Button x:Name="ClearChatButton" Grid.Column="3" FontSize="12" BackgroundColor="Transparent" TextColor="{DynamicResource Danger}"
-                    Padding="4" Clicked="OnClearChatClicked" />
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="4" Margin="12,0,8,8">
+                <Label x:Name="SafetyNumberLabel" FontSize="11"
+                       TextColor="{DynamicResource MutedText}" HorizontalTextAlignment="End"
+                       LineBreakMode="WordWrap" VerticalOptions="Center" />
+                <Button x:Name="EmergencyUntrustButton" Grid.Column="1" Text="&#x1F6A8;" FontSize="16"
+                        Padding="0" WidthRequest="40" HeightRequest="40"
+                        BackgroundColor="Transparent" VerticalOptions="Center"
+                        Clicked="OnEmergencyUntrustClicked" />
+            </Grid>
         </Grid>
 
         <CollectionView x:Name="MessagesCollection" Grid.Row="1"
