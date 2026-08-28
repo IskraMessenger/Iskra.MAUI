@@ -169,6 +169,7 @@ internal static partial class StringCatalog
         ["servers.add"] = "Añadir servidor",
         ["servers.import"] = "Importar servidor",
         ["servers.check"] = "Comprobar",
+        ["servers.ask"] = "Pedir servidores",
         ["servers.share"] = "Compartir",
         ["servers.delete"] = "Eliminar",
         ["servers.base_url"] = "Base URL",
@@ -265,6 +266,9 @@ internal static partial class StringCatalog
         ["servers.untrusted_title"] = "Servidor no confiable",
         ["servers.untrusted_body"] =
             "El fingerprint no coincide. Elimine el servidor y añádalo de nuevo solo si confía en el nuevo certificado.",
+        ["servers.ask_title"] = "Pedir servidores",
+        ["servers.asking"] = "Pidiendo servidores a {0}…",
+        ["servers.ask_result"] = "Recibidos {0}, actualizados {1}, añadidos {2}: {3}",
         ["servers.checking"] = "Comprobando {0}…",
         ["servers.recheck_title"] = "Comprobación del servidor",
         ["servers.recheck_ok"] =
@@ -278,7 +282,7 @@ internal static partial class StringCatalog
         ["servers.delete_title"] = "¿Eliminar servidor?",
         ["servers.delete_body"] =
             "{0}\nLa cuenta en el servidor no se elimina — solo la entrada en este dispositivo.",
-        ["servers.meta"] = "{0} · {1} · {2} · fp {3}",
+        ["servers.meta"] = "rating {0} · {1} · {2} · {3} · fp {4}",
         ["servers.meta_trusted"] = "trusted",
         ["servers.meta_untrusted"] = "UNTRUSTED",
         ["servers.meta_active"] = "active",
@@ -468,6 +472,7 @@ internal static partial class StringCatalog
         ["servers.add"] = "添加服务器",
         ["servers.import"] = "导入服务器",
         ["servers.check"] = "检查",
+        ["servers.ask"] = "请求服务器",
         ["servers.share"] = "分享",
         ["servers.delete"] = "删除",
         ["servers.base_url"] = "Base URL",
@@ -564,6 +569,9 @@ internal static partial class StringCatalog
         ["servers.untrusted_title"] = "不可信服务器",
         ["servers.untrusted_body"] =
             "Fingerprint 不匹配。仅在信任新证书时删除服务器并重新添加。",
+        ["servers.ask_title"] = "请求服务器",
+        ["servers.asking"] = "正在向 {0} 请求服务器…",
+        ["servers.ask_result"] = "收到 {0}，更新 {1}，新增 {2}：{3}",
         ["servers.checking"] = "正在检查 {0}…",
         ["servers.recheck_title"] = "服务器检查",
         ["servers.recheck_ok"] =
@@ -577,7 +585,7 @@ internal static partial class StringCatalog
         ["servers.delete_title"] = "删除服务器？",
         ["servers.delete_body"] =
             "{0}\n不会删除服务器上的账户 — 仅删除本设备上的记录。",
-        ["servers.meta"] = "{0} · {1} · {2} · fp {3}",
+        ["servers.meta"] = "rating {0} · {1} · {2} · {3} · fp {4}",
         ["servers.meta_trusted"] = "trusted",
         ["servers.meta_untrusted"] = "UNTRUSTED",
         ["servers.meta_active"] = "active",

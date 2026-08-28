@@ -191,6 +191,7 @@ internal static partial class StringCatalog
         ["servers.add"] = "Добавить сервер",
         ["servers.import"] = "Импортировать сервер",
         ["servers.check"] = "Проверить",
+        ["servers.ask"] = "Запросить серверы",
         ["servers.share"] = "Поделиться",
         ["servers.delete"] = "Удалить",
         ["servers.base_url"] = "Base URL",
@@ -287,6 +288,9 @@ internal static partial class StringCatalog
         ["servers.untrusted_title"] = "Недоверенный сервер",
         ["servers.untrusted_body"] =
             "Fingerprint не совпал. Удалите сервер и добавьте заново, только если доверяете новому сертификату.",
+        ["servers.ask_title"] = "Запросить серверы",
+        ["servers.asking"] = "Запрос серверов у {0}…",
+        ["servers.ask_result"] = "Получено {0}, обновлено {1}, добавлено {2}: {3}",
         ["servers.checking"] = "Проверка {0}…",
         ["servers.recheck_title"] = "Проверка сервера",
         ["servers.recheck_ok"] =
@@ -300,7 +304,7 @@ internal static partial class StringCatalog
         ["servers.delete_title"] = "Удалить сервер?",
         ["servers.delete_body"] =
             "{0}\nУчётная запись на сервере не удаляется — только запись на этом устройстве.",
-        ["servers.meta"] = "{0} · {1} · {2} · fp {3}",
+        ["servers.meta"] = "rating {0} · {1} · {2} · {3} · fp {4}",
         ["servers.meta_trusted"] = "trusted",
         ["servers.meta_untrusted"] = "UNTRUSTED",
         ["servers.meta_active"] = "active",
@@ -490,6 +494,7 @@ internal static partial class StringCatalog
         ["servers.add"] = "Add server",
         ["servers.import"] = "Import server",
         ["servers.check"] = "Check",
+        ["servers.ask"] = "Ask servers",
         ["servers.share"] = "Share",
         ["servers.delete"] = "Delete",
         ["servers.base_url"] = "Base URL",
@@ -586,6 +591,9 @@ internal static partial class StringCatalog
         ["servers.untrusted_title"] = "Untrusted server",
         ["servers.untrusted_body"] =
             "Fingerprint mismatch. Delete the server and add it again only if you trust the new certificate.",
+        ["servers.ask_title"] = "Ask servers",
+        ["servers.asking"] = "Asking {0} for servers…",
+        ["servers.ask_result"] = "Received {0}, updated {1}, added {2}: {3}",
         ["servers.checking"] = "Checking {0}…",
         ["servers.recheck_title"] = "Server check",
         ["servers.recheck_ok"] =
@@ -599,7 +607,7 @@ internal static partial class StringCatalog
         ["servers.delete_title"] = "Delete server?",
         ["servers.delete_body"] =
             "{0}\nThe account on the server is not deleted — only the entry on this device.",
-        ["servers.meta"] = "{0} · {1} · {2} · fp {3}",
+        ["servers.meta"] = "rating {0} · {1} · {2} · {3} · fp {4}",
         ["servers.meta_trusted"] = "trusted",
         ["servers.meta_untrusted"] = "UNTRUSTED",
         ["servers.meta_active"] = "active",

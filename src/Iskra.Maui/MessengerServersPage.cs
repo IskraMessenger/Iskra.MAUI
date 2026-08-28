@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Qr;
 using ShortP2P.Client.Services.MessengerServers;
+using ShortP2P.TrustSystem;
 
 namespace Iskra.Maui;
 
@@ -104,9 +105,11 @@ public sealed class MessengerServersPage : ContentPage
         {
             var url = new Label { FontSize = 16 };
             url.SetBinding(Label.TextProperty, nameof(MessengerServerRowVm.BaseUrl));
+            url.Triggers.Add(LowRatingColorTrigger());
 
             var meta = new Label { FontSize = 12, TextColor = Colors.Gray };
             meta.SetBinding(Label.TextProperty, nameof(MessengerServerRowVm.MetaLine));
+            meta.Triggers.Add(LowRatingColorTrigger());
 
             var active = new Switch();
             active.SetBinding(Switch.IsToggledProperty, new Binding(nameof(MessengerServerRowVm.Active),
@@ -126,6 +129,14 @@ public sealed class MessengerServersPage : ContentPage
                 Padding = new Thickness(10, 4)
             };
             recheck.Clicked += OnRecheckClicked;
+
+            var ask = new Button
+            {
+                Text = Loc.T("servers.ask"),
+                Padding = new Thickness(10, 4)
+            };
+            ask.SetBinding(VisualElement.IsVisibleProperty, nameof(MessengerServerRowVm.CanAskServers));
+            ask.Clicked += OnAskServersClicked;
 
             var delete = new Button
             {
@@ -151,6 +162,7 @@ public sealed class MessengerServersPage : ContentPage
                     new ColumnDefinition(GridLength.Auto),
                     new ColumnDefinition(GridLength.Auto),
                     new ColumnDefinition(GridLength.Auto),
+                    new ColumnDefinition(GridLength.Auto),
                     new ColumnDefinition(GridLength.Auto)
                 },
                 ColumnSpacing = 8,
@@ -159,11 +171,20 @@ public sealed class MessengerServersPage : ContentPage
                     texts,
                     share.AtColumn(1),
                     recheck.AtColumn(2),
-                    active.AtColumn(3),
-                    delete.AtColumn(4)
+                    ask.AtColumn(3),
+                    active.AtColumn(4),
+                    delete.AtColumn(5)
                 }
             };
         });
+
+    private static DataTrigger LowRatingColorTrigger() =>
+        new(typeof(Label))
+        {
+            Binding = new Binding(nameof(MessengerServerRowVm.IsLowRating)),
+            Value = true,
+            Setters = { new Setter { Property = Label.TextColorProperty, Value = IskraTheme.Danger } }
+        };
 
     private void OnTrustThreat(object? sender, MessengerServerTrustThreatEventArgs e)
     {
@@ -366,6 +387,39 @@ public sealed class MessengerServersPage : ContentPage
         }
     }
 
+    private async void OnAskServersClicked(object? sender, EventArgs e)
+    {
+        if (sender is not BindableObject { BindingContext: MessengerServerRowVm row } bindable)
+            return;
+
+        if (!row.CanAskServers)
+            return;
+
+        if (bindable is Button button)
+            button.IsEnabled = false;
+        _status.Text = Loc.Tf("servers.asking", row.BaseUrl);
+        try
+        {
+            var result = await _manager.AskServersFromAsync(row.Id).ConfigureAwait(true);
+            AppLog.ServerResponse("AskServers", row.BaseUrl,
+                $"received={result.ReceivedCount} updated={result.UpdatedCount} added={result.AddedCount}");
+            await ReloadAsync().ConfigureAwait(true);
+            _status.Text = Loc.Tf("servers.ask_result", result.ReceivedCount, result.UpdatedCount, result.AddedCount,
+                row.BaseUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AskServers from messenger server {Id}", row.Id);
+            _status.Text = ex.Message;
+            await DisplayAlert(Loc.T("servers.ask_title"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
+        }
+        finally
+        {
+            if (bindable is Button restore)
+                restore.IsEnabled = true;
+        }
+    }
+
     private async void OnRecheckClicked(object? sender, EventArgs e)
     {
         if (sender is not BindableObject { BindingContext: MessengerServerRowVm row } bindable)
@@ -458,7 +512,9 @@ public sealed class MessengerServersPage : ContentPage
             _active = entity.Active;
             Fingerprint = entity.FingerprintSha256;
             IsRegistered = entity.IsRegistered;
-            _metaLine = BuildMeta(entity.Trusted, entity.Active, entity.IsRegistered, entity.FingerprintSha256);
+            TrustRating = entity.TrustRating;
+            _metaLine = BuildMeta(
+                entity.TrustRating, entity.Trusted, entity.Active, entity.IsRegistered, entity.FingerprintSha256);
         }
 
         public int Id { get; }
@@ -466,6 +522,9 @@ public sealed class MessengerServersPage : ContentPage
         public bool Trusted { get; }
         public bool IsRegistered { get; }
         public string Fingerprint { get; }
+        public float TrustRating { get; }
+        public bool IsLowRating => TrustRating < TrustRatings.Floor;
+        public bool CanAskServers => TrustRating >= TrustRatings.Floor;
 
         public bool Active
         {
@@ -492,9 +551,9 @@ public sealed class MessengerServersPage : ContentPage
         }
 
         public void RefreshMeta() =>
-            MetaLine = BuildMeta(Trusted, Active, IsRegistered, Fingerprint);
+            MetaLine = BuildMeta(TrustRating, Trusted, Active, IsRegistered, Fingerprint);
 
-        private static string BuildMeta(bool trusted, bool active, bool registered, string fp)
+        private static string BuildMeta(float rating, bool trusted, bool active, bool registered, string fp)
         {
             var shortFp = string.IsNullOrEmpty(fp)
                 ? "—"
@@ -504,7 +563,8 @@ public sealed class MessengerServersPage : ContentPage
             var trust = trusted ? Loc.T("servers.meta_trusted") : Loc.T("servers.meta_untrusted");
             var act = active ? Loc.T("servers.meta_active") : Loc.T("servers.meta_off");
             var reg = registered ? Loc.T("servers.meta_registered") : Loc.T("servers.meta_not_registered");
-            return Loc.Tf("servers.meta", trust, act, reg, shortFp);
+            var ratingText = rating.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            return Loc.Tf("servers.meta", ratingText, trust, act, reg, shortFp);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
