@@ -18,12 +18,18 @@ public partial class App : Application
         LanguageService.Load();
         ThemeService.LoadAndApply();
         UiInteractionLog.HookApplication(this);
+
+        MainPage = LanguageService.HasChosen
+            ? new NavigationPage(MauiProgram.Services.GetRequiredService<LoginPage>())
+            : new NavigationPage(new LanguageSelectPage());
     }
 
-    protected override Window CreateWindow(IActivationState? activationState)
+    protected override void OnStart()
     {
+        base.OnStart();
+
         var logger = MauiProgram.Services.GetRequiredService<ILogger<App>>();
-        logger.LogInformation("Application window created");
+        logger.LogInformation("Application started");
         if (Interlocked.Exchange(ref _permissionsBootstrapped, 1) == 0)
             MainThread.BeginInvokeOnMainThread(async () =>
             {
@@ -38,11 +44,6 @@ public partial class App : Application
             });
         if (Interlocked.Exchange(ref _deferredStart, 1) == 0)
             MainThread.BeginInvokeOnMainThread(() => _ = StartBackgroundServicesAsync(logger));
-
-        Page root = LanguageService.HasChosen
-            ? MauiProgram.Services.GetRequiredService<LoginPage>()
-            : new LanguageSelectPage();
-        return new Window(new NavigationPage(root));
     }
 
     private static async Task StartBackgroundServicesAsync(ILogger logger)
