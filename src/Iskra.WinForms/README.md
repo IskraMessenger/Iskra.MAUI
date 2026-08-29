@@ -6,6 +6,8 @@
 
 Платформы: **x86** (по умолчанию, Win7 32-bit) и **x64**.
 
+LAN scan: UDP presence **17501**, discovery wire **17890**, плюс GetClients с messenger-серверов. BLE нет. Разрешите порты в firewall.
+
 ```
 dotnet build src/Iskra.WinForms/Iskra.WinForms.csproj -p:Platform=x86
 dotnet build src/Iskra.WinForms/Iskra.WinForms.csproj -p:Platform=x64

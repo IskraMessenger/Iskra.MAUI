@@ -21,7 +21,7 @@ internal static class ChatNav
         var chats = MauiProgram.Services.GetRequiredService<ChatRepository>();
         var p2p = MauiProgram.Services.GetRequiredService<UserP2pRuntime>();
         var result = await LanChatStartFromDiscovery
-            .TryStartAsync(peer, auth, chats, p2p, CancellationToken.None).ConfigureAwait(true);
+            .TryStartAsync(peer, auth, chats, p2p.CreateLanChatStartContext(), CancellationToken.None).ConfigureAwait(true);
         switch (result.Kind)
         {
             case LanChatStartKind.AlreadyExists:
