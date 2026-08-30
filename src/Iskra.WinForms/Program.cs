@@ -8,6 +8,7 @@ using ShortP2P.Client;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
+using ShortP2P.Client.Routing;
 using ShortP2P.Discovery;
 using ShortP2P.MessengerServer.Contracts.Dtos;
 using ShortP2P.Transport;
@@ -47,10 +48,14 @@ internal static class Program
         services.AddSingleton<DeviceIdProvider>();
         services.AddSingleton<MessengerServerManager>();
         services.AddSingleton<MessengerServerSyncService>();
-        services.AddSingleton(_ => new P2pRoutingSettings
+        services.AddSingleton<P2pRoutingSettingsStore>();
+        services.AddSingleton(sp =>
         {
-            EnableUdpTransport = true,
-            EnableBluetoothTransport = false
+            var store = sp.GetRequiredService<P2pRoutingSettingsStore>();
+            var loaded = store.LoadAsync().GetAwaiter().GetResult();
+            var live = new P2pRoutingSettings();
+            RoutingSettingsLive.Overlay(live, loaded);
+            return live;
         });
         services.AddSingleton<IUdpTransportFactory>(sp =>
             new UdpTransportFactory(sp.GetService<ILoggerFactory>()));
@@ -86,6 +91,7 @@ internal static class Program
             };
             return scan;
         });
+        services.AddTransient<SettingsForm>();
         services.AddTransient<LoginForm>();
         services.AddTransient<RegisterForm>();
         services.AddTransient<MainForm>();

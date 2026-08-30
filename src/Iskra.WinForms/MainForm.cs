@@ -24,6 +24,9 @@ public sealed class MainForm : Form
     private bool _reloadBusy;
     private bool _reloadPending;
 
+    private readonly Dictionary<int, ChatForm> _openChats = new();
+    private int? _pendingOpenChatId;
+
     public MainForm(
         AuthService auth,
         ChatRepository chats,
@@ -43,6 +46,7 @@ public sealed class MainForm : Form
         var lan = new Button { Text = "Контакты", AutoSize = true };
         var servers = new Button { Text = "Серверы", AutoSize = true };
         var myQr = new Button { Text = "Мой QR", AutoSize = true };
+        var settings = new Button { Text = "Настройки", AutoSize = true };
         var logout = new Button { Text = "Выйти", AutoSize = true };
         add.Click += (_, _) => OnAddChat();
         lan.Click += (_, _) => OnLanScan();
@@ -53,6 +57,11 @@ public sealed class MainForm : Form
             ScheduleReload();
         };
         myQr.Click += OnMyQr;
+        settings.Click += (_, _) =>
+        {
+            using var f = _services.GetRequiredService<SettingsForm>();
+            f.ShowDialog(this);
+        };
         logout.Click += async (_, _) =>
         {
             await _auth.LogoutAsync().ConfigureAwait(true);
@@ -65,6 +74,7 @@ public sealed class MainForm : Form
         toolbar.Controls.Add(lan);
         toolbar.Controls.Add(servers);
         toolbar.Controls.Add(myQr);
+        toolbar.Controls.Add(settings);
         toolbar.Controls.Add(logout);
 
         _list.DoubleClick += (_, _) => OpenSelected();
@@ -85,6 +95,8 @@ public sealed class MainForm : Form
         _chats.ChatListChanged += OnChatListChanged;
         _chats.ChatCreated -= OnChatCreated;
         _chats.ChatCreated += OnChatCreated;
+        _chats.IncomingChatInvite -= OnIncomingChatInvite;
+        _chats.IncomingChatInvite += OnIncomingChatInvite;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
         _chats.ChatMessageAppended += OnChatMessageAppended;
         _refreshTimer.Start();
@@ -97,12 +109,35 @@ public sealed class MainForm : Form
         _refreshTimer.Dispose();
         _chats.ChatListChanged -= OnChatListChanged;
         _chats.ChatCreated -= OnChatCreated;
+        _chats.IncomingChatInvite -= OnIncomingChatInvite;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
+        foreach (var f in _openChats.Values.ToList())
+        {
+            try
+            {
+                f.Close();
+            }
+            catch
+            {
+                // ignore
+            }
+        }
     }
 
     private void OnChatListChanged(object? sender, EventArgs e) => ScheduleReload();
 
-    private void OnChatCreated(object? sender, ChatCreatedEventArgs e) => ScheduleReload();
+    private void OnChatCreated(object? sender, ChatCreatedEventArgs e)
+    {
+        _pendingOpenChatId = e.ChatId;
+        ScheduleReload();
+    }
+
+    private void OnIncomingChatInvite(object? sender, ChatCreatedEventArgs e)
+    {
+        _pendingOpenChatId = e.ChatId;
+        ScheduleReload();
+        ScheduleOpenChat(e.ChatId);
+    }
 
     private void OnChatMessageAppended(object? sender, ChatMessageAppendedEventArgs e) => ScheduleReload();
 
@@ -140,8 +175,14 @@ public sealed class MainForm : Form
 
     private async Task ReloadAsync()
     {
-        if (_reloadBusy || IsDisposed)
+        if (IsDisposed)
             return;
+        if (_reloadBusy)
+        {
+            _reloadPending = true;
+            return;
+        }
+
         _reloadBusy = true;
         try
         {
@@ -153,34 +194,59 @@ public sealed class MainForm : Form
                     return;
 
                 int? selectedId = null;
-                if (_list.SelectedIndex >= 0 && _list.SelectedIndex < _items.Count)
-                    selectedId = _items[_list.SelectedIndex].Id;
+                void CaptureSelection()
+                {
+                    if (_list.SelectedIndex >= 0 && _list.SelectedIndex < _items.Count)
+                        selectedId = _items[_list.SelectedIndex].Id;
+                }
 
-                _items = (await _chats.ListChatsAsync(user.Id).ConfigureAwait(true)).ToList();
+                if (InvokeRequired)
+                    Invoke(CaptureSelection);
+                else
+                    CaptureSelection();
+
+                var items = (await _chats.ListChatsAsync(user.Id).ConfigureAwait(false)).ToList();
                 if (IsDisposed)
                     return;
 
-                _list.BeginUpdate();
-                try
+                void Bind()
                 {
-                    _list.Items.Clear();
-                    foreach (var chat in _items)
-                        _list.Items.Add($"{chat.PeerNickname}  ({chat.PeerNetworkIdShort})");
-                }
-                finally
-                {
-                    _list.EndUpdate();
+                    if (IsDisposed)
+                        return;
+                    _items = items;
+                    _list.BeginUpdate();
+                    try
+                    {
+                        _list.Items.Clear();
+                        foreach (var chat in _items)
+                            _list.Items.Add($"{chat.PeerNickname}  ({chat.PeerNetworkIdShort})");
+                    }
+                    finally
+                    {
+                        _list.EndUpdate();
+                    }
+
+                    if (selectedId is int id)
+                    {
+                        var idx = _items.FindIndex(c => c.Id == id);
+                        if (idx >= 0)
+                            _list.SelectedIndex = idx;
+                    }
+                    else if (_pendingOpenChatId is int pending)
+                    {
+                        var idx = _items.FindIndex(c => c.Id == pending);
+                        if (idx >= 0)
+                            _list.SelectedIndex = idx;
+                    }
+
+                    _status.Text =
+                        $"{user.Nickname}  id={user.NetworkIdShort}  чатов: {_items.Count}  (черновик net48, UDP LAN, без BLE/камеры)";
                 }
 
-                if (selectedId is int id)
-                {
-                    var idx = _items.FindIndex(c => c.Id == id);
-                    if (idx >= 0)
-                        _list.SelectedIndex = idx;
-                }
-
-                _status.Text =
-                    $"{user.Nickname}  id={user.NetworkIdShort}  чатов: {_items.Count}  (черновик net48, UDP LAN, без BLE/камеры)";
+                if (InvokeRequired)
+                    Invoke(Bind);
+                else
+                    Bind();
             } while (_reloadPending && !IsDisposed);
         }
         catch (Exception ex)
@@ -190,6 +256,8 @@ public sealed class MainForm : Form
         finally
         {
             _reloadBusy = false;
+            if (_reloadPending && !IsDisposed)
+                ScheduleReload();
         }
     }
 
@@ -204,12 +272,7 @@ public sealed class MainForm : Form
             _services.GetRequiredService<IUdpTransportFactory>(),
             _services.GetRequiredService<P2pRoutingSettings>(),
             _services.GetRequiredService<ILogger<LanScanForm>>(),
-            chat =>
-            {
-                using var chatForm = new ChatForm(
-                    _auth, _chats, _services.GetRequiredService<MessengerServerSyncService>(), chat, _logger);
-                chatForm.ShowDialog(this);
-            },
+            chat => OpenChat(chat),
             () =>
             {
                 ScheduleReload();
@@ -225,6 +288,8 @@ public sealed class MainForm : Form
         if (f.ShowDialog(this) != DialogResult.OK)
             return;
         ScheduleReload();
+        if (f.CreatedChat != null)
+            OpenChat(f.CreatedChat);
     }
 
     private void OpenSelected()
@@ -232,9 +297,57 @@ public sealed class MainForm : Form
         var i = _list.SelectedIndex;
         if (i < 0 || i >= _items.Count)
             return;
-        using var chat = new ChatForm(_auth, _chats, _services.GetRequiredService<MessengerServerSyncService>(),
-            _items[i], _logger);
-        chat.ShowDialog(this);
+        OpenChat(_items[i]);
+    }
+
+    private void ScheduleOpenChat(int chatId)
+    {
+        if (IsDisposed || !IsHandleCreated)
+            return;
+        try
+        {
+            if (InvokeRequired)
+                BeginInvoke(new Action(() => _ = OpenChatByIdAsync(chatId)));
+            else
+                _ = OpenChatByIdAsync(chatId);
+        }
+        catch (ObjectDisposedException)
+        {
+            // ignore
+        }
+        catch (InvalidOperationException)
+        {
+            // ignore
+        }
+    }
+
+    private async Task OpenChatByIdAsync(int chatId)
+    {
+        var chat = await _chats.GetChatAsync(chatId).ConfigureAwait(true);
+        if (chat == null || IsDisposed)
+            return;
+        OpenChat(chat);
+    }
+
+    private void OpenChat(ChatEntity chat)
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(new Action(() => OpenChat(chat)));
+            return;
+        }
+        if (_openChats.TryGetValue(chat.Id, out var existing) && existing is { IsDisposed: false })
+        {
+            existing.BringToFront();
+            existing.Activate();
+            return;
+        }
+
+        var form = new ChatForm(
+            _auth, _chats, _services.GetRequiredService<MessengerServerSyncService>(), chat, _logger);
+        _openChats[chat.Id] = form;
+        form.FormClosed += (_, _) => _openChats.Remove(chat.Id);
+        form.Show(this);
         ScheduleReload();
     }
 

@@ -19,6 +19,8 @@ public sealed class AddChatForm : Form
     private readonly TextBox _pub = new() { Width = 360, Height = 90, Multiline = true, ScrollBars = ScrollBars.Vertical };
     private readonly TextBox _host = new() { Width = 360 };
 
+    public ChatEntity? CreatedChat { get; private set; }
+
     public AddChatForm(
         AuthService auth,
         ChatRepository chats,
@@ -118,6 +120,7 @@ public sealed class AddChatForm : Form
                 remote: false,
                 keySource: PeerKeySource.Qr()).ConfigureAwait(true);
             await _sync.PublishChatRequestAsync(chat.PeerNetworkIdShort).ConfigureAwait(true);
+            CreatedChat = chat;
             DialogResult = DialogResult.OK;
             Close();
         }

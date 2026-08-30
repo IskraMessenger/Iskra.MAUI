@@ -12,7 +12,7 @@ public sealed class ChatForm : Form
     private readonly AuthService _auth;
     private readonly ChatRepository _chats;
     private readonly MessengerServerSyncService _sync;
-    private readonly ChatEntity _chat;
+    private ChatEntity _chat;
     private readonly ILogger _logger;
     private readonly ListBox _messages = new() { Dock = DockStyle.Fill, IntegralHeight = false };
     private readonly TextBox _input = new() { Dock = DockStyle.Fill };
@@ -47,9 +47,33 @@ public sealed class ChatForm : Form
         Controls.Add(_messages);
         Controls.Add(bottom);
 
-        Load += async (_, _) => await ReloadAsync().ConfigureAwait(true);
+        Load += async (_, _) =>
+        {
+            await ReloadAsync().ConfigureAwait(true);
+            try
+            {
+                await _sync.PublishChatRequestAsync(_chat.PeerNetworkIdShort).ConfigureAwait(true);
+                await _sync.DrainInboxOnceAsync().ConfigureAwait(true);
+                await RefreshChatEntityAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "PublishChatRequest on chat open");
+            }
+        };
         _chats.ChatMessageAppended += OnAppended;
-        FormClosed += (_, _) => _chats.ChatMessageAppended -= OnAppended;
+        _chats.ChatListChanged += OnChatListChanged;
+        FormClosed += (_, _) =>
+        {
+            _chats.ChatMessageAppended -= OnAppended;
+            _chats.ChatListChanged -= OnChatListChanged;
+        };
+    }
+
+    private void OnChatListChanged(object? sender, EventArgs e)
+    {
+        if (IsHandleCreated)
+            BeginInvoke(new Action(() => _ = RefreshChatEntityAsync()));
     }
 
     private void OnAppended(object? sender, ChatMessageAppendedEventArgs e)
@@ -60,18 +84,42 @@ public sealed class ChatForm : Form
             BeginInvoke(new Action(() => _ = ReloadAsync()));
     }
 
-    private async Task ReloadAsync()
+    private async Task RefreshChatEntityAsync()
     {
-        var rows = await _chats.ListMessagesAsync(_chat.Id).ConfigureAwait(true);
-        _messages.Items.Clear();
-        foreach (var m in rows)
+        var fresh = await _chats.GetChatAsync(_chat.Id).ConfigureAwait(false);
+        if (fresh == null)
+            return;
+        _chat = fresh;
+        if (IsHandleCreated && InvokeRequired)
         {
-            var who = m.Outgoing ? "я" : _chat.PeerNickname;
-            _messages.Items.Add($"{who}: {m.Text}");
+            BeginInvoke(new Action(() =>
+                Text = $"{_chat.PeerNickname} ({_chat.PeerNetworkIdShort})"));
+            return;
         }
 
-        if (_messages.Items.Count > 0)
-            _messages.SelectedIndex = _messages.Items.Count - 1;
+        Text = $"{_chat.PeerNickname} ({_chat.PeerNetworkIdShort})";
+    }
+
+    private async Task ReloadAsync()
+    {
+        var rows = await _chats.ListMessagesAsync(_chat.Id).ConfigureAwait(false);
+        void Bind()
+        {
+            _messages.Items.Clear();
+            foreach (var m in rows)
+            {
+                var who = m.Outgoing ? "я" : _chat.PeerNickname;
+                _messages.Items.Add($"{who}: {m.Text}");
+            }
+
+            if (_messages.Items.Count > 0)
+                _messages.SelectedIndex = _messages.Items.Count - 1;
+        }
+
+        if (IsHandleCreated && InvokeRequired)
+            BeginInvoke(new Action(Bind));
+        else
+            Bind();
     }
 
     private async Task SendAsync()
@@ -86,23 +134,67 @@ public sealed class ChatForm : Form
         _send.Enabled = false;
         try
         {
+            await RefreshChatEntityAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(_chat.PeerRsaPublicJson))
+            {
+                await _sync.DrainInboxOnceAsync().ConfigureAwait(false);
+                await RefreshChatEntityAsync().ConfigureAwait(false);
+            }
+
+            if (string.IsNullOrWhiteSpace(_chat.PeerRsaPublicJson))
+            {
+                ShowSendWarning(
+                    "Пока нет ключа пира. Второй клиент должен быть запущен и ответить на приглашение — после этого сообщение можно отправить. «Офлайн» в контактах не значит, что сервер выключен.");
+                return;
+            }
+
             var wire = ChatWireCodec.EncodeText(text);
-            await _chats.AddMessageAsync(_chat.Id, true, text, MessageDeliveryStatus.Pending).ConfigureAwait(true);
-            var ok = await _sync.TryDeliverWireAsync(_chat, user, wire).ConfigureAwait(true);
+            await _chats.AddMessageAsync(_chat.Id, true, text, MessageDeliveryStatus.Pending).ConfigureAwait(false);
+            var ok = await _sync.TryDeliverWireAsync(_chat, user, wire).ConfigureAwait(false);
             if (!ok)
-                MessageBox.Show(this, "Сервер не принял сообщение (нет доверенного сервера или пир не зарегистрирован).",
-                    "Отправка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            _input.Clear();
-            await ReloadAsync().ConfigureAwait(true);
+                ShowSendWarning(
+                    "Сервер не принял сообщение. Проверьте «Серверы»: доверенный и активный, клиент должен быть зарегистрирован на том же сервере.");
+            else
+            {
+                if (InvokeRequired)
+                    BeginInvoke(new Action(() => _input.Clear()));
+                else
+                    _input.Clear();
+            }
+
+            await ReloadAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Send text");
-            MessageBox.Show(this, ex.Message, "Отправка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ShowSendError(ex.Message);
         }
         finally
         {
-            _send.Enabled = true;
+            if (IsHandleCreated && InvokeRequired)
+                BeginInvoke(new Action(() => _send.Enabled = true));
+            else
+                _send.Enabled = true;
         }
+    }
+
+    private void ShowSendWarning(string text)
+    {
+        void Show() =>
+            MessageBox.Show(this, text, "Отправка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        if (InvokeRequired)
+            BeginInvoke(new Action(Show));
+        else
+            Show();
+    }
+
+    private void ShowSendError(string text)
+    {
+        void Show() =>
+            MessageBox.Show(this, text, "Отправка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        if (InvokeRequired)
+            BeginInvoke(new Action(Show));
+        else
+            Show();
     }
 }
