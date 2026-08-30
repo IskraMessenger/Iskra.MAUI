@@ -6,10 +6,11 @@ namespace Iskra.Maui;
 
 internal static class IncomingMessageSound
 {
-    private const string MessageSoundFile = "GChord.ogg";
-    private const string NewChatSoundFile = "new_chat.ogg";
+    private const string MessageSoundStem = "GChord";
+    private const string NewChatSoundStem = "new_chat";
 
     private static int _hooked;
+    private static int _newChatBusy;
 
 #if WINDOWS
     private static global::Windows.Media.Playback.MediaPlayer? _windowsPlayer;
@@ -21,82 +22,182 @@ internal static class IncomingMessageSound
     {
         if (Interlocked.Exchange(ref _hooked, 1) != 0)
             return;
+
         repo.ChatMessageAppended += (_, e) =>
         {
             if (e.Outgoing)
                 return;
-            MainThread.BeginInvokeOnMainThread(() => _ = PlayAsync(MessageSoundFile, logger));
+            QueuePlay(MessageSoundStem, logger);
         };
+
+        // new_chat only when another client invited us (new DB row, remote: true).
+        // Not on our own Add chat / outbound invite, and not on their ChatRequest reply.
         repo.ChatCreated += (_, e) =>
         {
             if (!e.Remote)
                 return;
-            MainThread.BeginInvokeOnMainThread(() => _ = PlayAsync(NewChatSoundFile, logger));
+            QueueNewChat(logger);
         };
     }
 
-    private static async Task PlayAsync(string fileName, ILogger logger)
+    private static void QueueNewChat(ILogger logger)
+    {
+        if (Interlocked.CompareExchange(ref _newChatBusy, 1, 0) != 0)
+            return;
+        QueuePlay(NewChatSoundStem, logger, releaseNewChat: true);
+    }
+
+    private static void QueuePlay(string stem, ILogger logger, bool releaseNewChat = false)
+    {
+        void Run() => _ = PlayAndReleaseAsync(stem, logger, releaseNewChat);
+        if (MainThread.IsMainThread)
+            Run();
+        else
+            MainThread.BeginInvokeOnMainThread(Run);
+    }
+
+    private static async Task PlayAndReleaseAsync(string stem, ILogger logger, bool releaseNewChat)
+    {
+        try
+        {
+            await PlayAsync(stem, logger).ConfigureAwait(true);
+        }
+        finally
+        {
+            if (releaseNewChat)
+            {
+                await Task.Delay(750).ConfigureAwait(true);
+                Interlocked.Exchange(ref _newChatBusy, 0);
+            }
+        }
+    }
+
+    private static async Task PlayAsync(string stem, ILogger logger)
     {
         try
         {
 #if WINDOWS
-            await PlayWindowsAsync(fileName).ConfigureAwait(true);
+            await PlayWindowsAsync(stem + ".wav").ConfigureAwait(true);
 #elif ANDROID
-            await PlayAndroidAsync(fileName).ConfigureAwait(true);
+            await PlayAndroidAsync(stem + ".ogg").ConfigureAwait(true);
+#else
+            await Task.CompletedTask.ConfigureAwait(false);
 #endif
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Notification sound failed ({File})", fileName);
+            logger.LogWarning(ex, "Notification sound failed ({Stem})", stem);
         }
+    }
+
+    private static async Task<string> CopyPackageSoundToCacheAsync(string fileName)
+    {
+        var cache = Path.Combine(FileSystem.CacheDirectory, fileName);
+        if (File.Exists(cache) && new FileInfo(cache).Length > 0)
+            return cache;
+
+        await using var src = await OpenPackageSoundAsync(fileName).ConfigureAwait(true);
+        var tmp = cache + ".tmp";
+        await using (var dst = File.Create(tmp))
+            await src.CopyToAsync(dst).ConfigureAwait(true);
+        File.Copy(tmp, cache, overwrite: true);
+        try
+        {
+            File.Delete(tmp);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        AppLog.BinaryLoaded("sound", fileName, new FileInfo(cache).Length);
+        return cache;
+    }
+
+    private static async Task<Stream> OpenPackageSoundAsync(string fileName)
+    {
+        foreach (var name in new[] { fileName, "Resources/Raw/" + fileName })
+        {
+            try
+            {
+                if (await FileSystem.AppPackageFileExistsAsync(name).ConfigureAwait(true))
+                    return await FileSystem.OpenAppPackageFileAsync(name).ConfigureAwait(true);
+            }
+            catch
+            {
+                // try next
+            }
+
+            try
+            {
+                return await FileSystem.OpenAppPackageFileAsync(name).ConfigureAwait(true);
+            }
+            catch
+            {
+                // try next
+            }
+        }
+
+        throw new FileNotFoundException("Packaged notification sound not found: " + fileName);
     }
 
 #if WINDOWS
     private static async Task PlayWindowsAsync(string fileName)
     {
-        var cache = Path.Combine(FileSystem.CacheDirectory, fileName);
-        if (!File.Exists(cache))
-        {
-            await using var src = await FileSystem.OpenAppPackageFileAsync(fileName).ConfigureAwait(true);
-            await using var dst = File.Create(cache);
-            await src.CopyToAsync(dst).ConfigureAwait(true);
-            AppLog.BinaryLoaded("sound", fileName, dst.Length);
-        }
-
-        var file = await global::Windows.Storage.StorageFile.GetFileFromPathAsync(cache);
-        _windowsPlayer?.Dispose();
-        var player = new global::Windows.Media.Playback.MediaPlayer();
-        _windowsPlayer = player;
-        player.MediaEnded += (_, _) =>
+        var cache = await CopyPackageSoundToCacheAsync(fileName).ConfigureAwait(true);
+        await MainThread.InvokeOnMainThreadAsync(() =>
         {
             try
             {
-                player.Dispose();
+                _windowsPlayer?.Dispose();
             }
             catch
             {
                 // ignore
             }
 
-            if (ReferenceEquals(_windowsPlayer, player))
-                _windowsPlayer = null;
-        };
-        player.Source = global::Windows.Media.Core.MediaSource.CreateFromStorageFile(file);
-        player.Play();
+            var player = new global::Windows.Media.Playback.MediaPlayer
+            {
+                AudioCategory = global::Windows.Media.Playback.MediaPlayerAudioCategory.SoundEffects,
+                Volume = 1
+            };
+            _windowsPlayer = player;
+            player.MediaEnded += (_, _) =>
+            {
+                try
+                {
+                    player.Dispose();
+                }
+                catch
+                {
+                    // ignore
+                }
+
+                if (ReferenceEquals(_windowsPlayer, player))
+                    _windowsPlayer = null;
+            };
+            player.MediaFailed += (_, _) =>
+            {
+                try
+                {
+                    player.Dispose();
+                }
+                catch
+                {
+                    // ignore
+                }
+
+                if (ReferenceEquals(_windowsPlayer, player))
+                    _windowsPlayer = null;
+            };
+            player.Source = global::Windows.Media.Core.MediaSource.CreateFromUri(new Uri(cache));
+            player.Play();
+        }).ConfigureAwait(true);
     }
 #elif ANDROID
     private static async Task PlayAndroidAsync(string fileName)
     {
-        var cache = Path.Combine(FileSystem.CacheDirectory, fileName);
-        if (!File.Exists(cache))
-        {
-            await using var src = await FileSystem.OpenAppPackageFileAsync(fileName).ConfigureAwait(true);
-            await using var dst = File.Create(cache);
-            await src.CopyToAsync(dst).ConfigureAwait(true);
-            AppLog.BinaryLoaded("sound", fileName, dst.Length);
-        }
-
-        var path = cache;
+        var path = await CopyPackageSoundToCacheAsync(fileName).ConfigureAwait(true);
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
             try
@@ -108,52 +209,40 @@ internal static class IncomingMessageSound
                 var player = new Android.Media.MediaPlayer();
                 _androidPlayer = player;
                 var attrs = new Android.Media.AudioAttributes.Builder()
-                    .SetUsage(Android.Media.AudioUsageKind.NotificationEvent)
+                    .SetUsage(Android.Media.AudioUsageKind.Media)
                     .SetContentType(Android.Media.AudioContentType.Sonification)
                     .Build();
                 if (attrs != null)
                     player.SetAudioAttributes(attrs);
+                player.SetVolume(1f, 1f);
                 player.SetDataSource(path);
                 player.Prepare();
-                player.Completion += (_, _) =>
-                {
-                    try
-                    {
-                        player.Release();
-                        player.Dispose();
-                    }
-                    catch
-                    {
-                        // ignore
-                    }
-
-                    if (ReferenceEquals(_androidPlayer, player))
-                        _androidPlayer = null;
-                };
-                player.Error += (_, _) =>
-                {
-                    try
-                    {
-                        player.Release();
-                        player.Dispose();
-                    }
-                    catch
-                    {
-                        // ignore
-                    }
-
-                    if (ReferenceEquals(_androidPlayer, player))
-                        _androidPlayer = null;
-                };
+                player.Completion += (_, _) => ReleaseAndroid(player);
+                player.Error += (_, _) => ReleaseAndroid(player);
                 player.Start();
             }
             catch
             {
-                // Fallback, if MediaPlayer failed (codec/file race etc.)
-                using var tone = new Android.Media.ToneGenerator(Android.Media.Stream.Notification, 90);
-                tone.StartTone(Android.Media.Tone.PropBeep, 160);
+                using var tone = new Android.Media.ToneGenerator(Android.Media.Stream.Music, 100);
+                tone.StartTone(Android.Media.Tone.PropBeep, 220);
             }
         }).ConfigureAwait(true);
+    }
+
+    private static void ReleaseAndroid(Android.Media.MediaPlayer player)
+    {
+        try
+        {
+            player.Release();
+            player.Dispose();
+        }
+        catch
+        {
+            // ignore
+        }
+
+        if (ReferenceEquals(_androidPlayer, player))
+            _androidPlayer = null;
     }
 #endif
 }

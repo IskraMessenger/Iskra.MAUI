@@ -50,7 +50,7 @@
                         ItemsUpdatingScrollMode="KeepItemsInView" Scrolled="OnMessagesScrolled" Margin="8,4">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="4,3" ColumnDefinitions="*,Auto,*">
+                    <Grid Padding="4,3" ColumnDefinitions="Auto,*,Auto">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Tapped="OnMessageRowTapped" />
                         </Grid.GestureRecognizers>

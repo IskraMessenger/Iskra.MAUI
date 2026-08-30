@@ -92,11 +92,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <MauiAsset Include="..\..\ShortP2P\sounds\GChord.ogg" Link="Resources\Raw\GChord.ogg" />
-        <MauiAsset Include="..\..\Misc\new_chat.ogg" Link="Resources\Raw\new_chat.ogg" />
-    </ItemGroup>
-
-    <ItemGroup>
         <MauiIcon Include="Resources\AppIcon\appicon.png" Color="#121212" ForegroundScale="0.72" />
         <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#121212" BaseSize="128,128" />
         <MauiImage Include="Resources\Images\*" />
