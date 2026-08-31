@@ -68,6 +68,7 @@ public partial class ChatDetailPage : ContentPage
     private bool _suppressLoadMore = true;
     private bool _pendingReload;
     private int _reloadEpoch;
+    private int _scrollToEndEpoch;
     private VoiceRecordingSession? _voice;
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
@@ -349,14 +350,26 @@ public partial class ChatDetailPage : ContentPage
     {
         if (_messageItems.Count == 0)
             return;
-        try
+
+        // CollectionView often ignores ScrollTo until items are measured; defer + retry.
+        var epoch = Interlocked.Increment(ref _scrollToEndEpoch);
+        Dispatcher.Dispatch(async () =>
         {
-            MessagesCollection.ScrollTo(_messageItems[^1], position: ScrollToPosition.End, animate: false);
-        }
-        catch
-        {
-            // CollectionView may not be ready yet.
-        }
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                await Task.Delay(attempt == 0 ? 16 : 48).ConfigureAwait(true);
+                if (epoch != Volatile.Read(ref _scrollToEndEpoch) || _messageItems.Count == 0)
+                    return;
+                try
+                {
+                    MessagesCollection.ScrollTo(_messageItems[^1], position: ScrollToPosition.End, animate: false);
+                }
+                catch
+                {
+                    // CollectionView may not be ready yet.
+                }
+            }
+        });
     }
 
     private void SyncMessageItems(IReadOnlyList<ChatMessageEntity> page)

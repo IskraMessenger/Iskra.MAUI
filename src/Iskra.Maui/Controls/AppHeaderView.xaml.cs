@@ -13,6 +13,7 @@ public partial class AppHeaderView : ContentView
 
     public void Bind(UserEntity? user, UserP2pRuntime p2p)
     {
+        NickLabel.Text = user?.Nickname ?? "";
         PortLabel.Text = user == null ? "" : Loc.Tf("header.port", user.DataUdpPort);
         var meshOn = p2p.LocalScan.IsUdpListening || p2p.Settings.EnableUdpTransport;
         MeshDot.Fill = meshOn ? IskraTheme.Online : IskraTheme.Offline;

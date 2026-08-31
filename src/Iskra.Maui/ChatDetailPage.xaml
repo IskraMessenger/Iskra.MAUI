@@ -51,7 +51,7 @@
         </Grid>
 
         <CollectionView x:Name="MessagesCollection" Grid.Row="1"
-                        ItemsUpdatingScrollMode="KeepItemsInView" Scrolled="OnMessagesScrolled" Margin="8,4">
+                        ItemsUpdatingScrollMode="KeepScrollOffset" Scrolled="OnMessagesScrolled" Margin="8,4">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid Padding="4,3" ColumnDefinitions="Auto,*,Auto">

@@ -19,7 +19,12 @@
             <Image x:Name="BtIcon" Source="icon_bluetooth.png" WidthRequest="16" HeightRequest="16"
                    VerticalOptions="Center" />
         </HorizontalStackLayout>
-        <Label x:Name="PortLabel" Grid.Column="2" FontSize="12" TextColor="{DynamicResource MutedText}"
-               VerticalOptions="Center" />
+        <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center" HorizontalOptions="End">
+            <Label x:Name="NickLabel" FontSize="12" FontAttributes="Bold"
+                   TextColor="{DynamicResource MidnightBlue}" VerticalOptions="Center"
+                   LineBreakMode="TailTruncation" MaximumWidthRequest="140" />
+            <Label x:Name="PortLabel" FontSize="12" TextColor="{DynamicResource MutedText}"
+                   VerticalOptions="Center" />
+        </HorizontalStackLayout>
     </Grid>
 </ContentView>
