@@ -42,6 +42,7 @@ internal static class Program
         services.AddSingleton<IUserAuthRepository, SqliteUserAuthRepository>();
         services.AddSingleton<ISessionStorage>(_ => new FileSessionStorage(Path.Combine(appRoot, "session")));
         services.AddSingleton<AuthService>();
+        services.AddSingleton<PeerBlacklist>();
         services.AddSingleton<ChatRepository>();
         services.AddSingleton<ChatSessionCache>();
         services.AddSingleton<IMessengerServerRepository, SqliteMessengerServerRepository>();

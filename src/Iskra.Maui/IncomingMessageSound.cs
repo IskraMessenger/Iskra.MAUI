@@ -1,5 +1,6 @@
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
+using ShortP2P.Auth;
 using ShortP2P.Client.Services;
 
 namespace Iskra.Maui;
@@ -18,7 +19,7 @@ internal static class IncomingMessageSound
     private static Android.Media.MediaPlayer? _androidPlayer;
 #endif
 
-    public static void EnsureHooked(ChatRepository repo, ILogger logger)
+    public static void EnsureHooked(ChatRepository repo, AuthService auth, PeerBlacklist blacklist, ILogger logger)
     {
         if (Interlocked.Exchange(ref _hooked, 1) != 0)
             return;
@@ -27,17 +28,45 @@ internal static class IncomingMessageSound
         {
             if (e.Outgoing)
                 return;
-            QueuePlay(MessageSoundStem, logger);
+            _ = PlayIncomingIfAllowedAsync(repo, auth, blacklist, e.ChatId, MessageSoundStem, logger, isNewChat: false);
         };
 
         // new_chat only when another client invited us (new DB row, remote: true).
-        // Not on our own Add chat / outbound invite, and not on their ChatRequest reply.
         repo.ChatCreated += (_, e) =>
         {
             if (!e.Remote)
                 return;
-            QueueNewChat(logger);
+            _ = PlayIncomingIfAllowedAsync(repo, auth, blacklist, e.ChatId, NewChatSoundStem, logger, isNewChat: true);
         };
+    }
+
+    private static async Task PlayIncomingIfAllowedAsync(
+        ChatRepository repo,
+        AuthService auth,
+        PeerBlacklist blacklist,
+        int chatId,
+        string stem,
+        ILogger logger,
+        bool isNewChat)
+    {
+        try
+        {
+            var user = auth.CurrentUser;
+            if (user != null)
+                await blacklist.EnsureLoadedAsync(user.Id).ConfigureAwait(false);
+            var chat = await repo.GetChatAsync(chatId).ConfigureAwait(false);
+            if (chat != null && blacklist.IsBlocked(user?.Id, chat.PeerNetworkIdShort))
+                return;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Blacklist check before notification sound");
+        }
+
+        if (isNewChat)
+            QueueNewChat(logger);
+        else
+            QueuePlay(stem, logger);
     }
 
     private static void QueueNewChat(ILogger logger)

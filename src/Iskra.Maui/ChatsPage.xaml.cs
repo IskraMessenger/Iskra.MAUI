@@ -18,20 +18,23 @@ public partial class ChatsPage : ContentPage
     private readonly ChatRepository _chats;
     private readonly ILogger<ChatsPage> _logger;
     private readonly MessengerServerManager _messengerServers;
+    private readonly PeerBlacklist _blacklist;
     private readonly UserP2pRuntime _p2p;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private int _refreshPending;
+    private int _ignoreSelection;
     private IDispatcherTimer? _presenceRefreshTimer;
     private string _search = "";
 
     public ChatsPage(AuthService auth, ChatRepository chats, UserP2pRuntime p2p,
-        MessengerServerManager messengerServers, ILogger<ChatsPage> logger)
+        MessengerServerManager messengerServers, PeerBlacklist blacklist, ILogger<ChatsPage> logger)
     {
         InitializeComponent();
         _auth = auth;
         _chats = chats;
         _p2p = p2p;
         _messengerServers = messengerServers;
+        _blacklist = blacklist;
         _logger = logger;
         ChatsCollection.ItemsSource = _chatRows;
     }
@@ -73,11 +76,14 @@ public partial class ChatsPage : ContentPage
         _p2p.LocalScan.ClientsChanged += OnLanPresenceChanged;
         _messengerServers.TrustThreatDetected -= OnMessengerServerTrustThreat;
         _messengerServers.TrustThreatDetected += OnMessengerServerTrustThreat;
+        _blacklist.Changed -= OnBlacklistChanged;
+        _blacklist.Changed += OnBlacklistChanged;
         EnsurePresenceRefreshTimerStarted();
         var u = _auth.CurrentUser;
         if (u != null)
             try
             {
+                await _blacklist.EnsureLoadedAsync(u.Id).ConfigureAwait(true);
                 await _p2p.EnsureStartedAsync(u).ConfigureAwait(true);
                 AppLog.PeerConnected("p2p-runtime", u.NetworkIdShort);
                 await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
@@ -97,9 +103,15 @@ public partial class ChatsPage : ContentPage
         _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
         _messengerServers.TrustThreatDetected -= OnMessengerServerTrustThreat;
+        _blacklist.Changed -= OnBlacklistChanged;
         if (_presenceRefreshTimer != null)
             _presenceRefreshTimer.Stop();
         base.OnDisappearing();
+    }
+
+    private void OnBlacklistChanged(object? sender, EventArgs e)
+    {
+        MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync());
     }
 
     private void OnChatMessageAppended(object? sender, ChatMessageAppendedEventArgs e)
@@ -221,9 +233,10 @@ public partial class ChatsPage : ContentPage
 
     private void ApplyFilter()
     {
-        IEnumerable<ChatListRowVm> src = _allRows;
+        IEnumerable<ChatListRowVm> src = _allRows.Where(r =>
+            !_blacklist.IsBlocked(_auth.CurrentUser?.Id, r.PeerNetworkIdShort));
         if (_search.Length > 0)
-            src = _allRows.Where(r =>
+            src = src.Where(r =>
                 r.PeerNickname.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
                 r.PeerNetworkIdShort.Contains(_search, StringComparison.OrdinalIgnoreCase));
 
@@ -267,13 +280,39 @@ public partial class ChatsPage : ContentPage
         await RefreshAsync().ConfigureAwait(true);
     }
 
+    private async void OnBlockChatClicked(object? sender, EventArgs e)
+    {
+        Interlocked.Exchange(ref _ignoreSelection, 1);
+        ChatEntity? chat = null;
+        for (var p = sender as Element; p != null; p = p.Parent)
+            if (p.BindingContext is ChatListRowVm row)
+            {
+                chat = row.Chat;
+                break;
+            }
+
+        var u = _auth.CurrentUser;
+        if (chat == null || u == null)
+            return;
+
+        await BlacklistUi.ConfirmAndBlockAsync(this, _blacklist, u.Id, chat.PeerNetworkIdShort, chat.PeerNickname)
+            .ConfigureAwait(true);
+        await RefreshAsync().ConfigureAwait(true);
+    }
+
     private async void OnChatSelected(object? sender, SelectionChangedEventArgs e)
     {
+        if (Interlocked.Exchange(ref _ignoreSelection, 0) == 1)
+        {
+            ChatsCollection.SelectedItem = null;
+            return;
+        }
+
         if (e.CurrentSelection.FirstOrDefault() is not ChatListRowVm row)
             return;
 
         ChatsCollection.SelectedItem = null;
-        await ChatNav.OpenChatAsync(Navigation, row.Chat.Id).ConfigureAwait(true);
+        await ChatNav.OpenChatAsync(this, row.Chat.Id).ConfigureAwait(true);
     }
 }
 

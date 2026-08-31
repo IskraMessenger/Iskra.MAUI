@@ -88,6 +88,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISessionStorage, MauiSecureStorage>();
         builder.Services.AddSingleton<AuthService>();
         builder.Services.AddSingleton<ChatRepository>();
+        builder.Services.AddSingleton<PeerBlacklist>();
         builder.Services.AddSingleton<IBluetoothPresencePingTargetsProvider, BluetoothPresencePingTargetsProvider>();
         builder.Services.AddSingleton<IBleDiscoveredPeerStore, SqliteBleDiscoveredPeerStore>();
         builder.Services.AddSingleton<P2pRoutingSettingsStore>();
@@ -142,6 +143,7 @@ public static class MauiProgram
         builder.Services.AddTransient<RoutingSettingsPage>();
         builder.Services.AddTransient<MessengerServersPage>();
         builder.Services.AddTransient<LanScanPage>();
+        builder.Services.AddTransient<BlacklistPage>();
         builder.Services.AddTransient<LogsPage>();
         builder.Services.AddTransient<AppShell>();
 
@@ -154,7 +156,10 @@ public static class MauiProgram
         var logFactory = Services.GetRequiredService<ILoggerFactory>();
         AppLog.Initialize(logFactory);
         P2PSession.TrafficLogger = logFactory.CreateLogger<P2PSession>();
-        IncomingMessageSound.EnsureHooked(Services.GetRequiredService<ChatRepository>(),
+        IncomingMessageSound.EnsureHooked(
+            Services.GetRequiredService<ChatRepository>(),
+            Services.GetRequiredService<AuthService>(),
+            Services.GetRequiredService<PeerBlacklist>(),
             logFactory.CreateLogger(nameof(IncomingMessageSound)));
         logFactory.CreateLogger<MauiHost>().LogInformation(
             "GUI application started. Logs directory: {LogsDir}", AppLogPaths.LogsDirectory);

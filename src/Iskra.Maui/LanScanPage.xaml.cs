@@ -121,28 +121,7 @@ public partial class LanScanPage : ContentPage
 
         try
         {
-            var result = await LanChatStartFromDiscovery
-                .TryStartAsync(row.Peer, _auth, _chats, _p2p.CreateLanChatStartContext(), CancellationToken.None).ConfigureAwait(true);
-            switch (result.Kind)
-            {
-                case LanChatStartKind.AlreadyExists:
-                case LanChatStartKind.Created:
-                    if (result.Chat != null)
-                    {
-                        var page = MauiProgram.Services.GetRequiredService<ChatDetailPage>();
-                        page.ChatId = result.Chat.Id;
-                        await Navigation.PushAsync(page).ConfigureAwait(true);
-                    }
-
-                    break;
-                case LanChatStartKind.WaitingForPeer:
-                    await DisplayAlert(Loc.T("lan.title"), result.Message ?? "", Loc.T("ok")).ConfigureAwait(true);
-                    break;
-                case LanChatStartKind.Failed:
-                    await DisplayAlert(Loc.T("lan.title"), result.Message ?? Loc.T("error"), Loc.T("ok"))
-                        .ConfigureAwait(true);
-                    break;
-            }
+            await ChatNav.OpenDiscoveredPeerAsync(this, row.Peer).ConfigureAwait(true);
         }
         catch (Exception ex)
         {

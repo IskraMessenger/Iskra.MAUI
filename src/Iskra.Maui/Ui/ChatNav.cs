@@ -3,16 +3,33 @@ using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Discovery;
 using Iskra.Maui.Localization;
+using Iskra.Maui.Services;
 
 namespace Iskra.Maui;
 
 internal static class ChatNav
 {
-    public static async Task OpenChatAsync(INavigation navigation, int chatId)
+    public static async Task OpenChatAsync(Page host, int chatId)
     {
+        var auth = MauiProgram.Services.GetRequiredService<AuthService>();
+        var chats = MauiProgram.Services.GetRequiredService<ChatRepository>();
+        var blacklist = MauiProgram.Services.GetRequiredService<PeerBlacklist>();
+        var user = auth.CurrentUser;
+        var chat = await chats.GetChatAsync(chatId).ConfigureAwait(true);
+        if (chat != null && user != null)
+        {
+            await blacklist.EnsureLoadedAsync(user.Id).ConfigureAwait(true);
+            if (blacklist.IsBlocked(user.Id, chat.PeerNetworkIdShort))
+            {
+                await host.DisplayAlert(Loc.T("blacklist.title"), Loc.T("blacklist.blocked"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+        }
+
         var page = MauiProgram.Services.GetRequiredService<ChatDetailPage>();
         page.ChatId = chatId;
-        await navigation.PushAsync(page).ConfigureAwait(true);
+        await host.Navigation.PushAsync(page).ConfigureAwait(true);
     }
 
     public static async Task OpenDiscoveredPeerAsync(Page host, DiscoveredLocalPeer peer)
@@ -20,6 +37,19 @@ internal static class ChatNav
         var auth = MauiProgram.Services.GetRequiredService<AuthService>();
         var chats = MauiProgram.Services.GetRequiredService<ChatRepository>();
         var p2p = MauiProgram.Services.GetRequiredService<UserP2pRuntime>();
+        var blacklist = MauiProgram.Services.GetRequiredService<PeerBlacklist>();
+        var user = auth.CurrentUser;
+        if (user != null)
+        {
+            await blacklist.EnsureLoadedAsync(user.Id).ConfigureAwait(true);
+            if (blacklist.IsBlocked(user.Id, peer.NetworkId.ToShortString()))
+            {
+                await host.DisplayAlert(Loc.T("blacklist.title"), Loc.T("blacklist.blocked"), Loc.T("ok"))
+                    .ConfigureAwait(true);
+                return;
+            }
+        }
+
         var result = await LanChatStartFromDiscovery
             .TryStartAsync(peer, auth, chats, p2p.CreateLanChatStartContext(), CancellationToken.None).ConfigureAwait(true);
         switch (result.Kind)
@@ -27,7 +57,7 @@ internal static class ChatNav
             case LanChatStartKind.AlreadyExists:
             case LanChatStartKind.Created:
                 if (result.Chat != null)
-                    await OpenChatAsync(host.Navigation, result.Chat.Id).ConfigureAwait(true);
+                    await OpenChatAsync(host, result.Chat.Id).ConfigureAwait(true);
                 break;
             case LanChatStartKind.WaitingForPeer:
                 await host.DisplayAlert(Loc.T("network.title"), result.Message ?? "", Loc.T("ok")).ConfigureAwait(true);

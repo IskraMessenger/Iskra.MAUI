@@ -88,6 +88,7 @@ public partial class SettingsPage : ContentPage
         RoutingOpenButton.Text = Loc.T("settings.routing_open");
         ConnectionTestButton.Text = Loc.T("settings.connection_test");
         LogsButton.Text = Loc.T("settings.logs");
+        BlacklistButton.Text = Loc.T("blacklist.title");
         AboutButton.Text = Loc.T("settings.about");
         LogoutButton.Text = Loc.T("settings.logout");
         var warn = LanguageService.TranslationWarning(LanguageService.Current);
@@ -289,6 +290,9 @@ public partial class SettingsPage : ContentPage
 
     private async void OnConnectionTestClicked(object? sender, EventArgs e) =>
         await Navigation.PushAsync(MauiProgram.Services.GetRequiredService<LanScanPage>()).ConfigureAwait(true);
+
+    private async void OnBlacklistClicked(object? sender, EventArgs e) =>
+        await Navigation.PushAsync(MauiProgram.Services.GetRequiredService<BlacklistPage>()).ConfigureAwait(true);
 
     private async void OnLogsClicked(object? sender, EventArgs e) =>
         await Navigation.PushAsync(MauiProgram.Services.GetRequiredService<LogsPage>()).ConfigureAwait(true);

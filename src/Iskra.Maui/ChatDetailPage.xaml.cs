@@ -54,6 +54,7 @@ public partial class ChatDetailPage : ContentPage
     private readonly ChatMediaOptions _media;
     private readonly P2pRoutingSettingsStore _routingStore;
     private readonly MessengerServerManager _messengerServers;
+    private readonly PeerBlacklist _blacklist;
     private readonly ILogger<ChatDetailPage> _logger;
     private const int MessagesPageSize = 10;
     private readonly ObservableCollection<MessageRowVm> _messageItems = [];
@@ -70,7 +71,7 @@ public partial class ChatDetailPage : ContentPage
     private VoiceRecordingSession? _voice;
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
-        P2pRoutingSettingsStore routingStore, MessengerServerManager messengerServers,
+        P2pRoutingSettingsStore routingStore, MessengerServerManager messengerServers, PeerBlacklist blacklist,
         ILogger<ChatDetailPage> logger)
     {
         InitializeComponent();
@@ -80,6 +81,7 @@ public partial class ChatDetailPage : ContentPage
         _media = media;
         _routingStore = routingStore;
         _messengerServers = messengerServers;
+        _blacklist = blacklist;
         _logger = logger;
         MessagesCollection.ItemsSource = _messageItems;
     }
@@ -97,11 +99,21 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
+        var user = _auth.CurrentUser;
+        if (user != null)
+            await _blacklist.EnsureLoadedAsync(user.Id).ConfigureAwait(true);
+        if (user != null && _blacklist.IsBlocked(user.Id, chat.PeerNetworkIdShort))
+        {
+            await Navigation.PopAsync().ConfigureAwait(true);
+            return;
+        }
+
         Title = chat.PeerNickname;
         PeerNameLabel.Text = chat.PeerNickname;
         PeerAvatarInitials.Text = IskraTheme.Initials(chat.PeerNickname);
         PeerAvatarFill.BackgroundColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
         PeerIdLabel.Text = Loc.Tf("chat.node", chat.PeerNetworkIdShort);
+        SetControlHint(BlockPeerButton, Loc.T("blacklist.add_hint"));
         SetControlHint(ClearChatButton, Loc.T("chat.delete_hint"));
         SetControlHint(EmergencyUntrustButton, Loc.T("safety.untrust_hint"));
         MessageEntry.Placeholder = Loc.T("chat.message_ph");
@@ -109,7 +121,6 @@ public partial class ChatDetailPage : ContentPage
         _peerNetworkIdShort = chat.PeerNetworkIdShort;
         RefreshSafetyLabel(chat);
         await TryRefreshPeerNicknameDisplayAsync(chat).ConfigureAwait(true);
-        var user = _auth.CurrentUser;
         if (user == null)
         {
             _peerNetworkIdShort = null;
@@ -233,6 +244,8 @@ public partial class ChatDetailPage : ContentPage
 
     private void OnP2PMessagesChanged(object? sender, EventArgs e)
     {
+        if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort))
+            return;
         ScheduleReloadMessages();
     }
 
@@ -270,6 +283,13 @@ public partial class ChatDetailPage : ContentPage
 
     private async Task ReloadMessagesAsync()
     {
+        if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort ?? _chat?.PeerNetworkIdShort))
+        {
+            _messageItems.Clear();
+            _loadedRows.Clear();
+            return;
+        }
+
         if (_isLoadingRows)
         {
             _pendingReload = true;
@@ -1543,6 +1563,19 @@ public partial class ChatDetailPage : ContentPage
     {
         DeliveryIssueLabel.Text = string.Empty;
         DeliveryIssueLabel.IsVisible = false;
+    }
+
+    private async void OnBlockPeerClicked(object? sender, EventArgs e)
+    {
+        var user = _auth.CurrentUser;
+        var chat = _chat;
+        if (user == null || chat == null)
+            return;
+
+        var blocked = await BlacklistUi.ConfirmAndBlockAsync(
+            this, _blacklist, user.Id, chat.PeerNetworkIdShort, chat.PeerNickname).ConfigureAwait(true);
+        if (blocked && Navigation.NavigationStack.Count > 1)
+            await Navigation.PopAsync().ConfigureAwait(true);
     }
 
     private async void OnClearChatClicked(object? sender, EventArgs e)

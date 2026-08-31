@@ -9,7 +9,7 @@
              BackgroundColor="{DynamicResource PageBackground}">
     <Grid RowDefinitions="Auto,*,Auto,Auto">
         <Grid RowDefinitions="Auto,Auto" BackgroundColor="{DynamicResource Surface}">
-            <Grid Padding="8,8,12,4" ColumnDefinitions="36,48,*,Auto" ColumnSpacing="8">
+            <Grid Padding="8,8,12,4" ColumnDefinitions="36,48,*,Auto,Auto" ColumnSpacing="8">
                 <Button Text="‹" FontSize="28" BackgroundColor="Transparent"
                         TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
                 <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40">
@@ -30,7 +30,11 @@
                     <Label x:Name="PeerIdLabel" FontSize="10" TextColor="{DynamicResource MutedText}"
                            LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
-                <Button x:Name="ClearChatButton" Grid.Column="3" Text="&#x1F5D1;&#xFE0F;" FontSize="18"
+                <Button x:Name="BlockPeerButton" Grid.Column="3" Text="&#x1F6AB;" FontSize="18"
+                        Padding="0" WidthRequest="40" HeightRequest="40"
+                        BackgroundColor="Transparent" VerticalOptions="Start"
+                        Clicked="OnBlockPeerClicked" />
+                <Button x:Name="ClearChatButton" Grid.Column="4" Text="&#x1F5D1;&#xFE0F;" FontSize="18"
                         Padding="0" WidthRequest="40" HeightRequest="40"
                         BackgroundColor="Transparent" VerticalOptions="Start"
                         Clicked="OnClearChatClicked" />

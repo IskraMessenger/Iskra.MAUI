@@ -92,6 +92,9 @@
             <Button x:Name="ConnectionTestButton" Clicked="OnConnectionTestClicked" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
+            <Button x:Name="BlacklistButton" Clicked="OnBlacklistClicked" BackgroundColor="Transparent"
+                    TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
+            <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />
             <Button x:Name="LogsButton" Clicked="OnLogsClicked" BackgroundColor="Transparent"
                     TextColor="{DynamicResource MidnightBlue}" HorizontalOptions="Fill" Padding="16,14" />
             <BoxView HeightRequest="1" Color="{DynamicResource Hairline}" Margin="16,0" />

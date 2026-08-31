@@ -237,7 +237,7 @@ public partial class ContactsPage : ContentPage
         try
         {
             if (row.Chat != null)
-                await ChatNav.OpenChatAsync(Navigation, row.Chat.Id).ConfigureAwait(true);
+                await ChatNav.OpenChatAsync(this, row.Chat.Id).ConfigureAwait(true);
             else if (row.Peer != null)
                 await ChatNav.OpenDiscoveredPeerAsync(this, row.Peer).ConfigureAwait(true);
         }
