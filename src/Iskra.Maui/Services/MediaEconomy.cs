@@ -23,6 +23,9 @@ internal static class MediaEconomy
     public static bool UsesReducedMedia(UserP2pRuntime p2p) =>
         Mode(p2p) is TrafficQualityMode.Economy or TrafficQualityMode.UltraEconomy;
 
+    public static int BinarySendConcurrency(UserP2pRuntime p2p) =>
+        BinarySendScheduler.MaxConcurrency(Mode(p2p));
+
     public static void Apply(UserP2pRuntime p2p, TrafficQualityMode mode)
     {
         p2p.Settings.TrafficQuality = mode;
