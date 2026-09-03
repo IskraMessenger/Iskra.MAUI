@@ -77,6 +77,11 @@ public static class MauiProgram
 
         builder.Logging.ClearProviders();
         builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
+#if DEBUG
+        // Hex wire/plaintext dumps are LogDebug and compiled only in DEBUG.
+        builder.Logging.AddFilter("ShortP2P.Transport", Microsoft.Extensions.Logging.LogLevel.Debug);
+        builder.Logging.AddFilter("ShortP2P.Crypto", Microsoft.Extensions.Logging.LogLevel.Debug);
+#endif
         builder.Logging.AddNLog();
 
         builder.Services.AddSingleton(_ =>
@@ -188,6 +193,12 @@ public static class MauiProgram
         config.AddTarget(asyncTarget);
         config.AddRule(NLog.LogLevel.Debug, NLog.LogLevel.Fatal, asyncTarget,
             "ShortP2P.Transport.Bluetooth.*");
+#if DEBUG
+        config.AddRule(NLog.LogLevel.Debug, NLog.LogLevel.Fatal, asyncTarget,
+            "ShortP2P.Transport.*");
+        config.AddRule(NLog.LogLevel.Debug, NLog.LogLevel.Fatal, asyncTarget,
+            "ShortP2P.Crypto.*");
+#endif
         config.AddRule(NLog.LogLevel.Info, NLog.LogLevel.Fatal, asyncTarget);
         LogManager.Configuration = config;
         LogManager.GetCurrentClassLogger().Info("NLog file target: {Path}", logsDir);

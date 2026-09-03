@@ -4,6 +4,7 @@ using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
+using ShortP2P.Auth.Data;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
@@ -24,6 +25,7 @@ public partial class ChatsPage : ContentPage
     private int _refreshPending;
     private int _ignoreSelection;
     private IDispatcherTimer? _presenceRefreshTimer;
+    private Task _connectivityTask = Task.CompletedTask;
     private string _search = "";
 
     public ChatsPage(AuthService auth, ChatRepository chats, UserP2pRuntime p2p,
@@ -46,14 +48,18 @@ public partial class ChatsPage : ContentPage
 
     private async Task OnChatListChangedAsync()
     {
-        var ui = SynchronizationContext.Current;
         await RefreshAsync().ConfigureAwait(true);
         var u = _auth.CurrentUser;
         if (u == null)
             return;
+        _ = EnsureSessionsAfterChatListChangedAsync(u);
+    }
+
+    private async Task EnsureSessionsAfterChatListChangedAsync(UserEntity u)
+    {
         try
         {
-            await _p2p.EnsureAllChatSessionsStartedAsync(u, _auth, _chats, ui, CancellationToken.None)
+            await _p2p.EnsureAllChatSessionsStartedAsync(u, _auth, _chats, null, CancellationToken.None)
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -81,21 +87,45 @@ public partial class ChatsPage : ContentPage
         EnsurePresenceRefreshTimerStarted();
         var u = _auth.CurrentUser;
         if (u != null)
+        {
             try
             {
                 await _blacklist.EnsureLoadedAsync(u.Id).ConfigureAwait(true);
-                await _p2p.EnsureStartedAsync(u).ConfigureAwait(true);
-                AppLog.PeerConnected("p2p-runtime", u.NetworkIdShort);
-                await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
-                await _p2p.EnsureAllChatSessionsStartedAsync(u, _auth, _chats, SynchronizationContext.Current)
-                    .ConfigureAwait(true);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Ensure P2P on chats page appearing");
+                _logger.LogWarning(ex, "Load blacklist on chats page appearing");
             }
+        }
 
+        // Always paint from local SQLite first. P2P / servers / sessions must not gate the list.
         await RefreshAsync().ConfigureAwait(true);
+
+        if (u != null)
+            QueueConnectivity(u);
+    }
+
+    private void QueueConnectivity(UserEntity u)
+    {
+        if (!_connectivityTask.IsCompleted)
+            return;
+        _connectivityTask = EnsureConnectivityInBackgroundAsync(u);
+    }
+
+    private async Task EnsureConnectivityInBackgroundAsync(UserEntity u)
+    {
+        try
+        {
+            await _p2p.EnsureStartedAsync(u).ConfigureAwait(false);
+            AppLog.PeerConnected("p2p-runtime", u.NetworkIdShort);
+            await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(false);
+            await _p2p.EnsureAllChatSessionsStartedAsync(u, _auth, _chats, null).ConfigureAwait(false);
+            MainThread.BeginInvokeOnMainThread(UpdatePeerOnlineFlags);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ensure P2P on chats page appearing");
+        }
     }
 
     protected override void OnDisappearing()

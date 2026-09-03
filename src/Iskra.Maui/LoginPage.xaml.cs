@@ -2,7 +2,6 @@ using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
-using ShortP2P.Client.Services;
 
 namespace Iskra.Maui;
 
@@ -58,27 +57,9 @@ public partial class LoginPage : ContentPage
         await Navigation.PushAsync(page).ConfigureAwait(true);
     }
 
-    private async Task GoToChatsAsync()
+    private Task GoToChatsAsync()
     {
         Application.Current!.MainPage = MauiProgram.Services.GetRequiredService<AppShell>();
-
-        var user = _auth.CurrentUser;
-        if (user == null)
-            return;
-
-        try
-        {
-            var p2p = MauiProgram.Services.GetRequiredService<UserP2pRuntime>();
-            var chatsRepo = MauiProgram.Services.GetRequiredService<ChatRepository>();
-            await p2p.EnsureStartedAsync(user).ConfigureAwait(true);
-            AppLog.PeerConnected("p2p-runtime", user.NetworkIdShort);
-            await MessengerServersBootstrap.EnsureRunningAsync(p2p, _logger).ConfigureAwait(true);
-            await p2p.EnsureAllChatSessionsStartedAsync(user, _auth, chatsRepo, SynchronizationContext.Current)
-                .ConfigureAwait(true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Ensure P2P sessions on login");
-        }
+        return Task.CompletedTask;
     }
 }
