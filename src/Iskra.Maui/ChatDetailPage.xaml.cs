@@ -679,24 +679,38 @@ public partial class ChatDetailPage : ContentPage
     private async Task StopVoiceRecordingAndSendAsync()
     {
         ResetVoiceButton();
+        var voice = _voice;
+        _voice = null;
+        if (voice == null)
+        {
+            ShowDeliveryIssue(Loc.T("chat.voice_file_fail"));
+            return;
+        }
+
         try
         {
-            if (_voice == null)
+            await voice.StopCaptureAsync().ConfigureAwait(true);
+            await SyncTrafficQualityAsync().ConfigureAwait(true);
+            if (_p2pSession == null)
             {
-                ShowDeliveryIssue(Loc.T("chat.voice_file_fail"));
+                await voice.DiscardAsync().ConfigureAwait(true);
                 return;
             }
 
-            var recorded = await _voice.StopAsync().ConfigureAwait(true);
-            _voice = null;
-            AppLog.BinaryLoaded("voice", recorded.FileName, recorded.Bytes.Length);
-            QueueBinarySend((session, ct) => SendVoiceAsync(session, recorded, ct));
+            QueueBinarySend((session, ct) => FinishAndSendVoiceAsync(session, voice, ct));
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Send voice message failed");
+            _logger.LogWarning(ex, "Stop voice recording failed");
             ShowDeliveryIssue(ex.Message);
-            await StopVoiceRecordingAndDiscardAsync().ConfigureAwait(true);
+            try
+            {
+                await voice.DiscardAsync().ConfigureAwait(true);
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 

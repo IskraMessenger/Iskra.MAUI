@@ -59,7 +59,10 @@ internal sealed class VoiceRecordingSession : IAsyncDisposable
 #endif
     }
 
-    public async Task<VoiceRecordingResult> StopAsync()
+    public Task<VoiceRecordingResult> StopAsync() => StopAndTakeResultAsync();
+
+    /// <summary>Stops the microphone. Leaves the temp file for <see cref="TakeResultAsync"/>.</summary>
+    public async Task StopCaptureAsync()
     {
         if (!_recording)
             throw new InvalidOperationException("Recording is not active.");
@@ -75,18 +78,34 @@ internal sealed class VoiceRecordingSession : IAsyncDisposable
             _recording = false;
         }
 
-        return await ReadOggTempAsync().ConfigureAwait(false);
+        await Task.CompletedTask.ConfigureAwait(false);
 #elif WINDOWS
         await MainThread.InvokeOnMainThreadAsync(StopWindowsAsync).ConfigureAwait(false);
         _recording = false;
-        return EncodeWavTempToOgg(_speechBitrateBps);
 #elif IOS || MACCATALYST
         StopIos();
         _recording = false;
-        return EncodeWavTempToOgg(_speechBitrateBps);
+        await Task.CompletedTask.ConfigureAwait(false);
 #else
         throw new NotSupportedException("Запись голоса на этой платформе не поддерживается.");
 #endif
+    }
+
+    /// <summary>Reads / encodes the captured file. Safe to run off the UI thread.</summary>
+    public Task<VoiceRecordingResult> TakeResultAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+#if ANDROID
+        return ReadOggTempAsync(cancellationToken);
+#else
+        return Task.FromResult(EncodeWavTempToOgg(_speechBitrateBps));
+#endif
+    }
+
+    private async Task<VoiceRecordingResult> StopAndTakeResultAsync()
+    {
+        await StopCaptureAsync().ConfigureAwait(false);
+        return await TakeResultAsync().ConfigureAwait(false);
     }
 
     public async Task DiscardAsync()
@@ -228,11 +247,11 @@ internal sealed class VoiceRecordingSession : IAsyncDisposable
     }
 #endif
 
-    private async Task<VoiceRecordingResult> ReadOggTempAsync()
+    private async Task<VoiceRecordingResult> ReadOggTempAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_tempPath) || !File.Exists(_tempPath))
             throw new InvalidOperationException("Не удалось получить записанный голосовой файл.");
-        var bytes = await File.ReadAllBytesAsync(_tempPath).ConfigureAwait(false);
+        var bytes = await File.ReadAllBytesAsync(_tempPath, cancellationToken).ConfigureAwait(false);
         DeleteTemp();
         if (bytes.Length == 0)
             throw new InvalidOperationException("Голосовая запись пустая.");

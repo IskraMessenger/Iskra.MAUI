@@ -386,13 +386,31 @@ public partial class ChatDetailPage
         MainThread.BeginInvokeOnMainThread(ClearDeliveryIssue);
     }
 
-    private async Task SendVoiceAsync(ChatP2PSession session, VoiceRecordingResult recorded, CancellationToken ct)
+    private async Task FinishAndSendVoiceAsync(
+        ChatP2PSession session, VoiceRecordingSession voice, CancellationToken ct)
     {
-        _media.ValidateDocumentMime(recorded.MimeType);
-        _media.ValidateDocumentSize(recorded.Bytes.Length);
-        await PrepareBinarySendAsync().ConfigureAwait(false);
-        await session.SendFileAsync(recorded.FileName, recorded.Bytes, recorded.MimeType, ct).ConfigureAwait(false);
-        MainThread.BeginInvokeOnMainThread(ClearDeliveryIssue);
+        try
+        {
+            var recorded = await voice.TakeResultAsync(ct).ConfigureAwait(false);
+            AppLog.BinaryLoaded("voice", recorded.FileName, recorded.Bytes.Length);
+            _media.ValidateDocumentMime(recorded.MimeType);
+            _media.ValidateDocumentSize(recorded.Bytes.Length);
+            await PrepareBinarySendAsync().ConfigureAwait(false);
+            await session.SendFileAsync(recorded.FileName, recorded.Bytes, recorded.MimeType, ct)
+                .ConfigureAwait(false);
+            MainThread.BeginInvokeOnMainThread(ClearDeliveryIssue);
+        }
+        finally
+        {
+            try
+            {
+                await voice.DisposeAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
     }
 
     private static async Task<byte[]> ReadPickBytesAsync(FileResult pick, CancellationToken ct)

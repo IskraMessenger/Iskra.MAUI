@@ -170,9 +170,17 @@ public sealed class SettingsForm : Form
     {
         var mode = SelectedEconomy();
         var (w, h) = mode.GetVideoResolution();
-        _economyHint.Text = mode.GetDisplayLabel() +
-                            $"  ·  видео {w}×{h}, {mode.GetCameraVideoBitrate() / 1000} kbit/s";
+        _economyHint.Text =
+            $"голос {VoiceKbps(mode)} kbit/s  ·  видео {w}×{h}, {mode.GetCameraVideoBitrate() / 1000} kbit/s";
     }
+
+    private static int VoiceKbps(TrafficQualityMode mode) =>
+        mode switch
+        {
+            TrafficQualityMode.UltraEconomy => 8,
+            TrafficQualityMode.Economy => 12,
+            _ => 24
+        };
 
     private TrafficQualityMode SelectedEconomy() =>
         _economy.SelectedItem is EconomyItem e ? e.Mode : TrafficQualityMode.Normal;
@@ -259,8 +267,8 @@ public sealed class SettingsForm : Form
     {
         public override string ToString() => Mode switch
         {
-            TrafficQualityMode.UltraEconomy => "Ультраэкономия (144p / 4 kbit/s голос)",
-            TrafficQualityMode.Economy => "Экономия (240p / 6 kbit/s голос)",
+            TrafficQualityMode.UltraEconomy => "Ультраэкономия (144p / 8 kbit/s голос)",
+            TrafficQualityMode.Economy => "Экономия (240p / 12 kbit/s голос)",
             _ => "Нормальный (480p / 24 kbit/s голос)"
         };
     }

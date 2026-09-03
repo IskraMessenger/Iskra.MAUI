@@ -14,7 +14,12 @@ internal static class MediaEconomy
     /// <summary>Soft image cap in Economy / UltraEconomy (Iskra-specific; WinForms does not compress photos).</summary>
     public const int MaxImageBytes = 50 * 1024;
 
-    public const int MinVoiceBitrateBps = TrafficQualityModeExtensions.UltraEconomyVoiceBitrate;
+    /// <summary>Iskra voice rates (override ShortP2P 6 / 4 kbit/s).</summary>
+    public const int EconomyVoiceBitrateBps = 12_000;
+
+    public const int UltraEconomyVoiceBitrateBps = 8_000;
+
+    public const int MinVoiceBitrateBps = UltraEconomyVoiceBitrateBps;
 
     public const int DefaultSpeechBitrateBps = TrafficQualityModeExtensions.NormalVoiceBitrate;
 
@@ -31,7 +36,15 @@ internal static class MediaEconomy
         p2p.Settings.TrafficQuality = mode;
     }
 
-    public static int SpeechBitrate(UserP2pRuntime p2p) => Mode(p2p).GetVoiceBitrate();
+    public static int SpeechBitrate(UserP2pRuntime p2p) => SpeechBitrate(Mode(p2p));
+
+    public static int SpeechBitrate(TrafficQualityMode mode) =>
+        mode switch
+        {
+            TrafficQualityMode.UltraEconomy => UltraEconomyVoiceBitrateBps,
+            TrafficQualityMode.Economy => EconomyVoiceBitrateBps,
+            _ => DefaultSpeechBitrateBps
+        };
 
     public static (int Width, int Height) VideoResolution(UserP2pRuntime p2p) =>
         Mode(p2p).GetVideoResolution();
@@ -52,8 +65,8 @@ internal static class MediaEconomy
         var (w, h) = mode.GetVideoResolution();
         var photoKb = mode is TrafficQualityMode.Normal ? null : (int?)(MaxImageBytes / 1024);
         return photoKb is null
-            ? Loc.Tf("economy.hint_normal", mode.GetVoiceBitrate() / 1000.0, w, h)
-            : Loc.Tf("economy.hint", mode.GetVoiceBitrate() / 1000.0, photoKb.Value, w, h);
+            ? Loc.Tf("economy.hint_normal", SpeechBitrate(mode) / 1000.0, w, h)
+            : Loc.Tf("economy.hint", SpeechBitrate(mode) / 1000.0, photoKb.Value, w, h);
     }
 
     public static string ModeLabel(TrafficQualityMode mode) =>

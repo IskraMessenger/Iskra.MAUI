@@ -52,7 +52,7 @@ internal static class Video144pTranscoder
             profile.Video.FrameRate.Numerator = 15;
             profile.Video.FrameRate.Denominator = 1;
             if (profile.Audio != null)
-                profile.Audio.Bitrate = (uint)mode.GetVoiceBitrate();
+                profile.Audio.Bitrate = (uint)MediaEconomy.SpeechBitrate(mode);
 
             var transcoder = new global::Windows.Media.Transcoding.MediaTranscoder();
             var prepare = await transcoder.PrepareFileTranscodeAsync(src, dest, profile);
