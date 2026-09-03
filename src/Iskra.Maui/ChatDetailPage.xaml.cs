@@ -70,6 +70,7 @@ public partial class ChatDetailPage : ContentPage
     private int _reloadEpoch;
     private int _scrollToEndEpoch;
     private VoiceRecordingSession? _voice;
+    private readonly Dictionary<int, string> _attachmentDurationLabels = new();
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
         P2pRoutingSettingsStore routingStore, MessengerServerManager messengerServers, PeerBlacklist blacklist,
@@ -288,6 +289,7 @@ public partial class ChatDetailPage : ContentPage
         {
             _messageItems.Clear();
             _loadedRows.Clear();
+            _attachmentDurationLabels.Clear();
             return;
         }
 
@@ -304,7 +306,8 @@ public partial class ChatDetailPage : ContentPage
             var take = Math.Max(MessagesPageSize, _loadedRows.Count);
             // DB page is newest-first; display ascending (oldest top, newest bottom).
             var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
-            ReleaseListPayloadBlobs(pageDesc);
+            _attachmentDurationLabels.Clear();
+            CaptureDurationsAndReleasePayloadBlobs(pageDesc);
             _hasMoreRows = pageDesc.Count == take;
             _loadedRows.Clear();
             _loadedRows.AddRange(pageDesc);
@@ -332,7 +335,7 @@ public partial class ChatDetailPage : ContentPage
         {
             var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize)
                 .ConfigureAwait(true);
-            ReleaseListPayloadBlobs(pageDesc);
+            CaptureDurationsAndReleasePayloadBlobs(pageDesc);
             _hasMoreRows = pageDesc.Count == MessagesPageSize;
             _loadedRows.AddRange(pageDesc);
             // Older page (DESC) → chronological, prepend so newest stay at bottom.
@@ -405,8 +408,9 @@ public partial class ChatDetailPage : ContentPage
     /// <summary>
     /// После выборки страницы сразу отпускаем BLOB: в списке они не нужны,
     /// открытие идёт через <see cref="OpenOrDownloadAttachmentAsync"/>.
+    /// Длительность голоса/видео снимаем до освобождения байт.
     /// </summary>
-    private static void ReleaseListPayloadBlobs(IEnumerable<ChatMessageEntity> rows)
+    private void CaptureDurationsAndReleasePayloadBlobs(IEnumerable<ChatMessageEntity> rows)
     {
         foreach (var m in rows)
         {
@@ -414,6 +418,17 @@ public partial class ChatDetailPage : ContentPage
                 continue;
             if (m.TransferSizeBytes <= 0)
                 m.TransferSizeBytes = blob.Length;
+
+            if (IsVoiceAttachment(m) || IsVideoAttachment(m))
+            {
+                var duration = MediaDuration.TryGet(blob, m.MimeType,
+                    m.TransferFileName.Length > 0 ? m.TransferFileName : m.Text);
+                if (duration != null)
+                    _attachmentDurationLabels[m.Id] = MediaDuration.Format(duration.Value);
+                else
+                    _attachmentDurationLabels.Remove(m.Id);
+            }
+
             m.ImageBlob = null;
         }
     }
@@ -474,7 +489,7 @@ public partial class ChatDetailPage : ContentPage
         };
     }
 
-    private static MessageRowVm AttachmentPlaceholder(
+    private MessageRowVm AttachmentPlaceholder(
         ChatMessageEntity m,
         bool isTransferOffer,
         MessageDeliveryStatus deliveryStatus,
@@ -490,6 +505,8 @@ public partial class ChatDetailPage : ContentPage
         var name = AttachmentDisplayName(m);
         var isVoice = IsVoiceAttachment(m);
         var voiceReady = isVoice && IsVoiceLocallyAvailable(m, isTransferOffer);
+        var duration = TryFormatLocalMediaDuration(m);
+        var nameWithDuration = duration == null ? name : $"{name} · {duration}";
         string fileBody;
         if (isVoice)
         {
@@ -497,12 +514,12 @@ public partial class ChatDetailPage : ContentPage
             var hint = voiceReady
                 ? Loc.T("chat.state.tap_play")
                 : (stateText ?? Loc.T("chat.state.tap_download"));
-            fileBody = $"{icon} {name} · {Loc.Tf("chat.kb", kb)} · {hint}";
+            fileBody = $"{icon} {nameWithDuration} · {Loc.Tf("chat.kb", kb)} · {hint}";
         }
         else
         {
             var action = stateText ?? Loc.T("chat.state.tap_row");
-            fileBody = $"{name} · {Loc.Tf("chat.kb", kb)} · {action}";
+            fileBody = $"{nameWithDuration} · {Loc.Tf("chat.kb", kb)} · {action}";
         }
 
         return new MessageRowVm
@@ -544,6 +561,25 @@ public partial class ChatDetailPage : ContentPage
 
     private static int AttachmentSizeBytes(ChatMessageEntity m) =>
         (int)(m.ImageBlob is { Length: > 0 } blob ? blob.Length : m.TransferSizeBytes);
+
+    /// <summary>Duration when local bytes were present at list load (outgoing or downloaded).</summary>
+    private string? TryFormatLocalMediaDuration(ChatMessageEntity m)
+    {
+        if (_attachmentDurationLabels.TryGetValue(m.Id, out var cached))
+            return cached;
+        if (m.ImageBlob is not { Length: > 0 } blob)
+            return null;
+        if (!IsVoiceAttachment(m) && !IsVideoAttachment(m))
+            return null;
+
+        var duration = MediaDuration.TryGet(blob, m.MimeType,
+            m.TransferFileName.Length > 0 ? m.TransferFileName : m.Text);
+        if (duration == null)
+            return null;
+        var label = MediaDuration.Format(duration.Value);
+        _attachmentDurationLabels[m.Id] = label;
+        return label;
+    }
 
     private static string AttachmentDisplayName(ChatMessageEntity m)
     {
