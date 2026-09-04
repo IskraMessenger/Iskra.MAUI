@@ -110,6 +110,9 @@ internal static partial class StringCatalog
             "Speech {0:0.0} kbps, photos up to {1} KB, video {2}×{3}",
         ["economy.hint_normal"] =
             "Speech {0:0.0} kbps, video {1}×{2}",
+        ["economy.software_144"] = "Software compress to 144p",
+        ["economy.software_144_hint"] =
+            "After hardware 240p. Uses the CPU. Ultra economy only.",
         ["theme.dark"] = "Dark",
         ["theme.night"] = "Night",
         ["theme.light"] = "Light",
@@ -133,6 +136,7 @@ internal static partial class StringCatalog
         ["chat.file_type_mismatch"] = "Content does not match the file type.",
         ["chat.file_empty"] = "File is empty.",
         ["chat.video"] = "Video",
+        ["chat.video_processing"] = "Processing...",
         ["chat.video_too_big"] = "Video exceeds the limit. Compress to {0}?",
         ["chat.size"] = "Size",
         ["chat.size_over"] = "File is larger than {0} MB (maxDocumentBytes in chat-media.json).",
@@ -307,6 +311,8 @@ internal static partial class StringCatalog
         ["chat.only_docs_video"] =
             "Office documents and video are allowed (.mp4, .mov, .avi, .webm, .ogv, .wmv).",
         ["chat.video_transcode_fail"] = "Could not transcode to {0}.",
+        ["chat.video_transcode_fallback"] =
+            "Could not transcode to {0}. The original file will be sent if it is within the size limit.",
         ["chat.image_over"] = "File is {0} KB, over the {1} KB limit. Compress the image?",
         ["chat.compress_action"] = "Compress",
         ["chat.delivery_issue"] = "Problem delivering the current message.",

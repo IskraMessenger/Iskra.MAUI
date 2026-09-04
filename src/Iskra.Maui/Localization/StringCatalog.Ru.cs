@@ -110,6 +110,9 @@ internal static partial class StringCatalog
             "Речь {0:0.0} кбит/с, фото до {1} КБ, видео {2}×{3}",
         ["economy.hint_normal"] =
             "Речь {0:0.0} кбит/с, видео {1}×{2}",
+        ["economy.software_144"] = "Программное сжатие до 144p",
+        ["economy.software_144_hint"] =
+            "После аппаратного 240p. Нагрузка на процессор. Только ультраэкономия.",
         ["theme.dark"] = "Тёмная",
         ["theme.night"] = "Ночная",
         ["theme.light"] = "Светлая",
@@ -133,6 +136,7 @@ internal static partial class StringCatalog
         ["chat.file_type_mismatch"] = "Содержимое не совпадает с типом файла.",
         ["chat.file_empty"] = "Файл пустой.",
         ["chat.video"] = "Видео",
+        ["chat.video_processing"] = "Обработка...",
         ["chat.video_too_big"] =
             "Видео больше лимита. Сжать до {0}?",
         ["chat.size"] = "Размер",
@@ -308,6 +312,8 @@ internal static partial class StringCatalog
         ["chat.only_docs_video"] =
             "Допустимы офисные документы и видео (.mp4, .mov, .avi, .webm, .ogv, .wmv).",
         ["chat.video_transcode_fail"] = "Не удалось перекодировать в {0}.",
+        ["chat.video_transcode_fallback"] =
+            "Не удалось перекодировать в {0}. Если размер позволяет, будет отправлен исходный файл.",
         ["chat.image_over"] = "Файл {0} КБ больше лимита {1} КБ. Сжать изображение?",
         ["chat.compress_action"] = "Сжать",
         ["chat.delivery_issue"] = "Проблема с доставкой текущего сообщения.",

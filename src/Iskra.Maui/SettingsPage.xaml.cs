@@ -61,6 +61,7 @@ public partial class SettingsPage : ContentPage
         BluetoothSwitch.IsToggled = _p2p.Settings.EnableBluetoothTransport;
         LanSwitch.IsToggled = _p2p.Settings.EnableUdpTransport;
         RoutingSwitch.IsToggled = _p2p.Settings.AdvertisedPeerCapabilities.HasFlag(PresencePeerCapabilities.PeerSearch);
+        Software144Switch.IsToggled = MediaEconomy.Software144pEnabled;
         _suppressToggle = false;
         BluetoothHint.Text = BluetoothSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
         LanHint.Text = LanSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
@@ -83,6 +84,8 @@ public partial class SettingsPage : ContentPage
         LanLabel.Text = Loc.T("settings.lan");
         RoutingLabel.Text = Loc.T("settings.routing");
         EconomyLabel.Text = Loc.T("settings.economy");
+        Software144Label.Text = Loc.T("economy.software_144");
+        Software144Hint.Text = Loc.T("economy.software_144_hint");
         StorageTitleLabel.Text = Loc.T("settings.storage");
         ExportKeysButton.Text = Loc.T("settings.export_keys");
         RoutingOpenButton.Text = Loc.T("settings.routing_open");
@@ -291,6 +294,13 @@ public partial class SettingsPage : ContentPage
         LanHint.Text = e.Value ? Loc.T("on") : Loc.T("off");
         if (!_suppressToggle)
             await SaveAsync(s => s.EnableUdpTransport = e.Value).ConfigureAwait(true);
+    }
+
+    private void OnSoftware144Toggled(object? sender, ToggledEventArgs e)
+    {
+        if (_suppressToggle)
+            return;
+        MediaEconomy.Software144pEnabled = e.Value;
     }
 
     private async void OnRoutingToggled(object? sender, ToggledEventArgs e)

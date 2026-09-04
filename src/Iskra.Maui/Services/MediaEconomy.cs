@@ -57,6 +57,28 @@ internal static class MediaEconomy
 
     public static int CameraVideoBitrate(UserP2pRuntime p2p) => Mode(p2p).GetCameraVideoBitrate();
 
+    private const string PrefSoftware144p = "iskra_software_144p";
+
+    /// <summary>Optional CPU pass from 240p down to 144p (UltraEconomy only).</summary>
+    public static bool Software144pEnabled
+    {
+        get => Preferences.Default.Get(PrefSoftware144p, false);
+        set
+        {
+            Preferences.Default.Set(PrefSoftware144p, value);
+            AppLog.SettingChanged("Software144p", value);
+        }
+    }
+
+    public static bool WantsSoftware144p(TrafficQualityMode mode) =>
+        Software144pEnabled && mode == TrafficQualityMode.UltraEconomy;
+
+    public static (int Width, int Height) Hardware240pBox() =>
+        TrafficQualityMode.Economy.GetVideoResolution();
+
+    public static (int Width, int Height) Software144pBox() =>
+        TrafficQualityMode.UltraEconomy.GetVideoResolution();
+
     public static int ImageLimit(ChatMediaOptions media, UserP2pRuntime p2p) =>
         UsesReducedMedia(p2p) ? MaxImageBytes : media.MaxImageBytes;
 

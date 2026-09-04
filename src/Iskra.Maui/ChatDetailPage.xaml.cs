@@ -313,6 +313,7 @@ public partial class ChatDetailPage : ContentPage
             _loadedRows.AddRange(pageDesc);
             var chronological = pageDesc.Reverse().ToList();
             SyncMessageItems(chronological);
+            EnsureVideoProcessingBubble();
             ScrollMessagesToEnd();
         }
         finally
@@ -389,6 +390,8 @@ public partial class ChatDetailPage : ContentPage
             else if (!MessageRowsEqual(previous, next))
                 _messageItems[i] = next;
         }
+
+        EnsureVideoProcessingBubble();
     }
 
     private static bool MessageRowsEqual(MessageRowVm a, MessageRowVm b) =>

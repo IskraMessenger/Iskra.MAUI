@@ -110,6 +110,9 @@ internal static partial class StringCatalog
             "语音 {0:0.0} kbps，照片最多 {1} KB，视频 {2}×{3}",
         ["economy.hint_normal"] =
             "语音 {0:0.0} kbps，视频 {1}×{2}",
+        ["economy.software_144"] = "软件压缩到 144p",
+        ["economy.software_144_hint"] =
+            "在硬件 240p 之后。占用 CPU。仅超省流量。",
         ["theme.dark"] = "深色",
         ["theme.night"] = "夜间",
         ["theme.light"] = "浅色",
@@ -133,6 +136,7 @@ internal static partial class StringCatalog
         ["chat.file_type_mismatch"] = "内容与文件类型不符。",
         ["chat.file_empty"] = "文件为空。",
         ["chat.video"] = "视频",
+        ["chat.video_processing"] = "处理中...",
         ["chat.video_too_big"] = "视频超出限制。压缩到 {0}？",
         ["chat.size"] = "大小",
         ["chat.size_over"] = "文件超过 {0} MB（chat-media.json 中的 maxDocumentBytes）。",
@@ -307,6 +311,8 @@ internal static partial class StringCatalog
         ["chat.only_docs_video"] =
             "允许办公文档和视频（.mp4、.mov、.avi、.webm、.ogv、.wmv）。",
         ["chat.video_transcode_fail"] = "无法转码为 {0}。",
+        ["chat.video_transcode_fallback"] =
+            "无法转码为 {0}。若未超过大小限制，将发送原始文件。",
         ["chat.image_over"] = "文件为 {0} KB，超过 {1} KB 限制。压缩图片？",
         ["chat.compress_action"] = "压缩",
         ["chat.delivery_issue"] = "当前消息投递出现问题。",

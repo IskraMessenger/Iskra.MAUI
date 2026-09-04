@@ -3,6 +3,7 @@ using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Client;
 using ShortP2P.Client.ChatMedia;
+using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Discovery;
 
@@ -433,15 +434,100 @@ public partial class ChatDetailPage
         return (compressed, ImageAttachmentCompressor.SuggestMimeAfterCompression(), null);
     }
 
+    private int _videoProcessingCount;
+    private MessageRowVm? _videoProcessingVm;
+
+    private Task ShowVideoProcessingBubbleAsync()
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                _videoProcessingCount++;
+                EnsureVideoProcessingBubble();
+            }
+            finally
+            {
+                tcs.TrySetResult();
+            }
+        });
+        return tcs.Task;
+    }
+
+    private Task HideVideoProcessingBubbleAsync()
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                _videoProcessingCount = Math.Max(0, _videoProcessingCount - 1);
+                if (_videoProcessingCount == 0)
+                    RemoveVideoProcessingBubble();
+            }
+            finally
+            {
+                tcs.TrySetResult();
+            }
+        });
+        return tcs.Task;
+    }
+
+    private void EnsureVideoProcessingBubble()
+    {
+        if (_videoProcessingCount <= 0)
+            return;
+        if (_videoProcessingVm != null && _messageItems.Contains(_videoProcessingVm))
+            return;
+
+        _videoProcessingVm = new MessageRowVm
+        {
+            CaptionLine = "",
+            TextBody = Loc.T("chat.video_processing"),
+            ShowTextBody = true,
+            IsImage = false,
+            IsFile = false,
+            IsTransferOffer = false,
+            IsVoice = false,
+            VoiceReady = false,
+            MessageId = -1,
+            MessageColor = IskraTheme.SentText,
+            ShowDelivery = false,
+            DeliveryGlyph = "",
+            DeliveryGlyphColor = IskraTheme.Muted,
+            Outgoing = true,
+            BubbleColumn = 0,
+            DeliveryStatus = MessageDeliveryStatus.NotApplicable,
+            BubbleColor = IskraTheme.OutgoingBubble,
+            TimeLabel = ""
+        };
+        _messageItems.Add(_videoProcessingVm);
+        ScrollMessagesToEnd();
+    }
+
+    private void RemoveVideoProcessingBubble()
+    {
+        if (_videoProcessingVm == null)
+            return;
+        _messageItems.Remove(_videoProcessingVm);
+        _videoProcessingVm = null;
+    }
+
     private async Task<(byte[] Bytes, string Mime, string FileName)?> PrepareOutgoingFileAsync(
         byte[] bytes, string fileName, string mime, bool isVideo, CancellationToken ct)
     {
+        var usedOriginal = false;
         if (isVideo && MediaEconomy.UsesReducedMedia(_p2p))
         {
+            var originalBytes = bytes;
+            var originalMime = mime;
+            var originalName = fileName;
             var ext = Path.GetExtension(fileName);
             var temp = Path.Combine(FileSystem.CacheDirectory,
                 $"iskra_bin_{DateTime.UtcNow.Ticks}{(string.IsNullOrEmpty(ext) ? ".mp4" : ext)}");
             await File.WriteAllBytesAsync(temp, bytes, ct).ConfigureAwait(false);
+            await ShowVideoProcessingBubbleAsync().ConfigureAwait(false);
             try
             {
                 var prepared = await Video144pTranscoder
@@ -450,19 +536,27 @@ public partial class ChatDetailPage
                 if (!prepared.Ok || prepared.Bytes == null)
                 {
                     await UiAlertAsync(Loc.T("chat.video"),
-                            prepared.Error ?? Loc.Tf("chat.video_transcode_fail",
+                            Loc.Tf("chat.video_transcode_fallback",
                                 MediaEconomy.VideoResolutionLabel(_p2p)))
                         .ConfigureAwait(false);
-                    return null;
+                    _logger.LogWarning("Video transcode failed: {Error}", prepared.Error);
+                    bytes = originalBytes;
+                    mime = originalMime;
+                    fileName = originalName;
+                    usedOriginal = true;
+                    AppLog.BinaryLoaded("video-economy-original", fileName, bytes.Length);
                 }
-
-                bytes = prepared.Bytes;
-                mime = prepared.Mime;
-                fileName = prepared.FileName;
-                AppLog.BinaryLoaded("video-economy", fileName, bytes.Length);
+                else
+                {
+                    bytes = prepared.Bytes;
+                    mime = prepared.Mime;
+                    fileName = prepared.FileName;
+                    AppLog.BinaryLoaded("video-economy", fileName, bytes.Length);
+                }
             }
             finally
             {
+                await HideVideoProcessingBubbleAsync().ConfigureAwait(false);
                 try
                 {
                     File.Delete(temp);
@@ -482,7 +576,10 @@ public partial class ChatDetailPage
 
         if (bytes.Length > _media.MaxDocumentBytes)
         {
-            await UiAlertAsync(Loc.T("chat.size"), Loc.T("chat.size_still")).ConfigureAwait(false);
+            var limMb = (_media.MaxDocumentBytes + (1024 * 1024 - 1)) / (1024 * 1024);
+            await UiAlertAsync(Loc.T("chat.size"),
+                    usedOriginal ? Loc.Tf("chat.size_over", limMb) : Loc.T("chat.size_still"))
+                .ConfigureAwait(false);
             return null;
         }
 
