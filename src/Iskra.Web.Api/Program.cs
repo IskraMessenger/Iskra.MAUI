@@ -66,7 +66,7 @@ builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = 20 * 1
 builder.Services.AddSingleton(_ => ChatMediaOptions.LoadOrDefault(WebAppPaths.ChatMediaPath));
 builder.Services.AddSingleton(_ => new AppDatabase(WebAppPaths.DatabasePath));
 builder.Services.AddSingleton<IUserAuthRepository, SqliteUserAuthRepository>();
-builder.Services.AddRouteDbContextWithPeerExpiryCleanup(WebAppPaths.RoutesDbPath, enableDiscovery: true);
+builder.Services.AddRouteDbContextForAspNet(WebAppPaths.RoutesDbPath);
 builder.Services.AddSingleton<ISessionStorage>(_ => new FileSessionStorage(WebAppPaths.SessionDirectory));
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<ChatRepository>();
