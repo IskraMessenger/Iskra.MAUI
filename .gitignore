@@ -6,3 +6,4 @@ obj/
 src/Iskra.Maui/bin/
 src/Iskra.Maui/obj/
 dist/
+node_modules/
