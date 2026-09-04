@@ -99,10 +99,13 @@ jobs:
         run: dotnet workload install maui-android
 
       - name: Decode keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "No keystore secret; skipping decode (unsigned APK)."
+            exit 0
+          fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/iskra.keystore"
 
       - name: Publish APK
@@ -114,7 +117,7 @@ jobs:
         run: |
           set -euo pipefail
           extra=()
-          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ] && [ -n "${ANDROID_KEY_ALIAS:-}" ] && [ -n "${ANDROID_KEY_PASSWORD:-}" ] && [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ]; then
             extra+=(
               -p:AndroidKeyStore=true
               -p:AndroidSigningKeyStore="$RUNNER_TEMP/iskra.keystore"
@@ -122,6 +125,8 @@ jobs:
               -p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD"
               -p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
             )
+          else
+            echo "Signing secrets incomplete; publishing unsigned APK."
           fi
           dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
             -c Release \
