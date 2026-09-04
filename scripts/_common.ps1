@@ -41,6 +41,10 @@ function Get-PublishDir([string]$WinVer, [string]$Arch) {
     Join-Path (Get-RepoRoot) "dist\win$WinVer-$Arch"
 }
 
+function Get-WinFormsPublishDir([string]$Arch) {
+    Join-Path (Get-RepoRoot) "dist\winforms-$Arch"
+}
+
 function Get-InstallerDir {
     Join-Path (Get-RepoRoot) 'dist\installers'
 }
