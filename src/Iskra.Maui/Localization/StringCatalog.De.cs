@@ -102,7 +102,7 @@ internal static partial class StringCatalog
         ["settings.logout"] = "Abmelden",
         ["settings.storage_mb"] = "Belegt {0:0.0} MB",
         ["settings.storage_gb"] = "Belegt {0:0.0} GB",
-        ["settings.about_body"] = "Mesh-Messenger ohne Gruppen.\nVersion 0.1\nAndroid 5.0 (API 21)+",
+        ["settings.about_body"] = "Mesh-Messenger.\nVersion 0.1\nAndroid 5.0 (API 21)+",
         ["economy.mode.normal"] = "Normal",
         ["economy.mode.economy"] = "Sparsam",
         ["economy.mode.ultra"] = "Ultra sparsam",

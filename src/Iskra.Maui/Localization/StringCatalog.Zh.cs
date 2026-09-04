@@ -102,7 +102,7 @@ internal static partial class StringCatalog
         ["settings.logout"] = "退出登录",
         ["settings.storage_mb"] = "已用 {0:0.0} MB",
         ["settings.storage_gb"] = "已用 {0:0.0} GB",
-        ["settings.about_body"] = "无群组的 Mesh 信使。\n版本 0.1\nAndroid 5.0 (API 21)+",
+        ["settings.about_body"] = "Mesh 信使。\n版本 0.1\nAndroid 5.0 (API 21)+",
         ["economy.mode.normal"] = "正常",
         ["economy.mode.economy"] = "节省",
         ["economy.mode.ultra"] = "超省流量",

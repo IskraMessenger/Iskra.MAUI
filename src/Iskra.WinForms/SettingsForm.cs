@@ -68,7 +68,7 @@ public sealed class SettingsForm : Form
         save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
         keys.Click += (_, _) => CopyKeys();
         about.Click += (_, _) => MessageBox.Show(this,
-            "Mesh-мессенджер без групп.\nIskra.WinForms 0.1 (.NET Framework 4.8)\nWindows 7 SP1+\nБез BLE и камеры. QR — из файла.",
+            "Mesh-мессенджер.\nIskra.WinForms 0.1 (.NET Framework 4.8)\nWindows 7 SP1+\nБез BLE и камеры. QR — из файла.",
             "Iskra", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         var root = new TableLayoutPanel
