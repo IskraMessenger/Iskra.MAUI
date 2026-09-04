@@ -9,6 +9,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Misc", "Misc", "{1DE7B355-C
 	ProjectSection(SolutionItems) = preProject
 		Misc\new_chat.aup3 = Misc\new_chat.aup3
 		Misc\new_chat.ogg = Misc\new_chat.ogg
+		logo\logo.jpg = logo\logo.jpg
+		logo\logo.xcf = logo\logo.xcf
+		logo\logo_min.png = logo\logo_min.png
+		logo\logo_transparent.png = logo\logo_transparent.png
+		logo\logo_transparent.xcf = logo\logo_transparent.xcf
+		logo\logo_transparent_min.png = logo\logo_transparent_min.png
+		logo\logo_transparent_min.xcf = logo\logo_transparent_min.xcf
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ShortP2P", "ShortP2P", "{7B914EAE-C9F9-A150-68B6-A106542EEA13}"

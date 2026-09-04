@@ -7,7 +7,7 @@
              BackgroundColor="{DynamicResource PageBackground}">
     <ScrollView>
         <VerticalStackLayout Padding="28,36" Spacing="16" MaximumWidthRequest="420" HorizontalOptions="Center">
-            <Image Source="logo_min.png" WidthRequest="64" HeightRequest="64" Aspect="AspectFit"
+            <Image Source="logo_transparent_min.png" WidthRequest="64" HeightRequest="64" Aspect="AspectFit"
                    HorizontalOptions="Center" />
             <Label x:Name="TitleLabel" FontSize="24" FontAttributes="Bold"
                    TextColor="{DynamicResource MidnightBlue}" />
