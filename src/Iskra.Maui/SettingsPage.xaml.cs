@@ -67,7 +67,7 @@ public partial class SettingsPage : ContentPage
         RoutingHint.Text = RoutingSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
         EconomyHint.Text = MediaEconomy.Hint(_p2p.Settings.TrafficQuality);
         StorageLabel.Text = FormatStorage();
-        RebuildLanguageChips();
+        RebuildLanguageTiles();
         RebuildThemeChips();
         RebuildEconomyChips();
         await Task.CompletedTask.ConfigureAwait(true);
@@ -96,36 +96,88 @@ public partial class SettingsPage : ContentPage
         LanguageWarningLabel.IsVisible = LanguageService.ShowTranslationWarning;
     }
 
-    private void RebuildLanguageChips()
+    private static readonly AppLanguage[] LanguageOptions =
+    [
+        AppLanguage.Russian, AppLanguage.English, AppLanguage.Spanish,
+        AppLanguage.German, AppLanguage.French, AppLanguage.ChineseSimplified
+    ];
+
+    private void RebuildLanguageTiles()
     {
-        LanguageChips.Children.Clear();
-        foreach (var lang in new[]
-                 {
-                     AppLanguage.Russian, AppLanguage.English, AppLanguage.Spanish, AppLanguage.ChineseSimplified
-                 })
+        LanguageTiles.Children.Clear();
+        for (var i = 0; i < LanguageOptions.Length; i++)
         {
-            var selected = lang == LanguageService.Current;
-            var btn = new Button
-            {
-                Text = LanguageService.NativeName(lang),
-                FontSize = 13,
-                BackgroundColor = selected ? IskraTheme.Accent : IskraTheme.Current.Surface,
-                TextColor = selected ? IskraTheme.Current.ButtonText : IskraTheme.Text,
-                Padding = new Thickness(12, 8)
-            };
-            var captured = lang;
-            btn.Clicked += (_, _) =>
-            {
-                if (captured == LanguageService.Current)
-                    return;
-                var warn = LanguageService.TranslationWarning(captured);
-                if (!string.IsNullOrEmpty(warn))
-                    _ = DisplayAlert(LanguageService.NativeName(captured), warn, Loc.T("ok"));
-                LanguageService.Set(captured);
-            };
-            LanguageChips.Children.Add(btn);
+            var lang = LanguageOptions[i];
+            LanguageTiles.Add(CreateLanguageTile(lang, lang == LanguageService.Current), i % 3, i / 3);
         }
     }
+
+    private Border CreateLanguageTile(AppLanguage lang, bool selected)
+    {
+        var surface = IskraTheme.Current.Surface;
+        var tile = new Border
+        {
+            StrokeThickness = selected ? 2.5 : 1,
+            Stroke = selected ? IskraTheme.Accent : IskraTheme.Current.Hairline,
+            StrokeShape = new RoundRectangle { CornerRadius = 12 },
+            BackgroundColor = selected ? Mix(surface, IskraTheme.Accent, 0.18f) : surface,
+            Padding = new Thickness(8, 14),
+            HeightRequest = 112
+        };
+        tile.Content = new VerticalStackLayout
+        {
+            Spacing = 8,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            Children =
+            {
+                new Border
+                {
+                    StrokeThickness = 0,
+                    StrokeShape = new RoundRectangle { CornerRadius = 4 },
+                    WidthRequest = 42,
+                    HeightRequest = 28,
+                    HorizontalOptions = LayoutOptions.Center,
+                    Padding = 0,
+                    Content = new Image
+                    {
+                        Source = LanguageService.FlagImage(lang),
+                        Aspect = Aspect.AspectFill,
+                        WidthRequest = 42,
+                        HeightRequest = 28
+                    }
+                },
+                new Label
+                {
+                    Text = LanguageService.NativeName(lang),
+                    FontSize = 13,
+                    HorizontalTextAlignment = TextAlignment.Center,
+                    TextColor = IskraTheme.Text,
+                    LineBreakMode = LineBreakMode.TailTruncation
+                }
+            }
+        };
+        var captured = lang;
+        var tap = new TapGestureRecognizer();
+        tap.Tapped += (_, _) =>
+        {
+            if (captured == LanguageService.Current)
+                return;
+            var warn = LanguageService.TranslationWarning(captured);
+            if (!string.IsNullOrEmpty(warn))
+                _ = DisplayAlert(LanguageService.NativeName(captured), warn, Loc.T("ok"));
+            LanguageService.Set(captured);
+        };
+        tile.GestureRecognizers.Add(tap);
+        return tile;
+    }
+
+    private static Color Mix(Color a, Color b, float t) =>
+        Color.FromRgba(
+            a.Red + (b.Red - a.Red) * t,
+            a.Green + (b.Green - a.Green) * t,
+            a.Blue + (b.Blue - a.Blue) * t,
+            a.Alpha + (b.Alpha - a.Alpha) * t);
 
     private void RebuildThemeChips()
     {

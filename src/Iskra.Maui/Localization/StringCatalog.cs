@@ -2,7 +2,7 @@ namespace Iskra.Maui.Localization;
 
 internal static partial class StringCatalog
 {
-    // Do NOT cache language tables in a static field initializer that references Ru/En/Es/Zh:
+    // Do NOT cache language tables in a static field initializer that references Ru/En/Es/De/Fr/Zh:
     // those properties are declared later (and across partial files), so the map can capture null
     // and English silently falls back to Russian.
     public static string Get(AppLanguage language, string key)
@@ -19,6 +19,8 @@ internal static partial class StringCatalog
     {
         AppLanguage.English => En,
         AppLanguage.Spanish => Es,
+        AppLanguage.German => De,
+        AppLanguage.French => Fr,
         AppLanguage.ChineseSimplified => Zh,
         _ => Ru
     };

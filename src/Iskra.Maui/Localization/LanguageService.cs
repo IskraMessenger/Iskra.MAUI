@@ -37,8 +37,21 @@ internal static class LanguageService
         AppLanguage.Russian => "Русский",
         AppLanguage.English => "English",
         AppLanguage.Spanish => "Español",
+        AppLanguage.German => "Deutsch",
+        AppLanguage.French => "Français",
         AppLanguage.ChineseSimplified => "简体中文",
         _ => language.ToString()
+    };
+
+    public static string FlagImage(AppLanguage language) => language switch
+    {
+        AppLanguage.Russian => "flag_ru.png",
+        AppLanguage.English => "flag_gb.png",
+        AppLanguage.Spanish => "flag_es.png",
+        AppLanguage.German => "flag_de.png",
+        AppLanguage.French => "flag_fr.png",
+        AppLanguage.ChineseSimplified => "flag_cn.png",
+        _ => "flag_ru.png"
     };
 
     /// <summary>
@@ -70,6 +83,8 @@ internal static class LanguageService
     {
         AppLanguage.English => new CultureInfo("en"),
         AppLanguage.Spanish => new CultureInfo("es"),
+        AppLanguage.German => new CultureInfo("de"),
+        AppLanguage.French => new CultureInfo("fr"),
         AppLanguage.ChineseSimplified => new CultureInfo("zh-Hans"),
         _ => new CultureInfo("ru")
     };

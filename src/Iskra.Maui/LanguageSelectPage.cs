@@ -52,7 +52,8 @@ public sealed class LanguageSelectPage : ContentPage
 
         foreach (var lang in new[]
                  {
-                     AppLanguage.Russian, AppLanguage.English, AppLanguage.Spanish, AppLanguage.ChineseSimplified
+                     AppLanguage.Russian, AppLanguage.English, AppLanguage.Spanish,
+                     AppLanguage.German, AppLanguage.French, AppLanguage.ChineseSimplified
                  })
         {
             var button = new Button
