@@ -19,6 +19,18 @@
         "isDefault": true
       },
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build-web",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Iskra.Web.Api/Iskra.Web.Api.csproj",
+        "-c",
+        "Debug"
+      ],
+      "problemMatcher": "$msCompile"
     }
   ]
 }

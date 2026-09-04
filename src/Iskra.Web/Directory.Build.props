@@ -1,3 +1,0 @@
-<Project>
-  <!-- Keep the JavaScript SPA out of src/Directory.Build.props (C# / MAUI settings). -->
-</Project>

@@ -68,8 +68,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShortP2P.Transport.Abstract
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Iskra.Web.Api", "src\Iskra.Web.Api\Iskra.Web.Api.csproj", "{F120BD5A-B807-47FC-8D2E-888C14F2866F}"
 EndProject
-Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "Iskra.Web", "src\Iskra.Web\Iskra.Web.esproj", "{946BEB36-AD53-40DF-99C3-596BFA909B74}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -456,14 +454,6 @@ Global
 		{F120BD5A-B807-47FC-8D2E-888C14F2866F}.Release|ARM64.Build.0 = Release|Any CPU
 		{F120BD5A-B807-47FC-8D2E-888C14F2866F}.Release|x86.ActiveCfg = Release|Any CPU
 		{F120BD5A-B807-47FC-8D2E-888C14F2866F}.Release|x86.Build.0 = Release|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Debug|ARM64.ActiveCfg = Debug|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Release|x64.ActiveCfg = Release|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Release|ARM64.ActiveCfg = Release|Any CPU
-		{946BEB36-AD53-40DF-99C3-596BFA909B74}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

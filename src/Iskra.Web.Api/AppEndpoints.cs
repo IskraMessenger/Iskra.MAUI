@@ -38,7 +38,8 @@ internal static class AppEndpoints
         api.MapGet("/chats/{id:int}", GetChat);
         api.MapGet("/chats/{id:int}/messages", ListMessages);
         api.MapPost("/chats/{id:int}/messages", SendText);
-        api.MapPost("/chats/{id:int}/files", SendFile);
+        // Same-origin SPA + cookie auth (SameSite=Lax): form uploads don't send antiforgery tokens.
+        api.MapPost("/chats/{id:int}/files", SendFile).DisableAntiforgery();
         api.MapGet("/chats/{id:int}/messages/{messageId:int}/file", DownloadFile);
         api.MapPost("/chats/{id:int}/messages/{messageId:int}/download", RequestDownload);
         api.MapPost("/chats/{id:int}/messages/{messageId:int}/retry", RetryMessage);
@@ -46,7 +47,7 @@ internal static class AppEndpoints
         api.MapPost("/chats/{id:int}/untrust", Untrust);
 
         api.MapPost("/chats/add", AddChat);
-        api.MapPost("/chats/qr", ImportPeerQr);
+        api.MapPost("/chats/qr", ImportPeerQr).DisableAntiforgery();
         api.MapPost("/chats/open-peer", OpenDiscoveredPeer);
 
         api.MapGet("/contacts", ListContacts);
@@ -59,7 +60,7 @@ internal static class AppEndpoints
 
         api.MapGet("/servers", ListServers);
         api.MapPost("/servers", AddServer);
-        api.MapPost("/servers/import-qr", ImportServerQr);
+        api.MapPost("/servers/import-qr", ImportServerQr).DisableAntiforgery();
         api.MapPost("/servers/{id:int}/active", SetServerActive);
         api.MapPost("/servers/{id:int}/recheck", RecheckServer);
         api.MapPost("/servers/{id:int}/ask", AskServers);
@@ -444,7 +445,8 @@ internal static class AppEndpoints
             return Results.NotFound();
         var mime = string.IsNullOrWhiteSpace(msg.MimeType) ? "application/octet-stream" : msg.MimeType;
         var name = string.IsNullOrWhiteSpace(msg.TransferFileName) ? "file" : msg.TransferFileName;
-        return Results.File(blob, mime, name);
+        // enableRangeProcessing lets <audio>/<video> seek without downloading the whole blob first.
+        return Results.File(blob, mime, name, enableRangeProcessing: true);
     }
 
     private static async Task<IResult> RequestDownload(int id, int messageId, AuthService auth, ChatRepository chats,

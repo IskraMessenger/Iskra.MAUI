@@ -56,11 +56,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 builder.Services.AddSignalR();
-builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials()));
+// Frontend is served same-origin from wwwroot — no CORS needed.
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = 20 * 1024 * 1024);
 
 builder.Services.AddSingleton(_ => ChatMediaOptions.LoadOrDefault(WebAppPaths.ChatMediaPath));
@@ -113,11 +109,25 @@ logFactory.CreateLogger("Iskra.Web.Api").LogInformation(
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler();
 
-app.UseCors();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapIskraApi();
 app.MapHub<IskraHub>("/hubs/iskra");
+// SPA fallback: any non-API, non-hub GET serves the static frontend shell.
+app.MapFallback(async ctx =>
+{
+    if (HttpMethods.IsGet(ctx.Request.Method))
+    {
+        ctx.Response.ContentType = "text/html; charset=utf-8";
+        await ctx.Response.SendFileAsync(
+            ctx.RequestServices.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider
+                .GetFileInfo("index.html"));
+        return;
+    }
+    ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+});
 app.Lifetime.ApplicationStopping.Register(() => LogManager.Shutdown());
 app.Run();
 

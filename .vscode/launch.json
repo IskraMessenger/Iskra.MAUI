@@ -10,6 +10,26 @@
       "cwd": "${workspaceFolder}/src/Iskra.Maui/bin/Debug/net10.0-windows10.0.19041.0/win-x64",
       "console": "internalConsole",
       "stopAtEntry": false
+    },
+    {
+      "name": "Iskra.Web",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-web",
+      "program": "${workspaceFolder}/src/Iskra.Web.Api/bin/Debug/net10.0/Iskra.Web.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Iskra.Web.Api",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5088"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s"
+      }
     }
   ]
 }

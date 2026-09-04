@@ -1,0 +1,169 @@
+import { get, post } from "../api.js";
+import { languages } from "../i18n.js";
+import { session, setLanguage, setThemeId, logout, t } from "../session.js";
+import { themes } from "../theme.js";
+import { nav, render } from "../router.js";
+import { el, clear } from "../dom.js";
+
+const themeKeys = {
+  DarkFlame: "theme.dark",
+  Night: "theme.night",
+  LightFlame: "theme.light",
+  ColdBlue: "theme.cold",
+  Forest: "theme.forest",
+  Mono: "theme.mono"
+};
+
+export function SettingsPage() {
+  const root = el("div", { class: "screen wide stack" }, el("div", { class: "empty" }, t("chat.state.loading")));
+
+  function themeLabel(id) {
+    return t(themeKeys[id] ?? "theme.mono");
+  }
+
+  async function save(patch) {
+    await post("/api/settings", patch);
+    await load();
+  }
+
+  async function load() {
+    const s = await get("/api/settings");
+    clear(root);
+
+    const mb = s.storageBytes / (1024 * 1024);
+    const storage = mb >= 1024 ? t("settings.storage_gb", mb / 1024) : t("settings.storage_mb", mb);
+
+    // profile
+    root.appendChild(
+      el(
+        "div",
+        { class: "row" },
+        el("div", { class: "avatar", style: { background: s.avatar } }, s.initials),
+        el("div", null, el("strong", null, s.nick), el("div", { class: "muted" }, s.networkId))
+      )
+    );
+
+    // appearance
+    const langSelect = el(
+      "select",
+      {
+        style: { marginTop: "8px" },
+        onchange: async (e) => {
+          await setLanguage(e.target.value);
+          render();
+        }
+      },
+      languages.map((l) => {
+        const o = el("option", { value: l.id }, l.name);
+        if (l.id === session.lang) o.selected = true;
+        return o;
+      })
+    );
+
+    root.appendChild(
+      el(
+        "div",
+        { class: "card" },
+        el("div", { class: "muted" }, t("settings.appearance")),
+        el("label", null, t("lang.section"), langSelect),
+        el(
+          "div",
+          { class: "row", style: { flexWrap: "wrap", marginTop: "12px" } },
+          themes.map((th) =>
+            el(
+              "button",
+              {
+                class: "btn small",
+                style: { background: th.accent, opacity: session.theme === th.id ? "1" : "0.55" },
+                onclick: () => void setThemeId(th.id).then(render)
+              },
+              themeLabel(th.id)
+            )
+          )
+        )
+      )
+    );
+
+    // toggles
+    const sw = (label, checked, key) =>
+      el(
+        "div",
+        { class: "switch" },
+        el("span", null, label),
+        el("input", {
+          type: "checkbox",
+          checked,
+          onchange: (e) => void save({ [key]: e.target.checked })
+        })
+      );
+
+    const quality = el(
+      "select",
+      {
+        style: { marginTop: "8px" },
+        onchange: (e) => void save({ trafficQuality: e.target.value })
+      },
+      [
+        ["Normal", t("economy.mode.normal")],
+        ["Economy", t("economy.mode.economy")],
+        ["UltraEconomy", t("economy.mode.ultra")]
+      ].map(([v, label]) => {
+        const o = el("option", { value: v }, label);
+        if (s.trafficQuality === v) o.selected = true;
+        return o;
+      })
+    );
+
+    root.appendChild(
+      el(
+        "div",
+        { class: "card" },
+        sw(t("settings.lan"), s.lan, "lan"),
+        sw(t("settings.bluetooth"), s.bluetooth, "bluetooth"),
+        sw(t("settings.routing"), s.routing, "routing"),
+        el("label", null, t("settings.economy"), quality)
+      )
+    );
+
+    // links
+    const linkrow = (label, to) => el("div", { class: "linkrow", onclick: () => nav(to) }, label);
+    root.appendChild(
+      el(
+        "div",
+        { class: "card" },
+        linkrow(t("settings.routing_open"), "/app/routing"),
+        linkrow(t("network.servers"), "/app/servers"),
+        linkrow(t("blacklist.title"), "/app/blacklist"),
+        linkrow(t("settings.logs"), "/app/logs"),
+        el("div", { class: "muted" }, `${t("settings.storage")}: ${storage}`)
+      )
+    );
+
+    // about
+    root.appendChild(
+      el(
+        "div",
+        { class: "card" },
+        el("div", { class: "muted" }, t("settings.about")),
+        el("p", { style: { whiteSpace: "pre-wrap" } }, t("settings.about_body"))
+      )
+    );
+
+    root.appendChild(
+      el(
+        "button",
+        {
+          class: "btn danger",
+          onclick: async () => {
+            await logout();
+            nav("/login");
+          }
+        },
+        t("settings.logout")
+      )
+    );
+  }
+
+  void load();
+  return root;
+}
