@@ -130,7 +130,10 @@ export function ChatPage(chatId) {
   }
 
   function buildBubble(m) {
-    const bubble = el("div", { class: "bubble " + (m.outgoing ? "out" : "in") });
+    const isMedia = (m.kind === "image" || m.kind === "voice" || m.kind === "video") && m.hasBlob;
+    const bubble = el("div", {
+      class: "bubble " + (m.outgoing ? "out" : "in") + (isMedia ? " media" : "")
+    });
     if (m.kind === "image" && m.hasBlob) {
       bubble.appendChild(el("img", { class: "att", src: `/api/chats/${chatId}/messages/${m.id}/file`, alt: "" }));
     } else if (m.kind === "voice" && m.hasBlob) {

@@ -104,12 +104,17 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); }
 .bubble {
   max-width: 80%; padding: 8px 12px; border-radius: 14px; font-size: 15px; word-break: break-word;
 }
+.bubble.media {
+  width: 30%; min-width: 300px; max-width: 100%; box-sizing: border-box;
+}
 .bubble.in { align-self: flex-start; background: var(--in); }
 .bubble.out { align-self: flex-end; background: var(--out); color: var(--sent); }
 .bubble .time { font-size: 11px; opacity: 0.75; margin-top: 4px; }
-.bubble img.att { max-width: 100%; border-radius: 8px; display: block; }
-.bubble audio.att { max-width: 260px; width: 100%; display: block; }
-.bubble video.att { max-width: 260px; border-radius: 8px; display: block; }
+.bubble img.att,
+.bubble video.att {
+  width: 100%; height: auto; border-radius: 8px; display: block; object-fit: contain;
+}
+.bubble audio.att { width: 100%; display: block; }
 .composer {
   position: sticky; bottom: 0; display: flex; gap: 8px; padding: 10px; background: var(--page);
   border-top: 1px solid var(--hairline);
