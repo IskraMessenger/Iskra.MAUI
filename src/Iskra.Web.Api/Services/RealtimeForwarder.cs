@@ -33,6 +33,7 @@ internal sealed class RealtimeForwarder : IHostedService
     {
         _chats.ChatListChanged += OnChats;
         _chats.ChatMessageAppended += OnMessage;
+        _chats.ChatCreated += OnChatCreated;
         _chats.PeerPublicKeyChanged += OnKey;
         _p2p.LocalScan.ClientsChanged += OnPresence;
         _servers.TrustThreatDetected += OnThreat;
@@ -45,6 +46,7 @@ internal sealed class RealtimeForwarder : IHostedService
     {
         _chats.ChatListChanged -= OnChats;
         _chats.ChatMessageAppended -= OnMessage;
+        _chats.ChatCreated -= OnChatCreated;
         _chats.PeerPublicKeyChanged -= OnKey;
         _p2p.LocalScan.ClientsChanged -= OnPresence;
         _servers.TrustThreatDetected -= OnThreat;
@@ -56,8 +58,19 @@ internal sealed class RealtimeForwarder : IHostedService
     private void OnChats(object? sender, EventArgs e) =>
         _ = _hub.Clients.All.SendAsync("chatsChanged");
 
-    private void OnMessage(object? sender, ChatMessageAppendedEventArgs e) =>
+    private void OnMessage(object? sender, ChatMessageAppendedEventArgs e)
+    {
         _ = _hub.Clients.All.SendAsync("messagesChanged", e.ChatId);
+        if (!e.Outgoing)
+            _ = NotifyIncomingMessageAsync(e.ChatId);
+    }
+
+    private void OnChatCreated(object? sender, ChatCreatedEventArgs e)
+    {
+        if (!e.Remote)
+            return;
+        _ = NotifyChatCreatedAsync(e.ChatId);
+    }
 
     private void OnPresence(object? sender, EventArgs e) =>
         _ = _hub.Clients.All.SendAsync("presenceChanged");
@@ -83,5 +96,65 @@ internal sealed class RealtimeForwarder : IHostedService
     {
         if (e.SwitchedToMesh)
             _ = _hub.Clients.All.SendAsync("meshFailover");
+    }
+
+    private async Task NotifyIncomingMessageAsync(int chatId)
+    {
+        try
+        {
+            var chat = await _chats.GetChatAsync(chatId).ConfigureAwait(false);
+            if (chat == null)
+                return;
+
+            var last = (await _chats.ListMessagesPageDescAsync(chatId, 0, 1).ConfigureAwait(false))
+                .FirstOrDefault();
+            var preview = ChatSessionHelper.Preview(last);
+            var previewKind = PreviewKind(last);
+
+            await _hub.Clients.All.SendAsync("incomingMessage", new
+            {
+                chatId,
+                peerNickname = chat.PeerNickname,
+                preview,
+                previewKind
+            }).ConfigureAwait(false);
+        }
+        catch
+        {
+            // UI already got messagesChanged; toast is best-effort
+        }
+    }
+
+    private async Task NotifyChatCreatedAsync(int chatId)
+    {
+        try
+        {
+            var chat = await _chats.GetChatAsync(chatId).ConfigureAwait(false);
+            if (chat == null)
+                return;
+
+            await _hub.Clients.All.SendAsync("chatCreated", new
+            {
+                chatId,
+                peerNickname = chat.PeerNickname
+            }).ConfigureAwait(false);
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+
+    private static string PreviewKind(ChatMessageEntity? m)
+    {
+        if (m == null)
+            return "none";
+        if (m.PayloadKind == (int)ChatPayloadKind.Image)
+            return "photo";
+        if (m.MimeType?.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) == true)
+            return "voice";
+        if (m.PayloadKind is (int)ChatPayloadKind.File or (int)ChatPayloadKind.TransferOffer)
+            return "file";
+        return "text";
     }
 }

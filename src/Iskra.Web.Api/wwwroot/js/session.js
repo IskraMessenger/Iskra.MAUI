@@ -2,6 +2,11 @@ import { get, post } from "./api.js";
 import { connectHub } from "./hub.js";
 import { setLang, getLang, t } from "./i18n.js";
 import { applyTheme } from "./theme.js";
+import {
+  ensureNotificationPermission,
+  notifyIncomingMessage,
+  notifyChatCreated
+} from "./notifications.js";
 
 export const session = {
   ready: false,
@@ -42,10 +47,13 @@ export async function refresh() {
 
 function startHub() {
   stopHub();
+  ensureNotificationPermission();
   hubConn = connectHub({
     chatsChanged: bump,
     messagesChanged: bump,
     presenceChanged: bump,
+    incomingMessage: notifyIncomingMessage,
+    chatCreated: notifyChatCreated,
     keyChanged: (p) =>
       window.alert(t("safety.key_change_body", p.peerNickname, p.previousSafetyNumber, p.newSafetyNumber)),
     trustThreat: (p) =>

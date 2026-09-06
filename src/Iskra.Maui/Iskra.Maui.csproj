@@ -44,9 +44,7 @@
     <!-- Do not use @(AppxManifest) with WindowsPackageType=None (MSBuild errors). Explicitly copy so
          Permissions.IsCapabilityDeclared finds AppxManifest.xml beside the unpackaged exe.
          Cover both bin\$(Configuration)\… and bin\$(Platform)\$(Configuration)\… layouts. -->
-    <Target Name="CopyUnpackagedAppxManifest"
-            AfterTargets="Build"
-            Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(WindowsPackageType)' == 'None'">
+    <Target Name="CopyUnpackagedAppxManifest" AfterTargets="Build" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(WindowsPackageType)' == 'None'">
         <PropertyGroup>
             <_AppxManifestSrc>$(MSBuildProjectDirectory)\Platforms\Windows\Package.appxmanifest</_AppxManifestSrc>
             <_AppxManifestRidDir Condition="'$(RuntimeIdentifier)' != ''">$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_AppxManifestRidDir>
@@ -57,11 +55,8 @@
             <_AppxManifestDest Include="$(_AppxManifestRidDir)AppxManifest.xml" Condition="'$(_AppxManifestRidDir)' != ''" />
             <_AppxManifestDest Include="$(_AppxManifestPlatformDir)AppxManifest.xml" Condition="'$(_AppxManifestPlatformDir)' != ''" />
         </ItemGroup>
-        <Copy SourceFiles="@(_AppxManifestDest->'$(_AppxManifestSrc)')"
-              DestinationFiles="@(_AppxManifestDest)"
-              SkipUnchangedFiles="true"
-              Condition="Exists('$(_AppxManifestSrc)') and '@(_AppxManifestDest)' != ''" />
-        <Message Importance="high" Text="Copied unpackaged AppxManifest.xml -> @(_AppxManifestDest)" />
+        <Copy SourceFiles="@(_AppxManifestDest->'$(_AppxManifestSrc)')" DestinationFiles="@(_AppxManifestDest)" SkipUnchangedFiles="true" Condition="Exists('$(_AppxManifestSrc)') and '@(_AppxManifestDest)' != ''" />
+        <Message Importance="high" Text="Copied unpackaged AppxManifest.xml -&gt; @(_AppxManifestDest)" />
     </Target>
 
     <!--
