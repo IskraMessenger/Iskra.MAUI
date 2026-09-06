@@ -30,11 +30,21 @@ function Get-IskraVersion {
 }
 
 function Get-PublishRid([string]$Arch) {
-    if ($Arch -eq 'x32') { 'win-x86' } else { 'win-x64' }
+    switch ($Arch) {
+        'x32'   { 'win-x86' }
+        'x64'   { 'win-x64' }
+        'arm64' { 'win-arm64' }
+        default { throw "Unsupported arch: $Arch" }
+    }
 }
 
 function Get-MsbuildPlatform([string]$Arch) {
-    if ($Arch -eq 'x32') { 'x86' } else { 'x64' }
+    switch ($Arch) {
+        'x32'   { 'x86' }
+        'x64'   { 'x64' }
+        'arm64' { 'ARM64' }
+        default { throw "Unsupported arch: $Arch" }
+    }
 }
 
 function Get-PublishDir([string]$WinVer, [string]$Arch) {

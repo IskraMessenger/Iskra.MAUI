@@ -5,7 +5,7 @@ param(
     [string]$WinVer,
 
     [Parameter(Mandatory)]
-    [ValidateSet('x32', 'x64')]
+    [ValidateSet('x32', 'x64', 'arm64')]
     [string]$Arch,
 
     [ValidateSet('Debug', 'Release')]

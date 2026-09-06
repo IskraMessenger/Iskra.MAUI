@@ -37,10 +37,10 @@ SetCompressor /SOLID lzma
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "${OUT_FILE}"
-!if "${ARCH}" == "x64"
-  InstallDir "$PROGRAMFILES64\${APP_NAME}"
-!else
+!if "${ARCH}" == "x32"
   InstallDir "$PROGRAMFILES\${APP_NAME}"
+!else
+  InstallDir "$PROGRAMFILES64\${APP_NAME}"
 !endif
 InstallDirRegKey HKLM "${UNINSTALL_REG}" "InstallLocation"
 RequestExecutionLevel admin
@@ -63,7 +63,7 @@ VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 !insertmacro MUI_LANGUAGE "Russian"
 
 Function .onInit
-  !if "${ARCH}" == "x64"
+  !if "${ARCH}" != "x32"
     ${IfNot} ${RunningX64}
       MessageBox MB_OK|MB_ICONSTOP "This installer is for 64-bit Windows only. / Этот установщик только для 64-bit Windows."
       Abort
@@ -114,7 +114,7 @@ Section "Install"
 SectionEnd
 
 Section "Uninstall"
-  !if "${ARCH}" == "x64"
+  !if "${ARCH}" != "x32"
     SetRegView 64
   !endif
   Delete "$DESKTOP\${APP_NAME}.lnk"

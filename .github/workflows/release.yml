@@ -38,9 +38,13 @@ jobs:
           if-no-files-found: error
 
   maui-windows:
-    name: MAUI Windows NSIS
+    name: MAUI Windows NSIS (${{ matrix.target }})
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [win_10_x32, win_10_x64, win_10_arm64, win_11_x64]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,16 +60,13 @@ jobs:
       - name: Install NSIS
         run: choco install nsis -y --no-progress
 
-      - name: Build installers
-        run: |
-          .\scripts\nsis_win_10_x64.ps1
-          .\scripts\nsis_win_11_x64.ps1
-          .\scripts\nsis_win_10_x32.ps1
+      - name: Build installer
+        run: .\scripts\nsis_${{ matrix.target }}.ps1
 
       - uses: actions/upload-artifact@v4
         with:
-          name: maui-windows
-          path: dist/installers/Iskra-*-win*-setup.exe
+          name: maui-windows-${{ matrix.target }}
+          path: dist/installers/Iskra-*-setup.exe
           if-no-files-found: error
 
   android:
@@ -152,9 +153,36 @@ jobs:
           path: dist/apk/Iskra-${{ matrix.rid }}.apk
           if-no-files-found: error
 
+  web:
+    name: Web (Iskra.Web.Api)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Web API
+        run: |
+          set -euo pipefail
+          ver=$(grep -oPm1 '(?<=<ApplicationDisplayVersion>)[^<]+' src/Iskra.Maui/Iskra.Maui.csproj)
+          dotnet publish src/Iskra.Web.Api/Iskra.Web.Api.csproj -c Release -o dist/web
+          cd dist/web
+          zip -r "../Iskra-${ver}-web.zip" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: dist/Iskra-*-web.zip
+          if-no-files-found: error
+
   publish-release:
     name: GitHub Release
-    needs: [winforms, maui-windows, android]
+    needs: [winforms, maui-windows, android, web]
     runs-on: ubuntu-latest
     permissions:
       contents: write
