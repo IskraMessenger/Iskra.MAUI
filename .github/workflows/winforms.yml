@@ -1,0 +1,45 @@
+name: WinForms (Win7+)
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Конфигурация сборки'
+        required: true
+        type: choice
+        options:
+          - Release
+          - Debug
+        default: Release
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  winforms:
+    name: WinForms NSIS (x86 32-bit / x64)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installers
+        run: |
+          .\scripts\nsis_winforms_x32.ps1 -Configuration ${{ inputs.configuration }}
+          .\scripts\nsis_winforms_x64.ps1 -Configuration ${{ inputs.configuration }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winforms-win7-${{ inputs.configuration }}
+          path: dist/installers/Iskra-*-winforms-*-setup.exe
+          if-no-files-found: error
