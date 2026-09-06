@@ -1,0 +1,12 @@
+name: Debug
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build all (Debug)
+    uses: ./.github/workflows/_build.yml
+    with:
+      configuration: Debug
+    secrets: inherit
