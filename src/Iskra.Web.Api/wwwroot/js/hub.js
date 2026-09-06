@@ -6,6 +6,8 @@ export function connectHub(handlers) {
     .build();
   conn.on("chatsChanged", () => handlers.chatsChanged?.());
   conn.on("messagesChanged", (chatId) => handlers.messagesChanged?.(chatId));
+  conn.on("incomingMessage", (p) => handlers.incomingMessage?.(p));
+  conn.on("chatCreated", (p) => handlers.chatCreated?.(p));
   conn.on("presenceChanged", () => handlers.presenceChanged?.());
   conn.on("keyChanged", (p) => handlers.keyChanged?.(p));
   conn.on("trustThreat", (p) => handlers.trustThreat?.(p));

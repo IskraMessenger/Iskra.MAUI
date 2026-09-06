@@ -1,21 +1,25 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
 
 namespace Iskra.Maui.WinUI;
 
 /// <summary>
-///     Provides application-specific behavior to supplement the default Application class.
+/// Provides application-specific behavior to supplement the default Application class.
 /// </summary>
 public partial class App : MauiWinUIApplication
 {
-	/// <summary>
-	///     Initializes the singleton application object.  This is the first line of authored code
-	///     executed, and as such is the logical equivalent of main() or WinMain().
-	/// </summary>
-	public App()
+    public App()
     {
+        // Required for classic tray toasts before any window is created.
+        try
+        {
+            SetCurrentProcessExplicitAppUserModelID("com.iskra.maui");
+        }
+        catch
+        {
+            // ignore — toast layer will retry
+        }
+
         this.InitializeComponent();
         UnhandledException += (_, e) =>
         {
@@ -25,4 +29,7 @@ public partial class App : MauiWinUIApplication
     }
 
     protected override global::Microsoft.Maui.Hosting.MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int SetCurrentProcessExplicitAppUserModelID(string appID);
 }

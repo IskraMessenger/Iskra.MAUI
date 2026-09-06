@@ -121,10 +121,12 @@ public partial class ChatDetailPage : ContentPage
         MessageEntry.Placeholder = Loc.T("chat.message_ph");
         _chat = chat;
         _peerNetworkIdShort = chat.PeerNetworkIdShort;
+        ActiveChatTracker.Set(chat.Id);
         RefreshSafetyLabel(chat);
         await TryRefreshPeerNicknameDisplayAsync(chat).ConfigureAwait(true);
         if (user == null)
         {
+            ActiveChatTracker.Clear(chat.Id);
             _peerNetworkIdShort = null;
             _chat = null;
             await Navigation.PopAsync().ConfigureAwait(true);
@@ -171,6 +173,8 @@ public partial class ChatDetailPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        if (_chat != null)
+            ActiveChatTracker.Clear(_chat.Id);
         _ = StopVoiceRecordingAndDiscardAsync();
         VoiceMessagePlayer.Stop();
         _p2p.LocalScan.ClientsChanged -= OnPeerLanPresenceChanged;

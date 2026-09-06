@@ -166,6 +166,11 @@ public static class MauiProgram
             Services.GetRequiredService<AuthService>(),
             Services.GetRequiredService<PeerBlacklist>(),
             logFactory.CreateLogger(nameof(IncomingMessageSound)));
+        IncomingToastNotifications.EnsureHooked(
+            Services.GetRequiredService<ChatRepository>(),
+            Services.GetRequiredService<AuthService>(),
+            Services.GetRequiredService<PeerBlacklist>(),
+            logFactory.CreateLogger(nameof(IncomingToastNotifications)));
         logFactory.CreateLogger<MauiHost>().LogInformation(
             "GUI application started. Logs directory: {LogsDir}", AppLogPaths.LogsDirectory);
         AppDomain.CurrentDomain.ProcessExit += (_, _) => LogManager.Shutdown();
