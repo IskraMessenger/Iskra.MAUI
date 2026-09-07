@@ -82,27 +82,30 @@
         <Label x:Name="DeliveryIssueLabel" Grid.Row="2" TextColor="{DynamicResource Danger}" IsVisible="False"
                LineBreakMode="WordWrap" Margin="12,0" FontSize="12" />
 
-        <Grid Grid.Row="3" Padding="8,6,8,10" ColumnDefinitions="Auto,Auto,Auto,Auto,*,48" ColumnSpacing="4"
+        <Grid Grid.Row="3" Padding="8,6,8,10" RowDefinitions="Auto,Auto" RowSpacing="6"
               BackgroundColor="{DynamicResource Surface}">
-            <Button x:Name="VoiceButton" Text="&#x1F3A4;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                    BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}" Clicked="OnVoiceClicked" />
-            <Button Grid.Column="1" Text="&#x1F4F7;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                    BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
-                    Clicked="OnAttachCameraClicked" />
-            <Button Grid.Column="2" Text="&#x1F5BC;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                    BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
-                    Clicked="OnAttachImageClicked" />
-            <Button Grid.Column="3" Text="&#x1F4CE;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                    BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
-                    Clicked="OnAttachDocumentClicked" />
-            <Border Grid.Column="4" Stroke="{DynamicResource Hairline}" StrokeThickness="1"
+            <Border Stroke="{DynamicResource Hairline}" StrokeThickness="1"
                     StrokeShape="RoundRectangle 18" Padding="10,0" BackgroundColor="{DynamicResource FieldBackground}">
                 <Entry x:Name="MessageEntry" MaxLength="32768"
                        BackgroundColor="Transparent" FontSize="15" />
             </Border>
-            <Button Grid.Column="5" Text="➤" FontSize="16" Padding="0" CornerRadius="24" WidthRequest="44"
-                    HeightRequest="44" BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}"
-                    Clicked="OnSendClicked" />
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,Auto,*,48" ColumnSpacing="4">
+                <Button x:Name="VoiceButton" Text="&#x1F3A4;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}" Clicked="OnVoiceClicked" />
+                <Button Grid.Column="1" Text="&#x1F4F7;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
+                        Clicked="OnAttachCameraClicked" />
+                <Button Grid.Column="2" Text="&#x1F5BC;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
+                        Clicked="OnAttachImageClicked" />
+                <Button Grid.Column="3" Text="&#x1F4CE;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
+                        Clicked="OnAttachDocumentClicked" />
+                <Button Grid.Column="5" Text="➤" FontSize="16" Padding="0" CornerRadius="24" WidthRequest="44"
+                        HeightRequest="44" HorizontalOptions="End"
+                        BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}"
+                        Clicked="OnSendClicked" />
+            </Grid>
         </Grid>
     </Grid>
 </ContentPage>

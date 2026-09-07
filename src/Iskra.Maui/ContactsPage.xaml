@@ -36,8 +36,7 @@
             </HorizontalStackLayout>
         </VerticalStackLayout>
 
-        <CollectionView x:Name="ContactsCollection" Grid.Row="2" SelectionMode="Single"
-                        SelectionChanged="OnContactSelected">
+        <CollectionView x:Name="ContactsCollection" Grid.Row="2" SelectionMode="None">
             <CollectionView.EmptyView>
                 <Label x:Name="EmptyContactsLabel"
                        TextColor="{DynamicResource MutedText}" HorizontalOptions="Center"
@@ -46,6 +45,9 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid Padding="16,10" ColumnDefinitions="52,*" ColumnSpacing="12">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnContactRowTapped" />
+                        </Grid.GestureRecognizers>
                         <Grid WidthRequest="48" HeightRequest="48">
                             <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
                                     StrokeShape="RoundRectangle 24" BackgroundColor="{Binding AvatarColor}" />

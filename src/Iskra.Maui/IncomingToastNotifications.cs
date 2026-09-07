@@ -89,7 +89,8 @@ internal static class IncomingToastNotifications
                 title = string.IsNullOrWhiteSpace(chat.PeerNickname)
                     ? Loc.T("notify.new_message")
                     : chat.PeerNickname;
-                var last = (await repo.ListMessagesPageDescAsync(chatId, 0, 1).ConfigureAwait(false))
+                var last = (await repo.ListMessagesPageDescAsync(chatId, 0, 1, includePayloadBlob: false)
+                    .ConfigureAwait(false))
                     .FirstOrDefault();
                 body = ChatNav.Preview(last);
             }

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Microsoft.Extensions.Logging;
 using Iskra.Maui.Localization;
 using ShortP2P.Auth;
+using ShortP2P.Auth.Data;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Discovery;
@@ -52,20 +53,23 @@ public partial class ContactsPage : ContentPage
         _p2p.LocalScan.ClientsChanged += OnClientsChanged;
         var u = _auth.CurrentUser;
         if (u != null)
-        {
-            try
-            {
-                await _p2p.EnsureStartedAsync(u).ConfigureAwait(true);
-                await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Ensure P2P on contacts page appearing");
-            }
-        }
+            _ = EnsureConnectivityAsync(u);
 
         await RefreshAsync().ConfigureAwait(true);
         _ = ProbeDiscoveryAsync();
+    }
+
+    private async Task EnsureConnectivityAsync(UserEntity u)
+    {
+        try
+        {
+            await _p2p.EnsureStartedAsync(u).ConfigureAwait(false);
+            await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ensure P2P on contacts page appearing");
+        }
     }
 
     protected override void OnDisappearing()
@@ -89,7 +93,7 @@ public partial class ContactsPage : ContentPage
     {
         try
         {
-            await _p2p.LocalScan.TriggerScanAsync().ConfigureAwait(true);
+            await _p2p.LocalScan.TriggerScanAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -131,21 +135,25 @@ public partial class ContactsPage : ContentPage
     private async Task RefreshAsync()
     {
         var u = _auth.CurrentUser;
-        Header.Bind(u, _p2p);
-        _allRows.Clear();
         if (u == null)
         {
-            ApplyFilter();
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                Header.Bind(null, _p2p);
+                _allRows.Clear();
+                ApplyFilter();
+            }).ConfigureAwait(false);
             return;
         }
 
-        var chats = await _chats.ListChatsAsync(u.Id).ConfigureAwait(true);
+        var chats = await _chats.ListChatsAsync(u.Id).ConfigureAwait(false);
+        var built = new List<ContactRow>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var c in chats)
         {
             seen.Add(ChatRepository.CanonicalPeerNetworkId(c.PeerNetworkIdShort));
-            await TrySyncChatNicknameFromLanAsync(c).ConfigureAwait(true);
-            _allRows.Add(new ContactRow
+            await TrySyncChatNicknameFromLanAsync(c).ConfigureAwait(false);
+            built.Add(new ContactRow
             {
                 Chat = c,
                 Name = c.PeerNickname,
@@ -163,7 +171,7 @@ public partial class ContactsPage : ContentPage
                 continue;
             seen.Add(id);
             var nick = string.IsNullOrWhiteSpace(p.Nickname) ? id : p.Nickname;
-            _allRows.Add(new ContactRow
+            built.Add(new ContactRow
             {
                 Peer = p,
                 Name = nick,
@@ -174,7 +182,13 @@ public partial class ContactsPage : ContentPage
             });
         }
 
-        ApplyFilter();
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            Header.Bind(u, _p2p);
+            _allRows.Clear();
+            _allRows.AddRange(built);
+            ApplyFilter();
+        }).ConfigureAwait(false);
     }
 
     private async Task TrySyncChatNicknameFromLanAsync(ChatEntity chat)
@@ -190,7 +204,7 @@ public partial class ContactsPage : ContentPage
             var nick = p.Nickname?.Trim() ?? "";
             if (ChatRepository.IsPlaceholderNickname(nick, id))
                 continue;
-            if (await _chats.TryUpdatePeerNicknameAsync(chat.Id, nick).ConfigureAwait(true))
+            if (await _chats.TryUpdatePeerNicknameAsync(chat.Id, nick).ConfigureAwait(false))
                 chat.PeerNickname = nick;
             return;
         }
@@ -229,11 +243,25 @@ public partial class ContactsPage : ContentPage
             _ => p.TransportKind.ToString()
         };
 
-    private async void OnContactSelected(object? sender, SelectionChangedEventArgs e)
+    private async void OnContactRowTapped(object? sender, TappedEventArgs e)
     {
-        if (e.CurrentSelection.FirstOrDefault() is not ContactRow row)
+        var walk = sender switch
+        {
+            TapGestureRecognizer tg => tg.Parent as Element,
+            Element el => el,
+            _ => null
+        };
+        ContactRow? row = null;
+        for (var el = walk; el != null; el = el.Parent as Element)
+            if (el.BindingContext is ContactRow vm)
+            {
+                row = vm;
+                break;
+            }
+
+        if (row == null)
             return;
-        ContactsCollection.SelectedItem = null;
+
         try
         {
             if (row.Chat != null)

@@ -23,7 +23,6 @@ public partial class ChatsPage : ContentPage
     private readonly UserP2pRuntime _p2p;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private int _refreshPending;
-    private int _ignoreSelection;
     private IDispatcherTimer? _presenceRefreshTimer;
     private Task _connectivityTask = Task.CompletedTask;
     private string _search = "";
@@ -90,7 +89,7 @@ public partial class ChatsPage : ContentPage
         {
             try
             {
-                await _blacklist.EnsureLoadedAsync(u.Id).ConfigureAwait(true);
+                await _blacklist.EnsureLoadedAsync(u.Id).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -146,7 +145,8 @@ public partial class ChatsPage : ContentPage
 
     private void OnChatMessageAppended(object? sender, ChatMessageAppendedEventArgs e)
     {
-        MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync());
+        var chatId = e.ChatId;
+        _ = PatchLastMessageAsync(chatId);
     }
 
     private void OnMessengerServerTrustThreat(object? sender, MessengerServerTrustThreatEventArgs e)
@@ -169,13 +169,12 @@ public partial class ChatsPage : ContentPage
     {
         foreach (var row in _allRows)
             row.IsPeerOnline = _p2p.LocalScan.IsPeerSeenRecentlyOnLan(row.Chat.PeerNetworkIdShort);
-        Header.Bind(_auth.CurrentUser, _p2p);
     }
 
     private void EnsurePresenceRefreshTimerStarted()
     {
         _presenceRefreshTimer ??= Dispatcher.CreateTimer();
-        _presenceRefreshTimer.Interval = TimeSpan.FromSeconds(2);
+        _presenceRefreshTimer.Interval = TimeSpan.FromSeconds(5);
         _presenceRefreshTimer.Tick -= OnPresenceRefreshTimerTick;
         _presenceRefreshTimer.Tick += OnPresenceRefreshTimerTick;
         if (!_presenceRefreshTimer.IsRunning)
@@ -214,26 +213,69 @@ public partial class ChatsPage : ContentPage
         var u = _auth.CurrentUser;
         if (u == null)
         {
-            _chats.ChatListChanged -= OnChatListChangedFromInvite;
-            _chats.ChatMessageAppended -= OnChatMessageAppended;
-            _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
-            Application.Current!.MainPage = new NavigationPage(MauiProgram.Services.GetRequiredService<LoginPage>());
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                _chats.ChatListChanged -= OnChatListChangedFromInvite;
+                _chats.ChatMessageAppended -= OnChatMessageAppended;
+                _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
+                Application.Current!.MainPage =
+                    new NavigationPage(MauiProgram.Services.GetRequiredService<LoginPage>());
+            }).ConfigureAwait(false);
             return;
         }
 
-        Header.Bind(u, _p2p);
-        // Local SQLite only — presence affects the green dot, never membership.
-        var list = await _chats.ListChatsAsync(u.Id).ConfigureAwait(true);
-        _allRows.Clear();
+        // Local SQLite only — never load ImageBlob; presence is the green dot.
+        var list = await _chats.ListChatsAsync(u.Id).ConfigureAwait(false);
+        var built = new List<ChatListRowVm>(list.Count);
         foreach (var c in list)
         {
-            await TrySyncChatNicknameFromLanAsync(c).ConfigureAwait(true);
-            var lastPage = await _chats.ListMessagesPageDescAsync(c.Id, 0, 1).ConfigureAwait(true);
+            await TrySyncChatNicknameFromLanAsync(c).ConfigureAwait(false);
+            var lastPage = await _chats.ListMessagesPageDescAsync(c.Id, 0, 1, includePayloadBlob: false)
+                .ConfigureAwait(false);
             var last = lastPage.Count > 0 ? lastPage[0] : null;
-            _allRows.Add(new ChatListRowVm(c, last, _p2p.LocalScan.IsPeerSeenRecentlyOnLan(c.PeerNetworkIdShort)));
+            built.Add(new ChatListRowVm(c, last, _p2p.LocalScan.IsPeerSeenRecentlyOnLan(c.PeerNetworkIdShort)));
         }
 
-        ApplyFilter();
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            Header.Bind(u, _p2p);
+            _allRows.Clear();
+            _allRows.AddRange(built);
+            ApplyFilter();
+        }).ConfigureAwait(false);
+    }
+
+    private async Task PatchLastMessageAsync(int chatId)
+    {
+        try
+        {
+            var lastPage = await _chats.ListMessagesPageDescAsync(chatId, 0, 1, includePayloadBlob: false)
+                .ConfigureAwait(false);
+            var last = lastPage.Count > 0 ? lastPage[0] : null;
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var row = _allRows.Find(r => r.Chat.Id == chatId);
+                if (row == null)
+                {
+                    _ = RefreshAsync();
+                    return;
+                }
+
+                row.UpdateLast(last);
+                var idx = _allRows.IndexOf(row);
+                if (idx > 0)
+                {
+                    _allRows.RemoveAt(idx);
+                    _allRows.Insert(0, row);
+                }
+
+                ApplyFilter();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Patch chat row {ChatId}", chatId);
+        }
     }
 
     private async Task TrySyncChatNicknameFromLanAsync(ChatEntity chat)
@@ -249,7 +291,7 @@ public partial class ChatsPage : ContentPage
             var nick = p.Nickname?.Trim() ?? "";
             if (ChatRepository.IsPlaceholderNickname(nick, id))
                 continue;
-            if (await _chats.TryUpdatePeerNicknameAsync(chat.Id, nick).ConfigureAwait(true))
+            if (await _chats.TryUpdatePeerNicknameAsync(chat.Id, nick).ConfigureAwait(false))
                 chat.PeerNickname = nick;
             return;
         }
@@ -270,9 +312,40 @@ public partial class ChatsPage : ContentPage
                 r.PeerNickname.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
                 r.PeerNetworkIdShort.Contains(_search, StringComparison.OrdinalIgnoreCase));
 
-        _chatRows.Clear();
-        foreach (var row in src)
-            _chatRows.Add(row);
+        SyncChatRows(src.ToList());
+    }
+
+    private void SyncChatRows(IReadOnlyList<ChatListRowVm> desired)
+    {
+        for (var i = _chatRows.Count - 1; i >= 0; i--)
+        {
+            var id = _chatRows[i].Chat.Id;
+            if (!desired.Any(d => d.Chat.Id == id))
+                _chatRows.RemoveAt(i);
+        }
+
+        for (var i = 0; i < desired.Count; i++)
+        {
+            var want = desired[i];
+            var existing = -1;
+            for (var j = 0; j < _chatRows.Count; j++)
+            {
+                if (_chatRows[j].Chat.Id != want.Chat.Id)
+                    continue;
+                existing = j;
+                break;
+            }
+
+            if (existing < 0)
+            {
+                _chatRows.Insert(i, want);
+                continue;
+            }
+
+            if (existing != i)
+                _chatRows.Move(existing, i);
+            _chatRows[i].CopyFrom(want);
+        }
     }
 
     private async void OnAddChatClicked(object? sender, EventArgs e)
@@ -312,7 +385,6 @@ public partial class ChatsPage : ContentPage
 
     private async void OnBlockChatClicked(object? sender, EventArgs e)
     {
-        Interlocked.Exchange(ref _ignoreSelection, 1);
         ChatEntity? chat = null;
         for (var p = sender as Element; p != null; p = p.Parent)
             if (p.BindingContext is ChatListRowVm row)
@@ -330,45 +402,68 @@ public partial class ChatsPage : ContentPage
         await RefreshAsync().ConfigureAwait(true);
     }
 
-    private async void OnChatSelected(object? sender, SelectionChangedEventArgs e)
+    private async void OnChatRowTapped(object? sender, TappedEventArgs e)
     {
-        if (Interlocked.Exchange(ref _ignoreSelection, 0) == 1)
+        var walk = sender switch
         {
-            ChatsCollection.SelectedItem = null;
+            TapGestureRecognizer tg => tg.Parent as Element,
+            Element el => el,
+            _ => null
+        };
+        ChatListRowVm? row = null;
+        for (var el = walk; el != null; el = el.Parent as Element)
+            if (el.BindingContext is ChatListRowVm vm)
+            {
+                row = vm;
+                break;
+            }
+
+        if (row == null)
             return;
+
+        var chatId = row.Chat.Id;
+        try
+        {
+            await ChatNav.OpenChatAsync(this, chatId).ConfigureAwait(true);
         }
-
-        if (e.CurrentSelection.FirstOrDefault() is not ChatListRowVm row)
-            return;
-
-        ChatsCollection.SelectedItem = null;
-        await ChatNav.OpenChatAsync(this, row.Chat.Id).ConfigureAwait(true);
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Open chat {ChatId} failed", chatId);
+            await DisplayAlert(Loc.T("chats.open_failed"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
+        }
     }
 }
 
 public sealed class ChatListRowVm : INotifyPropertyChanged
 {
     private bool _isPeerOnline;
+    private string _initials;
+    private Color _avatarColor;
+    private string _lastPreview;
+    private string _timeLabel;
+    private string _deliveryGlyph;
+    private Color _deliveryGlyphColor;
+    private bool _showDelivery;
 
     public ChatListRowVm(ChatEntity chat, ChatMessageEntity? last, bool isPeerOnline)
     {
         Chat = chat;
         _isPeerOnline = isPeerOnline;
-        Initials = IskraTheme.Initials(chat.PeerNickname);
-        AvatarColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
-        (LastPreview, TimeLabel, DeliveryGlyph, DeliveryGlyphColor, ShowDelivery) = FromLast(last);
+        _initials = IskraTheme.Initials(chat.PeerNickname);
+        _avatarColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
+        (_lastPreview, _timeLabel, _deliveryGlyph, _deliveryGlyphColor, _showDelivery) = FromLast(last);
     }
 
     public ChatEntity Chat { get; }
     public string PeerNickname => Chat.PeerNickname;
     public string PeerNetworkIdShort => Chat.PeerNetworkIdShort;
-    public string Initials { get; }
-    public Color AvatarColor { get; }
-    public string LastPreview { get; }
-    public string TimeLabel { get; }
-    public string DeliveryGlyph { get; }
-    public Color DeliveryGlyphColor { get; }
-    public bool ShowDelivery { get; }
+    public string Initials => _initials;
+    public Color AvatarColor => _avatarColor;
+    public string LastPreview => _lastPreview;
+    public string TimeLabel => _timeLabel;
+    public string DeliveryGlyph => _deliveryGlyph;
+    public Color DeliveryGlyphColor => _deliveryGlyphColor;
+    public bool ShowDelivery => _showDelivery;
 
     public bool IsPeerOnline
     {
@@ -383,6 +478,51 @@ public sealed class ChatListRowVm : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void CopyFrom(ChatListRowVm other)
+    {
+        if (ReferenceEquals(this, other))
+            return;
+        UpdateLastPreview(other._lastPreview, other._timeLabel, other._deliveryGlyph, other._deliveryGlyphColor,
+            other._showDelivery);
+        ApplyPeerVisuals();
+        IsPeerOnline = other.IsPeerOnline;
+    }
+
+    public void UpdateLast(ChatMessageEntity? last)
+    {
+        var (preview, time, glyph, glyphColor, show) = FromLast(last);
+        UpdateLastPreview(preview, time, glyph, glyphColor, show);
+        ApplyPeerVisuals();
+    }
+
+    private void ApplyPeerVisuals()
+    {
+        Set(ref _initials, IskraTheme.Initials(Chat.PeerNickname), nameof(Initials));
+        Set(ref _avatarColor, IskraTheme.AvatarColor(Chat.PeerNetworkIdShort), nameof(AvatarColor));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PeerNickname)));
+    }
+
+    private void UpdateLastPreview(string preview, string time, string glyph, Color glyphColor, bool show)
+    {
+        Set(ref _lastPreview, preview, nameof(LastPreview));
+        Set(ref _timeLabel, time, nameof(TimeLabel));
+        Set(ref _deliveryGlyph, glyph, nameof(DeliveryGlyph));
+        Set(ref _deliveryGlyphColor, glyphColor, nameof(DeliveryGlyphColor));
+        if (_showDelivery != show)
+        {
+            _showDelivery = show;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowDelivery)));
+        }
+    }
+
+    private void Set<T>(ref T field, T value, string name)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+            return;
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
 
     private static (string Preview, string Time, string Glyph, Color GlyphColor, bool Show) FromLast(
         ChatMessageEntity? last)

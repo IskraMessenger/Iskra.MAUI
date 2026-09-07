@@ -26,8 +26,7 @@
                     BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}" Clicked="OnAddChatClicked" />
         </Grid>
 
-        <CollectionView x:Name="ChatsCollection" Grid.Row="2" SelectionMode="Single"
-                        SelectionChanged="OnChatSelected">
+        <CollectionView x:Name="ChatsCollection" Grid.Row="2" SelectionMode="None">
             <CollectionView.EmptyView>
                 <Label x:Name="EmptyChatsLabel"
                        TextColor="{DynamicResource MutedText}" HorizontalOptions="Center"
@@ -35,32 +34,37 @@
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="16,10" ColumnDefinitions="52,*,Auto,40" ColumnSpacing="8">
-                        <Grid WidthRequest="48" HeightRequest="48">
-                            <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
-                                    StrokeShape="RoundRectangle 24"
-                                    BackgroundColor="{Binding AvatarColor}"
-                                    HorizontalOptions="Center" VerticalOptions="Center" />
-                            <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="15"
-                                   HorizontalOptions="Center" VerticalOptions="Center" />
-                            <Ellipse WidthRequest="12" HeightRequest="12" Fill="#34C759"
-                                     HorizontalOptions="End" VerticalOptions="End" Stroke="White"
-                                     StrokeThickness="2" IsVisible="{Binding IsPeerOnline}" />
+                    <Grid Padding="16,10" ColumnDefinitions="*,40" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="8">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnChatRowTapped" />
+                            </Grid.GestureRecognizers>
+                            <Grid WidthRequest="48" HeightRequest="48">
+                                <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 24"
+                                        BackgroundColor="{Binding AvatarColor}"
+                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                                <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="15"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                <Ellipse WidthRequest="12" HeightRequest="12" Fill="#34C759"
+                                         HorizontalOptions="End" VerticalOptions="End" Stroke="White"
+                                         StrokeThickness="2" IsVisible="{Binding IsPeerOnline}" />
+                            </Grid>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding PeerNickname}" FontSize="16" FontAttributes="Bold"
+                                       TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding LastPreview}" FontSize="13"
+                                       TextColor="{DynamicResource MutedText}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Start">
+                                <Label Text="{Binding TimeLabel}" FontSize="11"
+                                       TextColor="{DynamicResource MutedText}" HorizontalOptions="End" />
+                                <Label Text="{Binding DeliveryGlyph}" FontSize="12"
+                                       TextColor="{Binding DeliveryGlyphColor}" HorizontalOptions="End"
+                                       IsVisible="{Binding ShowDelivery}" />
+                            </VerticalStackLayout>
                         </Grid>
-                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                            <Label Text="{Binding PeerNickname}" FontSize="16" FontAttributes="Bold"
-                                   TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding LastPreview}" FontSize="13"
-                                   TextColor="{DynamicResource MutedText}" LineBreakMode="TailTruncation" />
-                        </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Start">
-                            <Label Text="{Binding TimeLabel}" FontSize="11"
-                                   TextColor="{DynamicResource MutedText}" HorizontalOptions="End" />
-                            <Label Text="{Binding DeliveryGlyph}" FontSize="12"
-                                   TextColor="{Binding DeliveryGlyphColor}" HorizontalOptions="End"
-                                   IsVisible="{Binding ShowDelivery}" />
-                        </VerticalStackLayout>
-                        <Button Grid.Column="3" Text="&#x1F6AB;" FontSize="16" Padding="0" WidthRequest="40"
+                        <Button Grid.Column="1" Text="&#x1F6AB;" FontSize="16" Padding="0" WidthRequest="40"
                                 HeightRequest="40" BackgroundColor="Transparent"
                                 TextColor="{DynamicResource MidnightBlue}"
                                 Clicked="OnBlockChatClicked" />

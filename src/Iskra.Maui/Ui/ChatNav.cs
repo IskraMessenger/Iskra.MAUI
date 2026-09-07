@@ -9,27 +9,31 @@ namespace Iskra.Maui;
 
 internal static class ChatNav
 {
+    private static int _opening;
+
     public static async Task OpenChatAsync(Page host, int chatId)
     {
-        var auth = MauiProgram.Services.GetRequiredService<AuthService>();
-        var chats = MauiProgram.Services.GetRequiredService<ChatRepository>();
-        var blacklist = MauiProgram.Services.GetRequiredService<PeerBlacklist>();
-        var user = auth.CurrentUser;
-        var chat = await chats.GetChatAsync(chatId).ConfigureAwait(true);
-        if (chat != null && user != null)
-        {
-            await blacklist.EnsureLoadedAsync(user.Id).ConfigureAwait(true);
-            if (blacklist.IsBlocked(user.Id, chat.PeerNetworkIdShort))
-            {
-                await host.DisplayAlert(Loc.T("blacklist.title"), Loc.T("blacklist.blocked"), Loc.T("ok"))
-                    .ConfigureAwait(true);
-                return;
-            }
-        }
+        if (Interlocked.CompareExchange(ref _opening, 1, 0) != 0)
+            return;
 
-        var page = MauiProgram.Services.GetRequiredService<ChatDetailPage>();
-        page.ChatId = chatId;
-        await host.Navigation.PushAsync(page).ConfigureAwait(true);
+        try
+        {
+            var nav = Shell.Current?.Navigation ?? host.Navigation;
+            if (nav.NavigationStack.Count > 0 &&
+                nav.NavigationStack[^1] is ChatDetailPage already &&
+                already.ChatId == chatId)
+                return;
+
+            // Push immediately: blacklist/DB checks on the detail page. Waiting here
+            // (SQLite on the UI thread) is what made taps miss and WinUI cancel navigation.
+            var page = MauiProgram.Services.GetRequiredService<ChatDetailPage>();
+            page.ChatId = chatId;
+            await nav.PushAsync(page).ConfigureAwait(true);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _opening, 0);
+        }
     }
 
     public static async Task OpenDiscoveredPeerAsync(Page host, DiscoveredLocalPeer peer)

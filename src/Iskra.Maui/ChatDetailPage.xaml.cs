@@ -71,9 +71,12 @@ public partial class ChatDetailPage : ContentPage
     private bool _pendingReload;
     private int _reloadEpoch;
     private int _scrollToEndEpoch;
+    private int _viewEpoch;
     private VoiceRecordingSession? _voice;
     private readonly Dictionary<int, string> _attachmentDurationLabels = new();
     private readonly ConcurrentDictionary<int, byte> _binaryDownloadsInFlight = new();
+    private bool _hooksAttached;
+    private int _boundChatId;
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
         P2pRoutingSettingsStore routingStore, MessengerServerManager messengerServers, PeerBlacklist blacklist,
@@ -89,6 +92,7 @@ public partial class ChatDetailPage : ContentPage
         _blacklist = blacklist;
         _logger = logger;
         MessagesCollection.ItemsSource = _messageItems;
+        Unloaded += OnPageUnloaded;
     }
 
     public int ChatId { get; set; }
@@ -96,7 +100,44 @@ public partial class ChatDetailPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        var chat = await _repo.GetChatAsync(ChatId).ConfigureAwait(true);
+        try
+        {
+            await AppearAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ChatDetailPage appear failed for chat {ChatId}", ChatId);
+            try
+            {
+                await DisplayAlert(Loc.T("error"), ex.Message, Loc.T("ok")).ConfigureAwait(true);
+            }
+            catch
+            {
+                // ignore secondary UI failures
+            }
+        }
+    }
+
+    private async Task AppearAsync()
+    {
+        var chat = await _repo.GetChatAsync(ChatId).ConfigureAwait(false);
+        var user = _auth.CurrentUser;
+        if (user != null)
+            await _blacklist.EnsureLoadedAsync(user.Id).ConfigureAwait(false);
+
+        if (!MainThread.IsMainThread)
+        {
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+                    await BindAppearingUi(chat, user).ConfigureAwait(true))
+                .ConfigureAwait(false);
+            return;
+        }
+
+        await BindAppearingUi(chat, user).ConfigureAwait(true);
+    }
+
+    private async Task BindAppearingUi(ChatEntity? chat, UserEntity? user)
+    {
         if (chat == null)
         {
             await DisplayAlert(Loc.T("error"), Loc.T("chat.not_found"), Loc.T("ok")).ConfigureAwait(true);
@@ -104,9 +145,6 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
-        var user = _auth.CurrentUser;
-        if (user != null)
-            await _blacklist.EnsureLoadedAsync(user.Id).ConfigureAwait(true);
         if (user != null && _blacklist.IsBlocked(user.Id, chat.PeerNetworkIdShort))
         {
             await Navigation.PopAsync().ConfigureAwait(true);
@@ -136,19 +174,31 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
+        if (_hooksAttached && _boundChatId == chat.Id)
+        {
+            EnsurePresenceRefreshTimerStarted();
+            RefreshPeerPresenceLabel();
+            return;
+        }
+
         // History and send must not wait for P2P handshake or peer online/offline.
-        var uiSync = SynchronizationContext.Current;
-        _p2pSession = _p2p.GetSession(chat, user, _auth, _repo, uiSync);
-        _p2pSession.MessagesChanged += OnP2PMessagesChanged;
-        _p2pSession.TransferStateChanged += OnP2PTransferStateChanged;
-        _p2p.LocalScan.ClientsChanged += OnPeerLanPresenceChanged;
-        _repo.PeerPublicKeyChanged += OnPeerPublicKeyChanged;
-        _messengerServers.FailoverCompleted += OnMessengerServerFailover;
+        try
+        {
+            var uiSync = SynchronizationContext.Current;
+            _p2pSession = _p2p.GetSession(chat, user, _auth, _repo, uiSync);
+            _ = ConnectChatTransportAsync(user, chat, _p2pSession);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not attach P2P session for chat {ChatId}", chat.Id);
+            _p2pSession = null;
+        }
+
+        AttachIncomingHooks();
+        _boundChatId = chat.Id;
         EnsurePresenceRefreshTimerStarted();
         RefreshPeerPresenceLabel();
-        _repo.ChatMessageAppended += OnChatMessageAppended;
-        _ = ReloadMessagesAsync();
-        _ = ConnectChatTransportAsync(user, chat, _p2pSession);
+        await ReloadMessagesAsync().ConfigureAwait(true);
     }
 
     private async Task ConnectChatTransportAsync(UserEntity user, ChatEntity chat, ChatP2PSession session)
@@ -167,22 +217,8 @@ public partial class ChatDetailPage : ContentPage
         var servers = MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger);
         var publish = MessengerServersBootstrap.PublishChatRequestAsync(_p2p, chat.PeerNetworkIdShort, _logger);
         await Task.WhenAll(handshake, servers, publish).ConfigureAwait(false);
-        await DrainServerInboxAsync().ConfigureAwait(false);
-    }
-
-    private async Task DrainServerInboxAsync()
-    {
-        var sync = _p2p.MessengerServers;
-        if (sync == null)
-            return;
-        try
-        {
-            await sync.DrainInboxOnceAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Drain inbox on chat open");
-        }
+        // Do not PollEvents here: a second waiter used to replace the long-poll
+        // waiter on the server and stall the next inbox message by ~25s.
     }
 
     private async Task StartChatSessionIfNeededAsync(ChatEntity chat, ChatP2PSession session)
@@ -212,25 +248,99 @@ public partial class ChatDetailPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        if (_chat != null)
-            ActiveChatTracker.Clear(_chat.Id);
         _ = StopVoiceRecordingAndDiscardAsync();
         VoiceMessagePlayer.Stop();
+        if (_presenceRefreshTimer != null)
+            _presenceRefreshTimer.Stop();
+    }
+
+    protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
+    {
+        base.OnNavigatedFrom(args);
+        if (IsCoveredByModalOrStillOnStack())
+            return;
+        TeardownChatView();
+    }
+
+    private void OnPageUnloaded(object? sender, EventArgs e)
+    {
+        if (IsCoveredByModalOrStillOnStack())
+            return;
+        TeardownChatView();
+    }
+
+    private bool IsCoveredByModalOrStillOnStack()
+    {
+        try
+        {
+            if (Navigation.ModalStack.Count > 0)
+                return true;
+            if (Navigation.NavigationStack.Contains(this))
+                return true;
+            var shellNav = Shell.Current?.Navigation;
+            if (shellNav != null)
+            {
+                if (shellNav.ModalStack.Count > 0)
+                    return true;
+                if (shellNav.NavigationStack.Contains(this))
+                    return true;
+            }
+        }
+        catch
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private void AttachIncomingHooks()
+    {
+        if (_hooksAttached)
+            return;
+        _p2p.LocalScan.ClientsChanged -= OnPeerLanPresenceChanged;
+        _p2p.LocalScan.ClientsChanged += OnPeerLanPresenceChanged;
+        _repo.PeerPublicKeyChanged -= OnPeerPublicKeyChanged;
+        _repo.PeerPublicKeyChanged += OnPeerPublicKeyChanged;
+        _repo.ChatMessageAppended -= OnChatMessageAppended;
+        _repo.ChatMessageAppended += OnChatMessageAppended;
+        _messengerServers.FailoverCompleted -= OnMessengerServerFailover;
+        _messengerServers.FailoverCompleted += OnMessengerServerFailover;
+        if (_p2pSession != null)
+        {
+            _p2pSession.MessagesChanged -= OnP2PMessagesChanged;
+            _p2pSession.MessagesChanged += OnP2PMessagesChanged;
+            _p2pSession.TransferStateChanged -= OnP2PTransferStateChanged;
+            _p2pSession.TransferStateChanged += OnP2PTransferStateChanged;
+        }
+
+        _hooksAttached = true;
+    }
+
+    private void TeardownChatView()
+    {
+        if (!_hooksAttached && _chat == null)
+            return;
+        if (_chat != null)
+            ActiveChatTracker.Clear(_chat.Id);
         _p2p.LocalScan.ClientsChanged -= OnPeerLanPresenceChanged;
         _repo.PeerPublicKeyChanged -= OnPeerPublicKeyChanged;
         _repo.ChatMessageAppended -= OnChatMessageAppended;
         _messengerServers.FailoverCompleted -= OnMessengerServerFailover;
         if (_presenceRefreshTimer != null)
             _presenceRefreshTimer.Stop();
-        _peerNetworkIdShort = null;
-        _chat = null;
-        Interlocked.Increment(ref _reloadEpoch);
         if (_p2pSession != null)
         {
             _p2pSession.MessagesChanged -= OnP2PMessagesChanged;
             _p2pSession.TransferStateChanged -= OnP2PTransferStateChanged;
-            _p2pSession = null;
         }
+
+        _hooksAttached = false;
+        _boundChatId = 0;
+        _peerNetworkIdShort = null;
+        _chat = null;
+        _p2pSession = null;
+        Interlocked.Increment(ref _viewEpoch);
     }
 
     private void OnPeerLanPresenceChanged(object? sender, EventArgs e)
@@ -292,7 +402,7 @@ public partial class ChatDetailPage : ContentPage
     {
         if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort))
             return;
-        ScheduleReloadMessages();
+        _ = AppendLatestMessagesAsync();
     }
 
     private void OnChatMessageAppended(object? sender, ChatMessageAppendedEventArgs e)
@@ -301,7 +411,7 @@ public partial class ChatDetailPage : ContentPage
             return;
         if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort))
             return;
-        ScheduleReloadMessages();
+        _ = AppendLatestMessagesAsync();
     }
 
     private void OnP2PTransferStateChanged(object? sender, int messageId)
@@ -321,10 +431,52 @@ public partial class ChatDetailPage : ContentPage
         });
     }
 
+    private async Task AppendLatestMessagesAsync()
+    {
+        if (_isLoadingRows)
+        {
+            _pendingReload = true;
+            return;
+        }
+
+        try
+        {
+            var newest = await _repo
+                .ListMessagesPageDescAsync(ChatId, 0, 8, includePayloadBlob: false)
+                .ConfigureAwait(false);
+            if (_chat == null || _chat.Id != ChatId)
+                return;
+
+            void ApplyNew()
+            {
+                var known = new HashSet<int>(_loadedRows.Select(r => r.Id));
+                var missing = newest.Where(m => !known.Contains(m.Id)).ToList();
+                if (missing.Count == 0)
+                    return;
+                CaptureDurationsAndReleasePayloadBlobs(missing);
+                foreach (var row in missing.OrderByDescending(m => m.SentUtcTicks).ThenByDescending(m => m.Id))
+                    _loadedRows.Insert(0, row);
+                foreach (var row in missing.OrderBy(m => m.SentUtcTicks).ThenBy(m => m.Id))
+                    _messageItems.Add(BuildMessageRowVm(row));
+                ScrollMessagesToEnd();
+            }
+
+            if (MainThread.IsMainThread)
+                ApplyNew();
+            else
+                await MainThread.InvokeOnMainThreadAsync(ApplyNew).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Append latest messages failed for chat {ChatId}", ChatId);
+            ScheduleReloadMessages();
+        }
+    }
+
     private void EnsurePresenceRefreshTimerStarted()
     {
         _presenceRefreshTimer ??= Dispatcher.CreateTimer();
-        _presenceRefreshTimer.Interval = TimeSpan.FromSeconds(2);
+        _presenceRefreshTimer.Interval = TimeSpan.FromSeconds(5);
         _presenceRefreshTimer.Tick -= OnPresenceRefreshTimerTick;
         _presenceRefreshTimer.Tick += OnPresenceRefreshTimerTick;
         if (!_presenceRefreshTimer.IsRunning)
@@ -338,7 +490,10 @@ public partial class ChatDetailPage : ContentPage
 
     private async Task ReloadMessagesAsync()
     {
-        if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort ?? _chat?.PeerNetworkIdShort))
+        if (_chat == null)
+            return;
+
+        if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort ?? _chat.PeerNetworkIdShort))
         {
             _messageItems.Clear();
             _loadedRows.Clear();
@@ -358,15 +513,30 @@ public partial class ChatDetailPage : ContentPage
         {
             var take = Math.Max(MessagesPageSize, _loadedRows.Count);
             // DB page is newest-first; display ascending (oldest top, newest bottom).
-            var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, 0, take).ConfigureAwait(true);
-            _attachmentDurationLabels.Clear();
-            CaptureDurationsAndReleasePayloadBlobs(pageDesc);
-            _hasMoreRows = pageDesc.Count == take;
-            _loadedRows.Clear();
-            _loadedRows.AddRange(pageDesc);
-            var chronological = pageDesc.Reverse().ToList();
-            SyncMessageItems(chronological);
-            ScrollMessagesToEnd();
+            // Never pull ImageBlob here — attachments open via GetMessageAsync.
+            var view = Volatile.Read(ref _viewEpoch);
+            var pageDesc = await _repo
+                .ListMessagesPageDescAsync(ChatId, 0, take, includePayloadBlob: false)
+                .ConfigureAwait(false);
+            if (view != Volatile.Read(ref _viewEpoch))
+                return;
+
+            void Apply()
+            {
+                _attachmentDurationLabels.Clear();
+                CaptureDurationsAndReleasePayloadBlobs(pageDesc);
+                _hasMoreRows = pageDesc.Count == take;
+                _loadedRows.Clear();
+                _loadedRows.AddRange(pageDesc);
+                var chronological = pageDesc.Reverse().ToList();
+                SyncMessageItems(chronological);
+                ScrollMessagesToEnd();
+            }
+
+            if (MainThread.IsMainThread)
+                Apply();
+            else
+                await MainThread.InvokeOnMainThreadAsync(Apply).ConfigureAwait(false);
         }
         finally
         {
@@ -386,15 +556,27 @@ public partial class ChatDetailPage : ContentPage
         _isLoadingRows = true;
         try
         {
-            var pageDesc = await _repo.ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize)
-                .ConfigureAwait(true);
-            CaptureDurationsAndReleasePayloadBlobs(pageDesc);
-            _hasMoreRows = pageDesc.Count == MessagesPageSize;
-            _loadedRows.AddRange(pageDesc);
-            // Older page (DESC) → chronological, prepend so newest stay at bottom.
-            var chronologicalOlder = pageDesc.Reverse().ToList();
-            for (var i = 0; i < chronologicalOlder.Count; i++)
-                _messageItems.Insert(i, BuildMessageRowVm(chronologicalOlder[i]));
+            var view = Volatile.Read(ref _viewEpoch);
+            var pageDesc = await _repo
+                .ListMessagesPageDescAsync(ChatId, _loadedRows.Count, MessagesPageSize, includePayloadBlob: false)
+                .ConfigureAwait(false);
+            if (view != Volatile.Read(ref _viewEpoch))
+                return;
+            void ApplyOlder()
+            {
+                CaptureDurationsAndReleasePayloadBlobs(pageDesc);
+                _hasMoreRows = pageDesc.Count == MessagesPageSize;
+                _loadedRows.AddRange(pageDesc);
+                // Older page (DESC) → chronological, prepend so newest stay at bottom.
+                var chronologicalOlder = pageDesc.Reverse().ToList();
+                for (var i = 0; i < chronologicalOlder.Count; i++)
+                    _messageItems.Insert(i, BuildMessageRowVm(chronologicalOlder[i]));
+            }
+
+            if (MainThread.IsMainThread)
+                ApplyOlder();
+            else
+                await MainThread.InvokeOnMainThreadAsync(ApplyOlder).ConfigureAwait(false);
         }
         finally
         {
@@ -1027,7 +1209,7 @@ public partial class ChatDetailPage : ContentPage
         var display = ResolvePeerDisplayName(chat);
         if (!string.Equals(display, chat.PeerNickname, StringComparison.Ordinal))
         {
-            await _repo.TryUpdatePeerNicknameAsync(chat.Id, display).ConfigureAwait(true);
+            await _repo.TryUpdatePeerNicknameAsync(chat.Id, display).ConfigureAwait(false);
             chat.PeerNickname = display;
         }
 
