@@ -55,6 +55,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddProblemDetails();
 builder.Services.AddSignalR();
 // Frontend is served same-origin from wwwroot — no CORS needed.
 builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = 20 * 1024 * 1024);

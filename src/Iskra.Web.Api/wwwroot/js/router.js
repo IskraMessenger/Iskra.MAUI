@@ -63,6 +63,15 @@ function mount(node) {
 }
 
 export function render() {
+  try {
+    renderRoute();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    mount(el("div", { class: "empty err" }, msg));
+  }
+}
+
+function renderRoute() {
   const path = currentPath();
 
   if (!session.ready) {
