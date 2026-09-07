@@ -16,6 +16,8 @@
         <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center" HorizontalOptions="Start">
             <Ellipse x:Name="MeshDot" WidthRequest="8" HeightRequest="8" VerticalOptions="Center" />
             <Label x:Name="MeshLabel" FontSize="12" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+            <Ellipse x:Name="ServerDot" WidthRequest="8" HeightRequest="8" VerticalOptions="Center" />
+            <Label x:Name="ServerLabel" FontSize="12" VerticalOptions="Center" LineBreakMode="TailTruncation" />
             <Image x:Name="BtIcon" Source="icon_bluetooth.png" WidthRequest="16" HeightRequest="16"
                    VerticalOptions="Center" />
         </HorizontalStackLayout>

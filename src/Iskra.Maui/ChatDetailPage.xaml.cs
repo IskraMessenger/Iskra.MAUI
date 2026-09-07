@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
+using ShortP2P.Auth.Data;
 using ShortP2P.Client;
 using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Data;
@@ -71,6 +73,7 @@ public partial class ChatDetailPage : ContentPage
     private int _scrollToEndEpoch;
     private VoiceRecordingSession? _voice;
     private readonly Dictionary<int, string> _attachmentDurationLabels = new();
+    private readonly ConcurrentDictionary<int, byte> _binaryDownloadsInFlight = new();
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
         P2pRoutingSettingsStore routingStore, MessengerServerManager messengerServers, PeerBlacklist blacklist,
@@ -133,41 +136,77 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
+        // History and send must not wait for P2P handshake or peer online/offline.
+        var uiSync = SynchronizationContext.Current;
+        _p2pSession = _p2p.GetSession(chat, user, _auth, _repo, uiSync);
+        _p2pSession.MessagesChanged += OnP2PMessagesChanged;
+        _p2pSession.TransferStateChanged += OnP2PTransferStateChanged;
+        _p2p.LocalScan.ClientsChanged += OnPeerLanPresenceChanged;
+        _repo.PeerPublicKeyChanged += OnPeerPublicKeyChanged;
+        _messengerServers.FailoverCompleted += OnMessengerServerFailover;
+        EnsurePresenceRefreshTimerStarted();
+        RefreshPeerPresenceLabel();
+        _repo.ChatMessageAppended += OnChatMessageAppended;
+        _ = ReloadMessagesAsync();
+        _ = ConnectChatTransportAsync(user, chat, _p2pSession);
+    }
+
+    private async Task ConnectChatTransportAsync(UserEntity user, ChatEntity chat, ChatP2PSession session)
+    {
         try
         {
-            await _p2p.EnsureStartedAsync(user).ConfigureAwait(true);
-            await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
-            await MessengerServersBootstrap.PublishChatRequestAsync(_p2p, chat.PeerNetworkIdShort, _logger)
-                .ConfigureAwait(true);
+            await _p2p.EnsureStartedAsync(user).ConfigureAwait(false);
+            _p2p.MessengerServers?.Start();
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Ensure P2P (invite listener) on chat detail");
         }
 
-        _p2p.LocalScan.ClientsChanged += OnPeerLanPresenceChanged;
-        _repo.PeerPublicKeyChanged += OnPeerPublicKeyChanged;
-        _messengerServers.FailoverCompleted += OnMessengerServerFailover;
-        EnsurePresenceRefreshTimerStarted();
-        var uiSync = SynchronizationContext.Current;
-        _p2pSession = _p2p.GetSession(chat, user, _auth, _repo, uiSync);
-        _p2pSession.MessagesChanged += OnP2PMessagesChanged;
-        _p2pSession.TransferStateChanged += OnP2PTransferStateChanged;
-        if (!_p2p.IsChatSessionStarted(chat.Id))
-            try
-            {
-                await _p2pSession.StartAsync().ConfigureAwait(true);
-                _p2p.MarkChatSessionStarted(chat.Id);
-                AppLog.PeerConnected("chat-session", chat.PeerNetworkIdShort);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Could not start UDP for chat {ChatId}", chat.Id);
-                await DisplayAlert(Loc.T("error"), Loc.Tf("chat.udp_fail", ex.Message), Loc.T("ok")).ConfigureAwait(true);
-            }
+        var handshake = StartChatSessionIfNeededAsync(chat, session);
+        var servers = MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger);
+        var publish = MessengerServersBootstrap.PublishChatRequestAsync(_p2p, chat.PeerNetworkIdShort, _logger);
+        await Task.WhenAll(handshake, servers, publish).ConfigureAwait(false);
+        await DrainServerInboxAsync().ConfigureAwait(false);
+    }
 
-        await ReloadMessagesAsync().ConfigureAwait(true);
-        RefreshPeerPresenceLabel();
+    private async Task DrainServerInboxAsync()
+    {
+        var sync = _p2p.MessengerServers;
+        if (sync == null)
+            return;
+        try
+        {
+            await sync.DrainInboxOnceAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Drain inbox on chat open");
+        }
+    }
+
+    private async Task StartChatSessionIfNeededAsync(ChatEntity chat, ChatP2PSession session)
+    {
+        if (_p2p.IsChatSessionStarted(chat.Id))
+            return;
+
+        try
+        {
+            await session.StartAsync().ConfigureAwait(false);
+            _p2p.MarkChatSessionStarted(chat.Id);
+            AppLog.PeerConnected("chat-session", chat.PeerNetworkIdShort);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not start UDP for chat {ChatId}", chat.Id);
+            if (_chat == null || _chat.Id != chat.Id)
+                return;
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                await DisplayAlert(Loc.T("error"), Loc.Tf("chat.udp_fail", ex.Message), Loc.T("ok"))
+                    .ConfigureAwait(true);
+            }).ConfigureAwait(false);
+        }
     }
 
     protected override void OnDisappearing()
@@ -179,6 +218,7 @@ public partial class ChatDetailPage : ContentPage
         VoiceMessagePlayer.Stop();
         _p2p.LocalScan.ClientsChanged -= OnPeerLanPresenceChanged;
         _repo.PeerPublicKeyChanged -= OnPeerPublicKeyChanged;
+        _repo.ChatMessageAppended -= OnChatMessageAppended;
         _messengerServers.FailoverCompleted -= OnMessengerServerFailover;
         if (_presenceRefreshTimer != null)
             _presenceRefreshTimer.Stop();
@@ -250,6 +290,15 @@ public partial class ChatDetailPage : ContentPage
 
     private void OnP2PMessagesChanged(object? sender, EventArgs e)
     {
+        if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort))
+            return;
+        ScheduleReloadMessages();
+    }
+
+    private void OnChatMessageAppended(object? sender, ChatMessageAppendedEventArgs e)
+    {
+        if (e.ChatId != ChatId)
+            return;
         if (_blacklist.IsBlocked(_auth.CurrentUser?.Id, _peerNetworkIdShort))
             return;
         ScheduleReloadMessages();
@@ -646,12 +695,11 @@ public partial class ChatDetailPage : ContentPage
         if (text.Length == 0 || _p2pSession == null)
             return;
         ClearDeliveryIssue();
+        MessageEntry.Text = string.Empty;
 
         try
         {
-            await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
             await _p2pSession.SendTextAsync(text).ConfigureAwait(true);
-            MessageEntry.Text = string.Empty;
             ClearDeliveryIssue();
         }
         catch (OutboundMessageQueuedException ex)
@@ -662,6 +710,7 @@ public partial class ChatDetailPage : ContentPage
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Send message failed");
+            MessageEntry.Text = text;
             ShowDeliveryIssue(ex.Message);
         }
         finally
@@ -806,9 +855,58 @@ public partial class ChatDetailPage : ContentPage
         if (!vm.IsFile && !vm.IsImage)
             return;
 
+        _ = OpenOrDownloadAttachmentAsync(vm.MessageId);
+    }
+
+    private async Task OpenOrDownloadAttachmentAsync(int messageId)
+    {
         try
         {
-            await OpenOrDownloadAttachmentAsync(vm.MessageId).ConfigureAwait(true);
+            var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
+            if (row == null)
+            {
+                await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.msg_missing"), Loc.T("ok")).ConfigureAwait(true);
+                return;
+            }
+
+            if (IsVoiceAttachment(row))
+            {
+                if (row.ImageBlob is { Length: > 0 })
+                {
+                    await PlayVoiceAttachmentAsync(row.ImageBlob).ConfigureAwait(true);
+                    return;
+                }
+
+                var canDownloadVoice = _p2pSession != null &&
+                                       !row.Outgoing &&
+                                       !string.IsNullOrWhiteSpace(row.TransferId);
+                if (!canDownloadVoice)
+                {
+                    await DisplayAlert(Loc.T("chat.voice"), Loc.T("chat.voice_not_ready"), Loc.T("ok"))
+                        .ConfigureAwait(true);
+                    return;
+                }
+
+                QueueBinaryDownload(messageId);
+                return;
+            }
+
+            if (row.ImageBlob is { Length: > 0 })
+            {
+                await DisplayAttachmentAsync(row).ConfigureAwait(true);
+                return;
+            }
+
+            var canDownloadFile = _p2pSession != null &&
+                                  !row.Outgoing &&
+                                  !string.IsNullOrWhiteSpace(row.TransferId);
+            if (!canDownloadFile)
+            {
+                await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.msg_missing"), Loc.T("ok")).ConfigureAwait(true);
+                return;
+            }
+
+            QueueBinaryDownload(messageId);
         }
         catch (Exception ex)
         {
@@ -817,94 +915,48 @@ public partial class ChatDetailPage : ContentPage
         }
     }
 
-    private async Task OpenOrDownloadAttachmentAsync(int messageId)
+    private void QueueBinaryDownload(int messageId)
     {
-        var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
-        if (row == null)
-        {
-            await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.msg_missing"), Loc.T("ok")).ConfigureAwait(true);
+        var session = _p2pSession;
+        if (session == null)
             return;
-        }
-
-        if (IsVoiceAttachment(row))
-        {
-            if (row.ImageBlob is { Length: > 0 })
-            {
-                await PlayVoiceAttachmentAsync(row.ImageBlob).ConfigureAwait(true);
-                return;
-            }
-
-            var canDownload = _p2pSession != null &&
-                              !row.Outgoing &&
-                              !string.IsNullOrWhiteSpace(row.TransferId);
-            if (!canDownload)
-            {
-                await DisplayAlert(Loc.T("chat.voice"), Loc.T("chat.voice_not_ready"), Loc.T("ok"))
-                    .ConfigureAwait(true);
-                return;
-            }
-
-            await DownloadThenShowAsync(messageId).ConfigureAwait(true);
+        if (!_binaryDownloadsInFlight.TryAdd(messageId, 0))
             return;
-        }
-
-        if (row.ImageBlob is { Length: > 0 })
-        {
-            await DisplayAttachmentAsync(row).ConfigureAwait(true);
-            return;
-        }
-
-        var canDownloadFile = _p2pSession != null &&
-                              !row.Outgoing &&
-                              !string.IsNullOrWhiteSpace(row.TransferId);
-        if (!canDownloadFile)
-        {
-            await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.msg_missing"), Loc.T("ok")).ConfigureAwait(true);
-            return;
-        }
-
-        await DownloadThenShowAsync(messageId).ConfigureAwait(true);
+        ClearDeliveryIssue();
+        _ = RunBinaryDownloadAsync(session, messageId);
     }
 
-    private async Task DownloadThenShowAsync(int messageId)
+    private async Task RunBinaryDownloadAsync(ChatP2PSession session, int messageId)
     {
-        if (_p2pSession == null)
-            return;
-
-        ClearDeliveryIssue();
-        var downloaded = false;
         try
         {
-            await MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger).ConfigureAwait(true);
-            await _p2pSession.RequestBinaryDownloadAsync(messageId).ConfigureAwait(true);
-            ClearDeliveryIssue();
-            downloaded = true;
+            await session.RequestBinaryDownloadAsync(messageId).ConfigureAwait(false);
+            if (_chat == null || _p2pSession == null)
+                return;
+
+            var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(false);
+            if (row?.ImageBlob is not { Length: > 0 })
+                return;
+
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                if (_chat == null)
+                    return;
+                if (IsVoiceAttachment(row))
+                    await PlayVoiceAttachmentAsync(row.ImageBlob).ConfigureAwait(true);
+                else
+                    await DisplayAttachmentAsync(row).ConfigureAwait(true);
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Transfer download failed in chat {ChatId}", ChatId);
-            ShowDeliveryIssue(ex.Message);
+            MainThread.BeginInvokeOnMainThread(() => ShowDeliveryIssue(ex.Message));
         }
         finally
         {
-            await ReloadMessagesAsync().ConfigureAwait(true);
+            _binaryDownloadsInFlight.TryRemove(messageId, out _);
         }
-
-        var row = await WaitForMessageBlobAsync(messageId).ConfigureAwait(true);
-        if (row?.ImageBlob is { Length: > 0 })
-        {
-            if (IsVoiceAttachment(row))
-            {
-                await PlayVoiceAttachmentAsync(row.ImageBlob).ConfigureAwait(true);
-                return;
-            }
-
-            await DisplayAttachmentAsync(row).ConfigureAwait(true);
-            return;
-        }
-
-        if (downloaded)
-            await DisplayAlert(Loc.T("chat.file"), Loc.T("chat.download_retry"), Loc.T("ok")).ConfigureAwait(true);
     }
 
     private async Task PlayVoiceAttachmentAsync(byte[] oggBytes)
@@ -967,19 +1019,6 @@ public partial class ChatDetailPage : ContentPage
             Title = Loc.T("chat.save_doc"),
             File = new ShareFile(temp)
         }).ConfigureAwait(true);
-    }
-
-    private async Task<ChatMessageEntity?> WaitForMessageBlobAsync(int messageId)
-    {
-        for (var i = 0; i < 8; i++)
-        {
-            var row = await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
-            if (row?.ImageBlob is { Length: > 0 })
-                return row;
-            await Task.Delay(120).ConfigureAwait(true);
-        }
-
-        return await _repo.GetMessageAsync(messageId).ConfigureAwait(true);
     }
 
     private async Task TryRefreshPeerNicknameDisplayAsync(ChatEntity chat)

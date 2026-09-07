@@ -1,14 +1,19 @@
 using ShortP2P.Auth.Data;
 using ShortP2P.Client.Services;
+using ShortP2P.Client.Services.MessengerServers;
 using Iskra.Maui.Localization;
 
 namespace Iskra.Maui;
 
 public partial class AppHeaderView : ContentView
 {
+    private static readonly Color ServerWaiting = Color.FromArgb("#E6B422");
+    private int _serverStatusEpoch;
+
     public AppHeaderView()
     {
         InitializeComponent();
+        ApplyServerStatus(MessengerServerLinkStatus.Disabled);
     }
 
     public void Bind(UserEntity? user, UserP2pRuntime p2p)
@@ -21,5 +26,60 @@ public partial class AppHeaderView : ContentView
         MeshLabel.TextColor = meshOn ? IskraTheme.Online : IskraTheme.Muted;
         var btOn = p2p.Settings.EnableBluetoothTransport && p2p.LocalScan.IsBluetoothListening;
         BtIcon.Opacity = btOn ? 1 : 0.28;
+        _ = RefreshServerStatusAsync(p2p);
+    }
+
+    private async Task RefreshServerStatusAsync(UserP2pRuntime p2p)
+    {
+        var epoch = Interlocked.Increment(ref _serverStatusEpoch);
+        MessengerServerLinkStatus status;
+        try
+        {
+            var manager = p2p.MessengerServers?.Manager;
+            status = manager == null
+                ? MessengerServerLinkStatus.Disabled
+                : await manager.GetLinkStatusAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            status = MessengerServerLinkStatus.Disconnected;
+        }
+
+        if (epoch != Volatile.Read(ref _serverStatusEpoch))
+            return;
+
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            if (epoch != Volatile.Read(ref _serverStatusEpoch))
+                return;
+            ApplyServerStatus(status);
+        }).ConfigureAwait(false);
+    }
+
+    private void ApplyServerStatus(MessengerServerLinkStatus status)
+    {
+        switch (status)
+        {
+            case MessengerServerLinkStatus.Connected:
+                ServerDot.Fill = IskraTheme.Online;
+                ServerLabel.Text = Loc.T("header.server_on");
+                ServerLabel.TextColor = IskraTheme.Online;
+                break;
+            case MessengerServerLinkStatus.Waiting:
+                ServerDot.Fill = ServerWaiting;
+                ServerLabel.Text = Loc.T("header.server_wait");
+                ServerLabel.TextColor = ServerWaiting;
+                break;
+            case MessengerServerLinkStatus.Disconnected:
+                ServerDot.Fill = IskraTheme.Danger;
+                ServerLabel.Text = Loc.T("header.server_fail");
+                ServerLabel.TextColor = IskraTheme.Danger;
+                break;
+            default:
+                ServerDot.Fill = IskraTheme.Offline;
+                ServerLabel.Text = Loc.T("header.server_off");
+                ServerLabel.TextColor = IskraTheme.Muted;
+                break;
+        }
     }
 }

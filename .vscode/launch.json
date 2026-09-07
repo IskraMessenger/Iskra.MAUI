@@ -12,6 +12,16 @@
       "stopAtEntry": false
     },
     {
+      "name": "Iskra MAUI (Windows) - release",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-windows-release",
+      "program": "${workspaceFolder}/src/Iskra.Maui/bin/Release/net10.0-windows10.0.19041.0/win-x64/Iskra.Maui.exe",
+      "cwd": "${workspaceFolder}/src/Iskra.Maui/bin/Release/net10.0-windows10.0.19041.0/win-x64",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
       "name": "Iskra.Web",
       "type": "coreclr",
       "request": "launch",

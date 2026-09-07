@@ -21,6 +21,22 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build-windows-release",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Iskra.Maui/Iskra.Maui.csproj",
+        "-f",
+        "net10.0-windows10.0.19041.0",
+        "-c",
+        "Release",
+        "-p:RuntimeIdentifier=win-x64"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "build-web",
       "command": "dotnet",
       "type": "process",
