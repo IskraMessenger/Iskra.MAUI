@@ -7,104 +7,154 @@
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False"
              BackgroundColor="{DynamicResource PageBackground}">
-    <Grid RowDefinitions="Auto,*,Auto,Auto">
-        <Grid RowDefinitions="Auto,Auto" BackgroundColor="{DynamicResource Surface}">
-            <Grid Padding="8,8,12,4" ColumnDefinitions="36,48,*,Auto,Auto" ColumnSpacing="8">
-                <Button Text="‹" FontSize="28" BackgroundColor="Transparent"
-                        TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
-                <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40">
-                    <Border x:Name="PeerAvatarFill" WidthRequest="40" HeightRequest="40" StrokeThickness="0"
-                            StrokeShape="RoundRectangle 20" BackgroundColor="{DynamicResource Accent}" />
-                    <Label x:Name="PeerAvatarInitials" TextColor="White" FontAttributes="Bold" FontSize="13"
-                           HorizontalOptions="Center" VerticalOptions="Center" />
+    <Grid ColumnDefinitions="320,*" ColumnSpacing="0">
+        <Border Grid.Column="0" BackgroundColor="{DynamicResource Surface}" StrokeThickness="0" Padding="8,12,8,0">
+            <Grid RowDefinitions="Auto,*">
+                <Grid Padding="8,0,8,10" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Text="imo" FontSize="28" FontAttributes="Bold" TextColor="{DynamicResource MidnightBlue}" 
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="+" FontSize="22" WidthRequest="36" HeightRequest="36"
+                            CornerRadius="18" BackgroundColor="{DynamicResource Accent}" TextColor="White"
+                            Padding="0" Clicked="OnAddSidebarChatClicked" />
                 </Grid>
-                <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
-                    <Label x:Name="PeerNameLabel" FontSize="16" FontAttributes="Bold"
-                           TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
-                    <HorizontalStackLayout Spacing="6">
-                        <Ellipse x:Name="PeerPresenceDot" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
-                                 Fill="#CD5C5C" />
-                        <Label x:Name="PeerStatusLabel" FontSize="11" TextColor="{DynamicResource MutedText}"
-                               VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                    </HorizontalStackLayout>
-                    <Label x:Name="PeerIdLabel" FontSize="10" TextColor="{DynamicResource MutedText}"
-                           LineBreakMode="TailTruncation" />
-                </VerticalStackLayout>
-                <Button x:Name="BlockPeerButton" Grid.Column="3" Text="&#x1F6AB;" FontSize="18"
-                        Padding="0" WidthRequest="40" HeightRequest="40"
-                        BackgroundColor="Transparent" VerticalOptions="Start"
-                        Clicked="OnBlockPeerClicked" />
-                <Button x:Name="ClearChatButton" Grid.Column="4" Text="&#x1F5D1;&#xFE0F;" FontSize="18"
-                        Padding="0" WidthRequest="40" HeightRequest="40"
-                        BackgroundColor="Transparent" VerticalOptions="Start"
-                        Clicked="OnClearChatClicked" />
-            </Grid>
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="4" Margin="12,0,8,8">
-                <Label x:Name="SafetyNumberLabel" FontSize="11"
-                       TextColor="{DynamicResource MutedText}" HorizontalTextAlignment="End"
-                       LineBreakMode="WordWrap" VerticalOptions="Center" />
-                <Button x:Name="EmergencyUntrustButton" Grid.Column="1" Text="&#x1F6A8;" FontSize="16"
-                        Padding="0" WidthRequest="40" HeightRequest="40"
-                        BackgroundColor="Transparent" VerticalOptions="Center"
-                        Clicked="OnEmergencyUntrustClicked" />
-            </Grid>
-        </Grid>
 
-        <CollectionView x:Name="MessagesCollection" Grid.Row="1"
-                        ItemsUpdatingScrollMode="KeepScrollOffset" Scrolled="OnMessagesScrolled" Margin="8,4">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="4,3" ColumnDefinitions="Auto,*,Auto">
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnMessageRowTapped" />
-                        </Grid.GestureRecognizers>
-                        <Border Grid.Column="{Binding BubbleColumn}" MaximumWidthRequest="280" Padding="10,8"
-                                StrokeThickness="0" StrokeShape="RoundRectangle 14"
-                                BackgroundColor="{Binding BubbleColor}">
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="{Binding TextBody}" TextColor="{Binding MessageColor}"
-                                       LineBreakMode="WordWrap" IsVisible="{Binding ShowTextBody}" />
-                                <Label Text="{Binding FileBodyText}" TextColor="{Binding MessageColor}"
-                                       LineBreakMode="WordWrap" IsVisible="{Binding IsFile}" />
-                                <HorizontalStackLayout Spacing="6" HorizontalOptions="End">
-                                    <Label Text="{Binding TimeLabel}" FontSize="10"
-                                           TextColor="{DynamicResource MutedText}" />
-                                    <Label Text="{Binding DeliveryGlyph}" TextColor="{Binding DeliveryGlyphColor}"
-                                           FontSize="11" IsVisible="{Binding ShowDelivery}" />
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
-                        </Border>
+                <CollectionView x:Name="SidebarChats" Grid.Row="1" SelectionMode="None" Margin="0,4,0,0">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Padding="10,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="8">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnSidebarChatTapped" />
+                                </Grid.GestureRecognizers>
+                                <Grid WidthRequest="48" HeightRequest="48">
+                                    <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 24"
+                                            BackgroundColor="{Binding AvatarColor}"
+                                            HorizontalOptions="Center" VerticalOptions="Center" />
+                                    <Label Text="{Binding Initials}" TextColor="White" FontAttributes="Bold" FontSize="15"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                    <Ellipse WidthRequest="12" HeightRequest="12" Fill="#34C759"
+                                             HorizontalOptions="End" VerticalOptions="End" Stroke="White"
+                                             StrokeThickness="2" IsVisible="{Binding IsPeerOnline}" />
+                                </Grid>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding PeerNickname}" FontSize="16" FontAttributes="Bold"
+                                           TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding LastPreview}" FontSize="12"
+                                           TextColor="{DynamicResource MutedText}" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
+                                    <Label Text="{Binding TimeLabel}" FontSize="11"
+                                           TextColor="{DynamicResource MutedText}" HorizontalOptions="End" />
+                                    <Label Text="{Binding DeliveryGlyph}" FontSize="12"
+                                           TextColor="{Binding DeliveryGlyphColor}" HorizontalOptions="End"
+                                           IsVisible="{Binding ShowDelivery}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto,Auto">
+            <Grid RowDefinitions="Auto,Auto" BackgroundColor="{DynamicResource Surface}">
+                <Grid Padding="8,8,12,4" ColumnDefinitions="36,48,*,Auto,Auto" ColumnSpacing="8">
+                    <Button Text="‹" FontSize="28" BackgroundColor="Transparent"
+                            TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
+                    <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40">
+                        <Border x:Name="PeerAvatarFill" WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                                StrokeShape="RoundRectangle 20" BackgroundColor="{DynamicResource Accent}" />
+                        <Label x:Name="PeerAvatarInitials" TextColor="White" FontAttributes="Bold" FontSize="13"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
                     </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                    <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+                        <Label x:Name="PeerNameLabel" FontSize="16" FontAttributes="Bold"
+                               TextColor="{DynamicResource MidnightBlue}" LineBreakMode="TailTruncation" />
+                        <HorizontalStackLayout Spacing="6">
+                            <Ellipse x:Name="PeerPresenceDot" WidthRequest="8" HeightRequest="8" VerticalOptions="Center"
+                                     Fill="#CD5C5C" />
+                            <Label x:Name="PeerStatusLabel" FontSize="11" TextColor="{DynamicResource MutedText}"
+                                   VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                        </HorizontalStackLayout>
+                        <Label x:Name="PeerIdLabel" FontSize="10" TextColor="{DynamicResource MutedText}"
+                               LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                    <Button x:Name="BlockPeerButton" Grid.Column="3" Text="&#x1F6AB;" FontSize="18"
+                            Padding="0" WidthRequest="40" HeightRequest="40"
+                            BackgroundColor="Transparent" VerticalOptions="Start"
+                            Clicked="OnBlockPeerClicked" />
+                    <Button x:Name="ClearChatButton" Grid.Column="4" Text="&#x1F5D1;&#xFE0F;" FontSize="18"
+                            Padding="0" WidthRequest="40" HeightRequest="40"
+                            BackgroundColor="Transparent" VerticalOptions="Start"
+                            Clicked="OnClearChatClicked" />
+                </Grid>
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="4" Margin="12,0,8,8">
+                    <Label x:Name="SafetyNumberLabel" FontSize="11"
+                           TextColor="{DynamicResource MutedText}" HorizontalTextAlignment="End"
+                           LineBreakMode="WordWrap" VerticalOptions="Center" />
+                    <Button x:Name="EmergencyUntrustButton" Grid.Column="1" Text="&#x1F6A8;" FontSize="16"
+                            Padding="0" WidthRequest="40" HeightRequest="40"
+                            BackgroundColor="Transparent" VerticalOptions="Center"
+                            Clicked="OnEmergencyUntrustClicked" />
+                </Grid>
+            </Grid>
 
-        <Label x:Name="DeliveryIssueLabel" Grid.Row="2" TextColor="{DynamicResource Danger}" IsVisible="False"
-               LineBreakMode="WordWrap" Margin="12,0" FontSize="12" />
+            <CollectionView x:Name="MessagesCollection" Grid.Row="1"
+                            ItemsUpdatingScrollMode="KeepScrollOffset" Scrolled="OnMessagesScrolled" Margin="8,4">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="4,3" ColumnDefinitions="Auto,*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnMessageRowTapped" />
+                            </Grid.GestureRecognizers>
+                            <Border Grid.Column="{Binding BubbleColumn}" MaximumWidthRequest="280" Padding="10,8"
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                                    BackgroundColor="{Binding BubbleColor}">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="{Binding TextBody}" TextColor="{Binding MessageColor}"
+                                           LineBreakMode="WordWrap" IsVisible="{Binding ShowTextBody}" />
+                                    <Label Text="{Binding FileBodyText}" TextColor="{Binding MessageColor}"
+                                           LineBreakMode="WordWrap" IsVisible="{Binding IsFile}" />
+                                    <HorizontalStackLayout Spacing="6" HorizontalOptions="End">
+                                        <Label Text="{Binding TimeLabel}" FontSize="10"
+                                               TextColor="{DynamicResource MutedText}" />
+                                        <Label Text="{Binding DeliveryGlyph}" TextColor="{Binding DeliveryGlyphColor}"
+                                               FontSize="11" IsVisible="{Binding ShowDelivery}" />
+                                    </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
 
-        <Grid Grid.Row="3" Padding="8,6,8,10" RowDefinitions="Auto,Auto" RowSpacing="6"
-              BackgroundColor="{DynamicResource Surface}">
-            <Border Stroke="{DynamicResource Hairline}" StrokeThickness="1"
-                    StrokeShape="RoundRectangle 18" Padding="10,0" BackgroundColor="{DynamicResource FieldBackground}">
-                <Entry x:Name="MessageEntry" MaxLength="32768"
-                       BackgroundColor="Transparent" FontSize="15" />
-            </Border>
-            <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,Auto,*,48" ColumnSpacing="4">
-                <Button x:Name="VoiceButton" Text="&#x1F3A4;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}" Clicked="OnVoiceClicked" />
-                <Button Grid.Column="1" Text="&#x1F4F7;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
-                        Clicked="OnAttachCameraClicked" />
-                <Button Grid.Column="2" Text="&#x1F5BC;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
-                        Clicked="OnAttachImageClicked" />
-                <Button Grid.Column="3" Text="&#x1F4CE;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
-                        BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
-                        Clicked="OnAttachDocumentClicked" />
-                <Button Grid.Column="5" Text="➤" FontSize="16" Padding="0" CornerRadius="24" WidthRequest="44"
-                        HeightRequest="44" HorizontalOptions="End"
-                        BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}"
-                        Clicked="OnSendClicked" />
+            <Label x:Name="DeliveryIssueLabel" Grid.Row="2" TextColor="{DynamicResource Danger}" IsVisible="False"
+                   LineBreakMode="WordWrap" Margin="12,0" FontSize="12" />
+
+            <Grid Grid.Row="3" Padding="8,6,8,10" RowDefinitions="Auto,Auto" RowSpacing="6"
+                  BackgroundColor="{DynamicResource Surface}">
+                <Border Stroke="{DynamicResource Hairline}" StrokeThickness="1"
+                        StrokeShape="RoundRectangle 18" Padding="10,0" BackgroundColor="{DynamicResource FieldBackground}">
+                    <Entry x:Name="MessageEntry" MaxLength="32768"
+                           BackgroundColor="Transparent" FontSize="15" />
+                </Border>
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,Auto,*,48" ColumnSpacing="4">
+                    <Button x:Name="VoiceButton" Text="&#x1F3A4;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}" Clicked="OnVoiceClicked" />
+                    <Button Grid.Column="1" Text="&#x1F4F7;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
+                            Clicked="OnAttachCameraClicked" />
+                    <Button Grid.Column="2" Text="&#x1F5BC;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
+                            Clicked="OnAttachImageClicked" />
+                    <Button Grid.Column="3" Text="&#x1F4CE;" FontSize="16" Padding="0" WidthRequest="40" HeightRequest="40"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource MidnightBlue}"
+                            Clicked="OnAttachDocumentClicked" />
+                    <Button Grid.Column="5" Text="➤" FontSize="16" Padding="0" CornerRadius="24" WidthRequest="44"
+                            HeightRequest="44" HorizontalOptions="End"
+                            BackgroundColor="{DynamicResource Accent}" TextColor="{DynamicResource ButtonText}"
+                            Clicked="OnSendClicked" />
+                </Grid>
             </Grid>
         </Grid>
     </Grid>

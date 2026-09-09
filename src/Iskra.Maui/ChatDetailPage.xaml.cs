@@ -60,6 +60,8 @@ public partial class ChatDetailPage : ContentPage
     private readonly ILogger<ChatDetailPage> _logger;
     private const int MessagesPageSize = 10;
     private readonly ObservableCollection<MessageRowVm> _messageItems = [];
+    private readonly ObservableCollection<ChatListRowVm> _sidebarRows = [];
+    private readonly List<ChatListRowVm> _allSidebarRows = [];
     private readonly List<ChatMessageEntity> _loadedRows = [];
     private ChatP2PSession? _p2pSession;
     private ChatEntity? _chat;
@@ -96,6 +98,7 @@ public partial class ChatDetailPage : ContentPage
         _blacklist = blacklist;
         _logger = logger;
         MessagesCollection.ItemsSource = _messageItems;
+        SidebarChats.ItemsSource = _sidebarRows;
         Unloaded += OnPageUnloaded;
     }
 
@@ -160,6 +163,7 @@ public partial class ChatDetailPage : ContentPage
         PeerAvatarInitials.Text = IskraTheme.Initials(chat.PeerNickname);
         PeerAvatarFill.BackgroundColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
         PeerIdLabel.Text = Loc.Tf("chat.node", chat.PeerNetworkIdShort);
+        await RefreshSidebarAsync().ConfigureAwait(true);
         SetControlHint(BlockPeerButton, Loc.T("blacklist.add_hint"));
         SetControlHint(ClearChatButton, Loc.T("chat.delete_hint"));
         SetControlHint(EmergencyUntrustButton, Loc.T("safety.untrust_hint"));
@@ -1280,6 +1284,79 @@ public partial class ChatDetailPage : ContentPage
             Title = Loc.T("chat.save_doc"),
             File = new ShareFile(temp)
         }).ConfigureAwait(true);
+    }
+
+    private async Task RefreshSidebarAsync()
+    {
+        var user = _auth.CurrentUser;
+        if (user == null)
+        {
+            _allSidebarRows.Clear();
+            _sidebarRows.Clear();
+            return;
+        }
+
+        try
+        {
+            var list = await _repo.ListChatsAsync(user.Id).ConfigureAwait(false);
+            var rows = new List<ChatListRowVm>(list.Count);
+            foreach (var c in list)
+            {
+                var lastPage = await _repo.ListMessagesPageDescAsync(c.Id, 0, 1, includePayloadBlob: false)
+                    .ConfigureAwait(false);
+                var last = lastPage.Count > 0 ? lastPage[0] : null;
+                rows.Add(new ChatListRowVm(c, last, _p2p.LocalScan.IsPeerSeenRecentlyOnLan(c.PeerNetworkIdShort)));
+            }
+
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                _allSidebarRows.Clear();
+                _allSidebarRows.AddRange(rows);
+                _sidebarRows.Clear();
+                foreach (var row in rows)
+                    _sidebarRows.Add(row);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Refresh sidebar for chat detail page");
+        }
+    }
+
+    private async void OnAddSidebarChatClicked(object? sender, EventArgs e)
+    {
+        var page = MauiProgram.Services.GetRequiredService<AddChatPage>();
+        await Navigation.PushModalAsync(new NavigationPage(page)).ConfigureAwait(true);
+        await RefreshSidebarAsync().ConfigureAwait(true);
+    }
+
+    private async void OnSidebarChatTapped(object? sender, TappedEventArgs e)
+    {
+        var walk = sender switch
+        {
+            TapGestureRecognizer tg => tg.Parent as Element,
+            Element el => el,
+            _ => null
+        };
+
+        ChatListRowVm? row = null;
+        for (var el = walk; el != null; el = el.Parent as Element)
+            if (el.BindingContext is ChatListRowVm vm)
+            {
+                row = vm;
+                break;
+            }
+
+        if (row == null)
+            return;
+
+        var chat = await _repo.GetChatAsync(row.Chat.Id).ConfigureAwait(false);
+        var user = _auth.CurrentUser;
+        if (chat == null || user == null)
+            return;
+
+        ChatId = row.Chat.Id;
+        await BindAppearingUi(chat, user).ConfigureAwait(true);
     }
 
     private async Task TryRefreshPeerNicknameDisplayAsync(ChatEntity chat)
