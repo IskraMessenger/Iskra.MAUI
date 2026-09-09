@@ -240,9 +240,11 @@ export function ChatPage(chatId) {
     textarea.value = "";
     try {
       await post(`/api/chats/${chatId}/messages`, { text: msg });
+      // Soft refresh: list API no longer pulls blobs, but avoid blocking UI on a full reload race.
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("error"));
+      textarea.value = msg;
     }
   }
 
@@ -265,8 +267,16 @@ export function ChatPage(chatId) {
     }
   });
 
-  void load();
-  const off = onTick(() => void load());
+  let loadGen = 0;
+  async function loadSafe() {
+    const gen = ++loadGen;
+    await load();
+    // Drop overlapping reloads from SignalR ticks while a slow request is in flight.
+    if (gen !== loadGen) return;
+  }
+
+  void loadSafe();
+  const off = onTick(() => void loadSafe());
 
   // bottom sentinel must exist before first render (scroll target / insert anchor)
   msgsEl.appendChild(bottom);

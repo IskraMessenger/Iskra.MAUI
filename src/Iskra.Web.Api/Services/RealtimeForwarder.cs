@@ -106,7 +106,8 @@ internal sealed class RealtimeForwarder : IHostedService
             if (chat == null)
                 return;
 
-            var last = (await _chats.ListMessagesPageDescAsync(chatId, 0, 1).ConfigureAwait(false))
+            var last = (await _chats.ListMessagesPageDescAsync(chatId, 0, 1, includePayloadBlob: false)
+                    .ConfigureAwait(false))
                 .FirstOrDefault();
             var preview = ChatSessionHelper.Preview(last);
             var previewKind = PreviewKind(last);

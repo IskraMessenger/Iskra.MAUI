@@ -77,6 +77,10 @@ public partial class ChatDetailPage : ContentPage
     private readonly ConcurrentDictionary<int, byte> _binaryDownloadsInFlight = new();
     private bool _hooksAttached;
     private int _boundChatId;
+    /// <summary>0 = idle, 1 = ConnectChatTransportAsync in flight (prevents connect storms).</summary>
+    private int _transportConnectInFlight;
+    /// <summary>Bumped on teardown so in-flight connect work stops applying.</summary>
+    private int _transportConnectGeneration;
 
     public ChatDetailPage(AuthService auth, ChatRepository repo, UserP2pRuntime p2p, ChatMediaOptions media,
         P2pRoutingSettingsStore routingStore, MessengerServerManager messengerServers, PeerBlacklist blacklist,
@@ -164,7 +168,6 @@ public partial class ChatDetailPage : ContentPage
         _peerNetworkIdShort = chat.PeerNetworkIdShort;
         ActiveChatTracker.Set(chat.Id);
         RefreshSafetyLabel(chat);
-        await TryRefreshPeerNicknameDisplayAsync(chat).ConfigureAwait(true);
         if (user == null)
         {
             ActiveChatTracker.Clear(chat.Id);
@@ -174,24 +177,17 @@ public partial class ChatDetailPage : ContentPage
             return;
         }
 
+        // Session object + history first; nickname / P2P handshake stay off the critical path.
+        EnsureP2pSessionAttached(user, chat);
+
         if (_hooksAttached && _boundChatId == chat.Id)
         {
             EnsurePresenceRefreshTimerStarted();
             RefreshPeerPresenceLabel();
+            if (_messageItems.Count == 0)
+                await ReloadMessagesAsync().ConfigureAwait(true);
+            _ = TryRefreshPeerNicknameDisplayAsync(chat);
             return;
-        }
-
-        // History and send must not wait for P2P handshake or peer online/offline.
-        try
-        {
-            var uiSync = SynchronizationContext.Current;
-            _p2pSession = _p2p.GetSession(chat, user, _auth, _repo, uiSync);
-            _ = ConnectChatTransportAsync(user, chat, _p2pSession);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not attach P2P session for chat {ChatId}", chat.Id);
-            _p2pSession = null;
         }
 
         AttachIncomingHooks();
@@ -199,26 +195,86 @@ public partial class ChatDetailPage : ContentPage
         EnsurePresenceRefreshTimerStarted();
         RefreshPeerPresenceLabel();
         await ReloadMessagesAsync().ConfigureAwait(true);
+        _ = TryRefreshPeerNicknameDisplayAsync(chat);
     }
 
-    private async Task ConnectChatTransportAsync(UserEntity user, ChatEntity chat, ChatP2PSession session)
+    /// <summary>
+    /// Attach <see cref="ChatP2PSession"/> for local send/queue without awaiting transport handshake.
+    /// </summary>
+    private ChatP2PSession? EnsureP2pSessionAttached(UserEntity user, ChatEntity chat)
     {
+        if (_p2pSession != null)
+        {
+            if (!_p2p.IsChatSessionStarted(chat.Id))
+                TryBeginConnectChatTransport(user, chat, _p2pSession);
+            return _p2pSession;
+        }
+
         try
         {
-            await _p2p.EnsureStartedAsync(user).ConfigureAwait(false);
-            _p2p.MessengerServers?.Start();
+            var uiSync = SynchronizationContext.Current;
+            _p2pSession = _p2p.GetSession(chat, user, _auth, _repo, uiSync);
+            if (_hooksAttached)
+            {
+                _p2pSession.MessagesChanged -= OnP2PMessagesChanged;
+                _p2pSession.MessagesChanged += OnP2PMessagesChanged;
+                _p2pSession.TransferStateChanged -= OnP2PTransferStateChanged;
+                _p2pSession.TransferStateChanged += OnP2PTransferStateChanged;
+            }
+
+            TryBeginConnectChatTransport(user, chat, _p2pSession);
+            return _p2pSession;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Ensure P2P (invite listener) on chat detail");
+            _logger.LogWarning(ex, "Could not attach P2P session for chat {ChatId}", chat.Id);
+            _p2pSession = null;
+            return null;
         }
+    }
 
-        var handshake = StartChatSessionIfNeededAsync(chat, session);
-        var servers = MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger);
-        var publish = MessengerServersBootstrap.PublishChatRequestAsync(_p2p, chat.PeerNetworkIdShort, _logger);
-        await Task.WhenAll(handshake, servers, publish).ConfigureAwait(false);
-        // Do not PollEvents here: a second waiter used to replace the long-poll
-        // waiter on the server and stall the next inbox message by ~25s.
+    private void TryBeginConnectChatTransport(UserEntity user, ChatEntity chat, ChatP2PSession session)
+    {
+        if (_p2p.IsChatSessionStarted(chat.Id))
+            return;
+        if (Interlocked.CompareExchange(ref _transportConnectInFlight, 1, 0) != 0)
+            return;
+        var generation = Volatile.Read(ref _transportConnectGeneration);
+        _ = ConnectChatTransportAsync(user, chat, session, generation);
+    }
+
+    private async Task ConnectChatTransportAsync(
+        UserEntity user, ChatEntity chat, ChatP2PSession session, int generation)
+    {
+        try
+        {
+            if (generation != Volatile.Read(ref _transportConnectGeneration))
+                return;
+
+            try
+            {
+                await _p2p.EnsureStartedAsync(user).ConfigureAwait(false);
+                _p2p.MessengerServers?.Start();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ensure P2P (invite listener) on chat detail");
+            }
+
+            if (generation != Volatile.Read(ref _transportConnectGeneration))
+                return;
+
+            var handshake = StartChatSessionIfNeededAsync(chat, session);
+            var servers = MessengerServersBootstrap.EnsureRunningAsync(_p2p, _logger);
+            var publish = MessengerServersBootstrap.PublishChatRequestAsync(_p2p, chat.PeerNetworkIdShort, _logger);
+            await Task.WhenAll(handshake, servers, publish).ConfigureAwait(false);
+            // Do not PollEvents here: a second waiter used to replace the long-poll
+            // waiter on the server and stall the next inbox message by ~25s.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _transportConnectInFlight, 0);
+        }
     }
 
     private async Task StartChatSessionIfNeededAsync(ChatEntity chat, ChatP2PSession session)
@@ -340,6 +396,8 @@ public partial class ChatDetailPage : ContentPage
         _peerNetworkIdShort = null;
         _chat = null;
         _p2pSession = null;
+        Interlocked.Increment(ref _transportConnectGeneration);
+        Interlocked.Exchange(ref _transportConnectInFlight, 0);
         Interlocked.Increment(ref _viewEpoch);
     }
 
@@ -511,7 +569,11 @@ public partial class ChatDetailPage : ContentPage
         _suppressLoadMore = true;
         try
         {
-            var take = Math.Max(MessagesPageSize, _loadedRows.Count);
+            // Cap window so MessagesChanged / transfer reloads do not grow without bound.
+            const int maxHistoryWindow = 80;
+            var take = _loadedRows.Count == 0
+                ? MessagesPageSize
+                : Math.Min(Math.Max(MessagesPageSize, _loadedRows.Count), maxHistoryWindow);
             // DB page is newest-first; display ascending (oldest top, newest bottom).
             // Never pull ImageBlob here — attachments open via GetMessageAsync.
             var view = Volatile.Read(ref _viewEpoch);
@@ -785,7 +847,7 @@ public partial class ChatDetailPage : ContentPage
     {
         if (m.Outgoing)
             return true;
-        if (m.ImageBlob is { Length: > 0 })
+        if (m.HasPayloadBlob || m.ImageBlob is { Length: > 0 })
             return true;
         if ((ChatTransferState)m.TransferState == ChatTransferState.Received)
             return true;
@@ -874,14 +936,28 @@ public partial class ChatDetailPage : ContentPage
     private async void OnSendClicked(object? sender, EventArgs e)
     {
         var text = MessageEntry.Text?.Trim() ?? "";
-        if (text.Length == 0 || _p2pSession == null)
+        if (text.Length == 0)
             return;
+
+        var user = _auth.CurrentUser;
+        var chat = _chat;
+        if (user == null || chat == null)
+            return;
+
+        var session = EnsureP2pSessionAttached(user, chat);
+        if (session == null)
+        {
+            ShowDeliveryIssue(Loc.T("error"));
+            return;
+        }
+
         ClearDeliveryIssue();
         MessageEntry.Text = string.Empty;
 
         try
         {
-            await _p2pSession.SendTextAsync(text).ConfigureAwait(true);
+            // Queues to SQLite + outbound worker; must not wait for handshake.
+            await session.SendTextAsync(text).ConfigureAwait(true);
             ClearDeliveryIssue();
         }
         catch (OutboundMessageQueuedException ex)
@@ -897,13 +973,16 @@ public partial class ChatDetailPage : ContentPage
         }
         finally
         {
-            await ReloadMessagesAsync().ConfigureAwait(true);
+            // Cheap tail refresh — full ReloadMessages would contend with DB / UI.
+            await AppendLatestMessagesAsync().ConfigureAwait(true);
         }
     }
 
     private async void OnVoiceClicked(object? sender, EventArgs e)
     {
-        if (_p2pSession == null)
+        var user = _auth.CurrentUser;
+        var chat = _chat;
+        if (user == null || chat == null || EnsureP2pSessionAttached(user, chat) == null)
             return;
 
         if (_voice is { IsRecording: true })

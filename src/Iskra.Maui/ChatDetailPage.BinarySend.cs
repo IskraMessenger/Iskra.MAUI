@@ -69,7 +69,9 @@ public partial class ChatDetailPage
 
     private async void OnAttachImageClicked(object? sender, EventArgs e)
     {
-        if (_p2pSession == null)
+        var user = _auth.CurrentUser;
+        var chat = _chat;
+        if (user == null || chat == null || EnsureP2pSessionAttached(user, chat) == null)
             return;
         ClearDeliveryIssue();
         await SyncTrafficQualityAsync().ConfigureAwait(true);
@@ -132,7 +134,9 @@ public partial class ChatDetailPage
 
     private async void OnAttachDocumentClicked(object? sender, EventArgs e)
     {
-        if (_p2pSession == null)
+        var user = _auth.CurrentUser;
+        var chat = _chat;
+        if (user == null || chat == null || EnsureP2pSessionAttached(user, chat) == null)
             return;
         ClearDeliveryIssue();
         await SyncTrafficQualityAsync().ConfigureAwait(true);
@@ -198,7 +202,9 @@ public partial class ChatDetailPage
 
     private async void OnAttachCameraClicked(object? sender, EventArgs e)
     {
-        if (_p2pSession == null)
+        var user = _auth.CurrentUser;
+        var chat = _chat;
+        if (user == null || chat == null || EnsureP2pSessionAttached(user, chat) == null)
             return;
         ClearDeliveryIssue();
 

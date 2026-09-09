@@ -44,6 +44,40 @@ internal static class ChatSessionHelper
         return session;
     }
 
+    /// <summary>Attach session object without waiting for transport/handshake.</summary>
+    public static ChatP2PSession? GetSessionOrNull(
+        UserP2pRuntime p2p,
+        AuthService auth,
+        ChatRepository chats,
+        ChatEntity chat)
+    {
+        var user = auth.CurrentUser;
+        if (user == null)
+            return null;
+        return p2p.GetSession(chat, user, auth, chats, null);
+    }
+
+    /// <summary>Fire-and-forget P2P start so HTTP handlers (open chat / send text) stay responsive.</summary>
+    public static void BeginEnsureSession(
+        UserP2pRuntime p2p,
+        AuthService auth,
+        ChatRepository chats,
+        ChatEntity chat,
+        ILogger logger)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await EnsureSessionAsync(p2p, auth, chats, chat, logger).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Background ensure session for chat {ChatId}", chat.Id);
+            }
+        });
+    }
+
     public static async Task EnsureConnectivityAsync(
         UserP2pRuntime p2p,
         AuthService auth,

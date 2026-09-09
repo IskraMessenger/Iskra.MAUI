@@ -206,15 +206,20 @@ internal static class AppEndpoints
             return deny;
         var u = auth.CurrentUser!;
         await blacklist.EnsureLoadedAsync(u.Id).ConfigureAwait(false);
-        try
+        // Do not block the chats list on starting every P2P session / handshake.
+        var chatsLog = logs.CreateLogger("Chats");
+        _ = Task.Run(async () =>
         {
-            await ChatSessionHelper.EnsureConnectivityAsync(p2p, auth, chats, logs.CreateLogger("Chats"))
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logs.CreateLogger("Chats").LogWarning(ex, "Ensure P2P");
-        }
+            try
+            {
+                await ChatSessionHelper.EnsureConnectivityAsync(p2p, auth, chats, chatsLog)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                chatsLog.LogWarning(ex, "Ensure P2P");
+            }
+        });
 
         var list = await chats.ListChatsAsync(u.Id).ConfigureAwait(false);
         var rows = new List<object>();
@@ -222,7 +227,8 @@ internal static class AppEndpoints
         {
             if (blacklist.IsBlocked(u.Id, c.PeerNetworkIdShort))
                 continue;
-            var lastPage = await chats.ListMessagesPageDescAsync(c.Id, 0, 1).ConfigureAwait(false);
+            var lastPage = await chats.ListMessagesPageDescAsync(c.Id, 0, 1, includePayloadBlob: false)
+                .ConfigureAwait(false);
             var last = lastPage.Count > 0 ? lastPage[0] : null;
             var ds = last == null ? "" : DeliveryGlyph(last);
             rows.Add(new
@@ -291,15 +297,8 @@ internal static class AppEndpoints
         await blacklist.EnsureLoadedAsync(u.Id).ConfigureAwait(false);
         if (blacklist.IsBlocked(u.Id, chat.PeerNetworkIdShort))
             return Results.Json(new { error = "blacklist.blocked" }, statusCode: 403);
-        try
-        {
-            await ChatSessionHelper.EnsureSessionAsync(p2p, auth, chats, chat, logs.CreateLogger("Chat"))
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logs.CreateLogger("Chat").LogWarning(ex, "Ensure session");
-        }
+        // Open chat UI immediately; transport/handshake continues in the background.
+        ChatSessionHelper.BeginEnsureSession(p2p, auth, chats, chat, logs.CreateLogger("Chat"));
 
         string safety;
         try
@@ -336,7 +335,9 @@ internal static class AppEndpoints
         await blacklist.EnsureLoadedAsync(auth.CurrentUser!.Id).ConfigureAwait(false);
         if (blacklist.IsBlocked(auth.CurrentUser.Id, chat.PeerNetworkIdShort))
             return Results.Json(Array.Empty<object>());
-        var pageDesc = await chats.ListMessagesPageDescAsync(id, offset, limit).ConfigureAwait(false);
+        // Never pull ImageBlob into the list API — media is served via /messages/{id}/file.
+        var pageDesc = await chats.ListMessagesPageDescAsync(id, offset, limit, includePayloadBlob: false)
+            .ConfigureAwait(false);
         var chronological = pageDesc.Reverse().Select(MapMessage).ToList();
         return Results.Json(new { items = chronological, hasMore = pageDesc.Count == limit });
     }
@@ -367,7 +368,7 @@ internal static class AppEndpoints
             time = ChatSessionHelper.TimeLabel(m.SentUtcTicks),
             delivery = DeliveryGlyph(m),
             transferState = m.TransferState,
-            hasBlob = m.ImageBlob is { Length: > 0 }
+            hasBlob = m.HasPayloadBlob || m.ImageBlob is { Length: > 0 }
         };
     }
 
@@ -382,10 +383,11 @@ internal static class AppEndpoints
         var logger = logs.CreateLogger("Send");
         try
         {
-            var session = await ChatSessionHelper.EnsureSessionAsync(p2p, auth, chats, chat, logger)
-                .ConfigureAwait(false);
+            // Persist + queue immediately; do not wait for UDP/BLE handshake (same as MAUI).
+            var session = ChatSessionHelper.GetSessionOrNull(p2p, auth, chats, chat);
             if (session == null)
                 return Results.Unauthorized();
+            ChatSessionHelper.BeginEnsureSession(p2p, auth, chats, chat, logger);
             await session.SendTextAsync(body.Text ?? "").ConfigureAwait(false);
             return Results.Ok();
         }
@@ -416,10 +418,10 @@ internal static class AppEndpoints
         AppLog.BinaryLoaded("chat-file", file.FileName, bytes.Length);
         try
         {
-            var session = await ChatSessionHelper.EnsureSessionAsync(p2p, auth, chats, chat, logger)
-                .ConfigureAwait(false);
+            var session = ChatSessionHelper.GetSessionOrNull(p2p, auth, chats, chat);
             if (session == null)
                 return Results.Unauthorized();
+            ChatSessionHelper.BeginEnsureSession(p2p, auth, chats, chat, logger);
             if (mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 await session.SendImageAsync(bytes, mime).ConfigureAwait(false);
             else
