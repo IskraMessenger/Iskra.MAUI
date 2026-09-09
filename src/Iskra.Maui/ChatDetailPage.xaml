@@ -6,9 +6,10 @@
              Title="Чат"
              Shell.NavBarIsVisible="False"
              Shell.TabBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBackground}">
-    <Grid ColumnDefinitions="320,*" ColumnSpacing="0">
-        <Border Grid.Column="0" BackgroundColor="{DynamicResource Surface}" StrokeThickness="0" Padding="8,12,8,0">
+             BackgroundColor="{DynamicResource PageBackground}"
+             SizeChanged="OnPageSizeChanged">
+    <Grid x:Name="ChatRootGrid" ColumnDefinitions="320,*" ColumnSpacing="0">
+        <Border x:Name="SidebarPane" Grid.Column="0" BackgroundColor="{DynamicResource Surface}" StrokeThickness="0" Padding="8,12,8,0">
             <Grid RowDefinitions="Auto,*">
                 <Grid Padding="8,0,8,10" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Text="imo" FontSize="28" FontAttributes="Bold" TextColor="{DynamicResource MidnightBlue}" 

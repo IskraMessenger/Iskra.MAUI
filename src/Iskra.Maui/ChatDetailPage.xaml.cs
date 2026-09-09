@@ -100,13 +100,28 @@ public partial class ChatDetailPage : ContentPage
         MessagesCollection.ItemsSource = _messageItems;
         SidebarChats.ItemsSource = _sidebarRows;
         Unloaded += OnPageUnloaded;
+        UpdateSidebarVisibility();
     }
 
     public int ChatId { get; set; }
 
+    private void OnPageSizeChanged(object? sender, EventArgs e)
+    {
+        UpdateSidebarVisibility();
+    }
+
+    private void UpdateSidebarVisibility()
+    {
+        var isLandscape = Width > Height;
+        SidebarPane.IsVisible = isLandscape;
+        ChatRootGrid.ColumnDefinitions[0].Width = isLandscape ? new GridLength(320) : new GridLength(0);
+        ChatRootGrid.ColumnDefinitions[1].Width = GridLength.Star;
+    }
+
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        UpdateSidebarVisibility();
         try
         {
             await AppearAsync().ConfigureAwait(true);

@@ -76,15 +76,29 @@ public sealed class MessengerServersPage : ContentPage
     {
         base.OnAppearing();
         ApplyLocalizedUi();
+        UpdatePortraitDisplayMode();
         _manager.TrustThreatDetected -= OnTrustThreat;
         _manager.TrustThreatDetected += OnTrustThreat;
         await ReloadAsync().ConfigureAwait(true);
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        UpdatePortraitDisplayMode();
     }
 
     protected override void OnDisappearing()
     {
         _manager.TrustThreatDetected -= OnTrustThreat;
         base.OnDisappearing();
+    }
+
+    private void UpdatePortraitDisplayMode()
+    {
+        var isPortrait = Width > 0 && Height > 0 && Height > Width;
+        foreach (var row in _rows)
+            row.ApplyDisplayMode(isPortrait);
     }
 
     private void ApplyLocalizedUi()
@@ -103,8 +117,8 @@ public sealed class MessengerServersPage : ContentPage
     private DataTemplate CreateItemTemplate() =>
         new(() =>
         {
-            var url = new Label { FontSize = 16 };
-            url.SetBinding(Label.TextProperty, nameof(MessengerServerRowVm.BaseUrl));
+            var url = new Label { FontSize = 16, LineBreakMode = LineBreakMode.TailTruncation };
+            url.SetBinding(Label.TextProperty, nameof(MessengerServerRowVm.DisplayBaseUrl));
             url.Triggers.Add(LowRatingColorTrigger());
 
             var meta = new Label { FontSize = 12, TextColor = Colors.Gray };
@@ -200,6 +214,7 @@ public sealed class MessengerServersPage : ContentPage
             _rows.Clear();
             foreach (var s in servers.OrderByDescending(x => x.UpdatedUtcTicks))
                 _rows.Add(new MessengerServerRowVm(s));
+            UpdatePortraitDisplayMode();
             _status.Text = Loc.Tf("servers.count", _rows.Count, MessengerServerLimits.MaxServersPerUser);
         }
         catch (Exception ex)
@@ -503,6 +518,7 @@ public sealed class MessengerServersPage : ContentPage
     {
         private bool _active;
         private string _metaLine;
+        private string _displayBaseUrl;
 
         public MessengerServerRowVm(MessengerServerEntity entity)
         {
@@ -513,12 +529,24 @@ public sealed class MessengerServersPage : ContentPage
             Fingerprint = entity.FingerprintSha256;
             IsRegistered = entity.IsRegistered;
             TrustRating = entity.TrustRating;
+            _displayBaseUrl = BaseUrl;
             _metaLine = BuildMeta(
                 entity.TrustRating, entity.Trusted, entity.Active, entity.IsRegistered, entity.FingerprintSha256);
         }
 
         public int Id { get; }
         public string BaseUrl { get; }
+        public string DisplayBaseUrl
+        {
+            get => _displayBaseUrl;
+            private set
+            {
+                if (_displayBaseUrl == value)
+                    return;
+                _displayBaseUrl = value;
+                OnPropertyChanged();
+            }
+        }
         public bool Trusted { get; }
         public bool IsRegistered { get; }
         public string Fingerprint { get; }
@@ -552,6 +580,39 @@ public sealed class MessengerServersPage : ContentPage
 
         public void RefreshMeta() =>
             MetaLine = BuildMeta(TrustRating, Trusted, Active, IsRegistered, Fingerprint);
+
+        public void ApplyDisplayMode(bool isPortrait)
+        {
+            DisplayBaseUrl = isPortrait ? CompactServerUrl(BaseUrl) : BaseUrl;
+        }
+
+        private static string CompactServerUrl(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return value;
+
+            var cleaned = value.Trim();
+            if (!Uri.TryCreate(cleaned, UriKind.Absolute, out var uri))
+                return cleaned;
+
+            var host = uri.Host;
+            if (string.IsNullOrWhiteSpace(host))
+                return cleaned;
+
+            if (host.Contains('.') && host.Split('.').Length == 4 && host.Split('.').All(part => int.TryParse(part, out _)))
+            {
+                var firstTwo = host.Split('.').Take(2);
+                return string.Join('.', firstTwo) + ".....";
+            }
+
+            if (host.Contains('.'))
+            {
+                var first = host.Split('.')[0];
+                return first + "....";
+            }
+
+            return host.Length <= 8 ? host : host[..8] + "....";
+        }
 
         private static string BuildMeta(float rating, bool trusted, bool active, bool registered, string fp)
         {
