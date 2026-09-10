@@ -85,7 +85,39 @@ public static class MauiProgram
         builder.Logging.AddNLog();
 
         builder.Services.AddSingleton(_ =>
-            ChatMediaOptions.LoadOrDefault(Path.Combine(FileSystem.AppDataDirectory, "chat-media.json")));
+        {
+            var opts = ChatMediaOptions.LoadOrDefault(Path.Combine(FileSystem.AppDataDirectory, "chat-media.json"));
+            try
+            {
+                var appSettings = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+                if (File.Exists(appSettings))
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(appSettings));
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("Media", out var media))
+                    {
+                        if (media.TryGetProperty("maxDocumentBytes", out var md) && md.ValueKind == System.Text.Json.JsonValueKind.Number)
+                        {
+                            try { opts.MaxDocumentBytes = md.GetInt32(); } catch { }
+                        }
+                        else if (media.TryGetProperty("MaxDocumentBytes", out var md2) && md2.ValueKind == System.Text.Json.JsonValueKind.Number)
+                        {
+                            try { opts.MaxDocumentBytes = md2.GetInt32(); } catch { }
+                        }
+                    }
+                    else if (root.TryGetProperty("MaxDocumentBytes", out var mdRoot) && mdRoot.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        try { opts.MaxDocumentBytes = mdRoot.GetInt32(); } catch { }
+                    }
+                }
+            }
+            catch
+            {
+                // ignore config read failures
+            }
+
+            return opts;
+        });
         builder.Services.AddSingleton(_ => new AppDatabase(Path.Combine(FileSystem.AppDataDirectory, "shortp2p.db")));
         builder.Services.AddSingleton<IUserAuthRepository, SqliteUserAuthRepository>();
         builder.Services.AddRouteDbContextWithPeerExpiryCleanup(

@@ -12,8 +12,6 @@
         <Border x:Name="SidebarPane" Grid.Column="0" BackgroundColor="{DynamicResource Surface}" StrokeThickness="0" Padding="8,12,8,0">
             <Grid RowDefinitions="Auto,*">
                 <Grid Padding="8,0,8,10" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <Label Text="imo" FontSize="28" FontAttributes="Bold" TextColor="{DynamicResource MidnightBlue}" 
-                           VerticalOptions="Center" />
                     <Button Grid.Column="1" Text="+" FontSize="22" WidthRequest="36" HeightRequest="36"
                             CornerRadius="18" BackgroundColor="{DynamicResource Accent}" TextColor="White"
                             Padding="0" Clicked="OnAddSidebarChatClicked" />
