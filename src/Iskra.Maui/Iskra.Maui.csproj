@@ -102,6 +102,7 @@
         <PackageReference Include="NLog.Extensions.Logging" Version="5.3.11" />
         <PackageReference Include="Concentus" Version="2.2.2" />
         <PackageReference Include="Concentus.Oggfile" Version="1.0.6" />
+        <PackageReference Include="LiteDB" Version="5.0.16" />
         <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" Condition="!$(TargetFramework.Contains('-android'))" />
         <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" Condition="$(TargetFramework.Contains('-android'))">
             <ExcludeAssets>native</ExcludeAssets>

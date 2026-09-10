@@ -4,6 +4,7 @@ using Iskra.Maui.Localization;
 using Iskra.Maui.Services;
 using ShortP2P.Auth;
 using ShortP2P.Client.Bluetooth;
+using ShortP2P.Client.Data.Abstractions;
 using ShortP2P.Client.Routing;
 using ShortP2P.Client.Services;
 using ShortP2P.Discovery;
@@ -17,16 +18,18 @@ public partial class SettingsPage : ContentPage
     private readonly ILogger<SettingsPage> _logger;
     private readonly UserP2pRuntime _p2p;
     private readonly P2pRoutingSettingsStore _store;
+    private readonly DatabaseProviderSettings _databaseSettings;
     private bool _suppressToggle;
 
     public SettingsPage(AuthService auth, UserP2pRuntime p2p, P2pRoutingSettingsStore store,
-        IBluetoothTransportProvider bluetoothTransport, ILogger<SettingsPage> logger)
+        IBluetoothTransportProvider bluetoothTransport, DatabaseProviderSettings databaseSettings, ILogger<SettingsPage> logger)
     {
         InitializeComponent();
         _auth = auth;
         _p2p = p2p;
         _store = store;
         _bluetoothTransport = bluetoothTransport;
+        _databaseSettings = databaseSettings;
         _logger = logger;
         LanguageService.Changed += OnLanguageChanged;
     }
@@ -67,10 +70,26 @@ public partial class SettingsPage : ContentPage
         RoutingHint.Text = RoutingSwitch.IsToggled ? Loc.T("on") : Loc.T("off");
         EconomyHint.Text = MediaEconomy.Hint(_p2p.Settings.TrafficQuality);
         StorageLabel.Text = FormatStorage();
+
+        // Initialize database provider picker
+        InitializeDatabaseProviderPicker();
+
         RebuildLanguageTiles();
         RebuildThemeChips();
         RebuildEconomyChips();
         await Task.CompletedTask.ConfigureAwait(true);
+    }
+
+    private void InitializeDatabaseProviderPicker()
+    {
+        DatabasePicker.ItemsSource = DatabaseProviderSettings.AvailableProviders
+            .Select(p => p.ToString())
+            .ToList();
+
+        var currentProviderIndex = Array.IndexOf(DatabaseProviderSettings.AvailableProviders, _databaseSettings.CurrentProvider);
+        _suppressToggle = true;
+        DatabasePicker.SelectedIndex = currentProviderIndex >= 0 ? currentProviderIndex : 0;
+        _suppressToggle = false;
     }
 
     private void ApplyLocalizedChrome()
@@ -82,6 +101,8 @@ public partial class SettingsPage : ContentPage
         UdpLabel.Text = Loc.T("settings.udp");
         LanLabel.Text = Loc.T("settings.lan");
         RoutingLabel.Text = Loc.T("settings.routing");
+        DatabaseLabel.Text = Loc.T("settings.database");
+        DatabaseHint.Text = Loc.T("settings.database_hint");
         EconomyLabel.Text = Loc.T("settings.economy");
         StorageTitleLabel.Text = Loc.T("settings.storage");
         ExportKeysButton.Text = Loc.T("settings.export_keys");
@@ -277,6 +298,41 @@ public partial class SettingsPage : ContentPage
         {
             return "—";
         }
+    }
+
+    private void OnDatabaseProviderChanged(object? sender, EventArgs e)
+    {
+        if (_suppressToggle || DatabasePicker.SelectedIndex < 0)
+            return;
+
+        var selectedProvider = DatabaseProviderSettings.AvailableProviders[DatabasePicker.SelectedIndex];
+        if (selectedProvider == _databaseSettings.CurrentProvider)
+            return;
+
+        // Show alert that app needs to restart
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            var result = await DisplayAlert(
+                Loc.T("settings.database_change_title"),
+                Loc.T("settings.database_change_message"),
+                Loc.T("ok"),
+                Loc.T("cancel")
+            ).ConfigureAwait(true);
+
+            if (result)
+            {
+                _databaseSettings.CurrentProvider = selectedProvider;
+                AppLog.Settings.Log(LogLevel.Debug, $"Database provider changed to: {selectedProvider}. Application restart is required.");
+                // Request app restart
+                await Shell.Current.GoToAsync("..").ConfigureAwait(true);
+                // Optionally, you could call Application.Current?.Quit() to force restart
+            }
+            else
+            {
+                // Revert picker to previous value
+                InitializeDatabaseProviderPicker();
+            }
+        });
     }
 
     private async void OnBluetoothToggled(object? sender, ToggledEventArgs e)

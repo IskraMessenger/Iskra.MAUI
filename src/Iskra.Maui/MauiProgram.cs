@@ -9,6 +9,7 @@ using ShortP2P.Crypto;
 using ShortP2P.Client.Bluetooth;
 using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Data;
+using ShortP2P.Client.Data.Abstractions;
 using ShortP2P.Client.Routing;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
@@ -118,6 +119,33 @@ public static class MauiProgram
 
             return opts;
         });
+
+        // Register database provider settings and access provider
+        builder.Services.AddSingleton(sp =>
+        {
+            var dbSettings = new DatabaseProviderSettings(FileSystem.AppDataDirectory);
+            return dbSettings;
+        });
+
+        builder.Services.AddSingleton(sp =>
+        {
+            var dbSettings = sp.GetRequiredService<DatabaseProviderSettings>();
+            var dbPath = Path.Combine(FileSystem.AppDataDirectory, "shortp2p.db");
+
+            IDataAccessProvider provider = dbSettings.CurrentProvider switch
+            {
+                DatabaseProviderType.Sqlite =>
+                    new SqliteDataAccessProvider(
+                        new AppDatabase(dbPath)),
+                DatabaseProviderType.LiteDbAsync =>
+                    new LiteDbAsyncDataAccessProvider(dbPath),
+                _ => throw new InvalidOperationException($"Unknown provider type: {dbSettings.CurrentProvider}")
+            };
+
+            return provider;
+        });
+
+        // Keep AppDatabase for backward compatibility if needed
         builder.Services.AddSingleton(_ => new AppDatabase(Path.Combine(FileSystem.AppDataDirectory, "shortp2p.db")));
         builder.Services.AddSingleton<IUserAuthRepository, SqliteUserAuthRepository>();
         builder.Services.AddRouteDbContextWithPeerExpiryCleanup(
