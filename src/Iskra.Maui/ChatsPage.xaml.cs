@@ -75,6 +75,8 @@ public partial class ChatsPage : ContentPage
         EmptyChatsLabel.Text = Loc.T("chats.empty");
         _chats.ChatListChanged -= OnChatListChangedFromInvite;
         _chats.ChatListChanged += OnChatListChangedFromInvite;
+        _chats.ChatCreated -= OnChatCreated;
+        _chats.ChatCreated += OnChatCreated;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
         _chats.ChatMessageAppended += OnChatMessageAppended;
         _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
@@ -131,6 +133,7 @@ public partial class ChatsPage : ContentPage
     {
         _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
+        _chats.ChatCreated -= OnChatCreated;
         _messengerServers.TrustThreatDetected -= OnMessengerServerTrustThreat;
         _blacklist.Changed -= OnBlacklistChanged;
         if (_presenceRefreshTimer != null)
@@ -379,8 +382,20 @@ public partial class ChatsPage : ContentPage
             return;
 
         await _p2p.RemoveChatSessionAsync(chat.Id).ConfigureAwait(true);
-        await _chats.DeleteChatAsync(chat.Id, u.Id).ConfigureAwait(true);
+        var deleted = await _chats.DeleteChatAsync(chat.Id, u.Id).ConfigureAwait(true);
+        if (deleted)
+            AppLog.ChatDeleted(chat.Id);
         await RefreshAsync().ConfigureAwait(true);
+    }
+
+    private void OnChatCreated(object? sender, ChatCreatedEventArgs e)
+    {
+        // Log chat creation and refresh UI on main thread
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            AppLog.ChatCreated(e.ChatId, e.Remote);
+            _ = RefreshAsync();
+        });
     }
 
     private async void OnBlockChatClicked(object? sender, EventArgs e)

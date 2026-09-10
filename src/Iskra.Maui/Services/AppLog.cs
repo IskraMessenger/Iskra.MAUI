@@ -10,6 +10,7 @@ internal static class AppLog
     public static ILogger Files { get; private set; } = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
     public static ILogger Network { get; private set; } = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
     public static ILogger Server { get; private set; } = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+    public static ILogger Chat { get; private set; } = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
     public static void Initialize(ILoggerFactory factory)
     {
@@ -19,6 +20,7 @@ internal static class AppLog
         Files = factory.CreateLogger("Iskra.Files");
         Network = factory.CreateLogger("Iskra.Network");
         Server = factory.CreateLogger("Iskra.Server");
+        Chat = factory.CreateLogger("Iskra.Chat");
     }
 
     public static void PageOpened(string page, string? title = null)
@@ -45,6 +47,16 @@ internal static class AppLog
     public static void BinaryLoaded(string kind, string? name, long? bytes)
     {
         Files.LogInformation("Binary loaded: {Kind} name={Name} bytes={Bytes}", kind, name ?? "-", bytes);
+    }
+
+    public static void ChatCreated(int chatId, bool remote)
+    {
+        Chat.LogInformation("Chat created: {ChatId} remote={Remote}", chatId, remote);
+    }
+
+    public static void ChatDeleted(int chatId)
+    {
+        Chat.LogInformation("Chat deleted: {ChatId}", chatId);
     }
 
     public static void PeerConnected(string via, string? peerId)

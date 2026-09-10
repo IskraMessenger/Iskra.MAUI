@@ -1371,7 +1371,15 @@ public partial class ChatDetailPage : ContentPage
             return;
 
         ChatId = row.Chat.Id;
-        await BindAppearingUi(chat, user).ConfigureAwait(true);
+        if (MainThread.IsMainThread)
+        {
+            await BindAppearingUi(chat, user).ConfigureAwait(true);
+        }
+        else
+        {
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+                await BindAppearingUi(chat, user).ConfigureAwait(true)).ConfigureAwait(false);
+        }
     }
 
     private async Task TryRefreshPeerNicknameDisplayAsync(ChatEntity chat)
