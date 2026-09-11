@@ -820,20 +820,41 @@ public partial class ChatDetailPage : ContentPage
         var kb = (AttachmentSizeBytes(m) + 1023) / 1024;
         var name = AttachmentDisplayName(m);
         var isVoice = IsVoiceAttachment(m);
+        var isImage = IsImageAttachment(m);
+        var isVideo = IsVideoAttachment(m);
         var voiceReady = isVoice && IsVoiceLocallyAvailable(m, isTransferOffer);
         var duration = TryFormatLocalMediaDuration(m);
         var nameWithDuration = duration == null ? name : $"{name} · {duration}";
+        
         string fileBody;
+        string mediaIcon;
+        
         if (isVoice)
         {
-            var icon = voiceReady ? "▶️" : "⬇️";
+            // Audio: show play icon if ready, download icon if not
+            mediaIcon = voiceReady ? "▶️" : "⬇️";
             var hint = voiceReady
                 ? Loc.T("chat.state.tap_play")
                 : (stateText ?? Loc.T("chat.state.tap_download"));
-            fileBody = $"{icon} {nameWithDuration} · {Loc.Tf("chat.kb", kb)} · {hint}";
+            fileBody = $"{mediaIcon} {nameWithDuration} · {Loc.Tf("chat.kb", kb)} · {hint}";
+        }
+        else if (isVideo)
+        {
+            // Video: show video camera icon
+            mediaIcon = "🎬";
+            var action = stateText ?? Loc.T("chat.state.tap_row");
+            fileBody = $"{mediaIcon} {nameWithDuration} · {Loc.Tf("chat.kb", kb)} · {action}";
+        }
+        else if (isImage)
+        {
+            // Image: show picture icon
+            mediaIcon = "🖼️";
+            var action = stateText ?? Loc.T("chat.state.tap_row");
+            fileBody = $"{mediaIcon} {nameWithDuration} · {Loc.Tf("chat.kb", kb)} · {action}";
         }
         else
         {
+            // Other files
             var action = stateText ?? Loc.T("chat.state.tap_row");
             fileBody = $"{nameWithDuration} · {Loc.Tf("chat.kb", kb)} · {action}";
         }
@@ -844,7 +865,7 @@ public partial class ChatDetailPage : ContentPage
             TextBody = "",
             FileBodyText = fileBody,
             ShowTextBody = false,
-            IsImage = IsImageAttachment(m),
+            IsImage = isImage,
             IsFile = true,
             IsTransferOffer = isTransferOffer,
             IsVoice = isVoice,
