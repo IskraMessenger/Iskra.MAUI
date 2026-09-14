@@ -10,7 +10,9 @@ namespace Iskra.Maui;
 public class MainActivity : MauiAppCompatActivity
 {
     private const int QrScanRequestCode = 0x51A7;
+    private const int CreateDocumentRequestCode = 0x51A8;
     private static TaskCompletionSource<string?>? _scanTcs;
+    private static TaskCompletionSource<Android.Net.Uri?>? _createDocumentTcs;
 
     public static Task<string?> TryScanQrWithSystemScannerAsync()
     {
@@ -32,6 +34,24 @@ public class MainActivity : MauiAppCompatActivity
         return _scanTcs.Task;
     }
 
+    /// <summary>Системный диалог «Сохранить как» (SAF). Возвращает Uri выбранного файла или null при отмене.</summary>
+    public static Task<Android.Net.Uri?> CreateDocumentAsync(string mimeType, string suggestedName)
+    {
+        var activity = Platform.CurrentActivity;
+        if (activity == null)
+            return Task.FromResult<Android.Net.Uri?>(null);
+
+        var intent = new Intent(Intent.ActionCreateDocument);
+        intent.AddCategory(Intent.CategoryOpenable);
+        intent.SetType(mimeType);
+        intent.PutExtra(Intent.ExtraTitle, suggestedName);
+
+        _createDocumentTcs?.TrySetCanceled();
+        _createDocumentTcs = new TaskCompletionSource<Android.Net.Uri?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        activity.StartActivityForResult(intent, CreateDocumentRequestCode);
+        return _createDocumentTcs.Task;
+    }
+
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         if (requestCode == QrScanRequestCode)
@@ -46,6 +66,14 @@ public class MainActivity : MauiAppCompatActivity
                     tcs.TrySetResult(null);
             }
 
+            return;
+        }
+
+        if (requestCode == CreateDocumentRequestCode)
+        {
+            var tcs = _createDocumentTcs;
+            _createDocumentTcs = null;
+            tcs?.TrySetResult(resultCode == Result.Ok ? data?.Data : null);
             return;
         }
 

@@ -1297,7 +1297,7 @@ public partial class ChatDetailPage : ContentPage
             blob.Length);
         if (isImage)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new ImagePreviewPage(temp))
+            await Navigation.PushModalAsync(new NavigationPage(new ImagePreviewPage(temp, name))
             {
                 BarBackgroundColor = Colors.Black,
                 BarTextColor = Colors.White
@@ -1307,10 +1307,10 @@ public partial class ChatDetailPage : ContentPage
 
         if (isVideo)
         {
-            await Launcher.Default.OpenAsync(new OpenFileRequest
+            await Navigation.PushModalAsync(new NavigationPage(new VideoPreviewPage(temp, name))
             {
-                Title = Loc.T("chat.video"),
-                File = new ReadOnlyFile(temp)
+                BarBackgroundColor = Colors.Black,
+                BarTextColor = Colors.White
             }).ConfigureAwait(true);
             return;
         }
