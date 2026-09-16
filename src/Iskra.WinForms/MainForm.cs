@@ -47,6 +47,7 @@ public sealed class MainForm : Form
         var servers = new Button { Text = "Серверы", AutoSize = true };
         var myQr = new Button { Text = "Мой QR", AutoSize = true };
         var settings = new Button { Text = "Настройки", AutoSize = true };
+        var profile = new Button { Text = "Мой профиль", AutoSize = true };
         var logout = new Button { Text = "Выйти", AutoSize = true };
         add.Click += (_, _) => OnAddChat();
         lan.Click += (_, _) => OnLanScan();
@@ -61,6 +62,13 @@ public sealed class MainForm : Form
         {
             using var f = _services.GetRequiredService<SettingsForm>();
             f.ShowDialog(this);
+            ScheduleReload();
+        };
+        profile.Click += (_, _) =>
+        {
+            using var f = _services.GetRequiredService<ProfileForm>();
+            if (f.ShowDialog(this) == DialogResult.OK)
+                ScheduleReload();
         };
         logout.Click += async (_, _) =>
         {
@@ -75,6 +83,7 @@ public sealed class MainForm : Form
         toolbar.Controls.Add(servers);
         toolbar.Controls.Add(myQr);
         toolbar.Controls.Add(settings);
+        toolbar.Controls.Add(profile);
         toolbar.Controls.Add(logout);
 
         _list.DoubleClick += (_, _) => OpenSelected();
@@ -239,8 +248,9 @@ public sealed class MainForm : Form
                             _list.SelectedIndex = idx;
                     }
 
+                    var about = string.IsNullOrWhiteSpace(user.AboutMe) ? "" : $" · {TrimAbout(user.AboutMe, 40)}";
                     _status.Text =
-                        $"{user.Nickname}  id={user.NetworkIdShort}  чатов: {_items.Count}  (черновик net48, UDP LAN, без BLE/камеры)";
+                        $"{user.Nickname}  id={user.NetworkIdShort}{about}  чатов: {_items.Count}  (черновик net48, UDP LAN, без BLE/камеры)";
                 }
 
                 if (InvokeRequired)
@@ -368,5 +378,11 @@ public sealed class MainForm : Form
             _logger.LogWarning(ex, "My QR");
             MessageBox.Show(this, ex.Message, "Мой QR", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private static string TrimAbout(string text, int max)
+    {
+        var t = text.Trim();
+        return t.Length <= max ? t : t[..max] + "…";
     }
 }

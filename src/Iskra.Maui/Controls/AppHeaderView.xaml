@@ -22,6 +22,14 @@
                    VerticalOptions="Center" />
         </HorizontalStackLayout>
         <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center" HorizontalOptions="End">
+            <Grid x:Name="SelfAvatarHost" WidthRequest="28" HeightRequest="28" VerticalOptions="Center">
+                <Border x:Name="SelfAvatarFill" WidthRequest="28" HeightRequest="28" StrokeThickness="0"
+                        StrokeShape="RoundRectangle 14" BackgroundColor="{DynamicResource Accent}" />
+                <Label x:Name="SelfAvatarInitials" TextColor="White" FontAttributes="Bold" FontSize="10"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <Image x:Name="SelfAvatarImage" WidthRequest="28" HeightRequest="28" Aspect="AspectFill"
+                       IsVisible="False" />
+            </Grid>
             <Label x:Name="NickLabel" FontSize="12" FontAttributes="Bold"
                    TextColor="{DynamicResource MidnightBlue}" VerticalOptions="Center"
                    LineBreakMode="TailTruncation" MaximumWidthRequest="140" />

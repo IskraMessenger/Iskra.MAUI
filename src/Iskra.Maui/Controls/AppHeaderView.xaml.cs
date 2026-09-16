@@ -19,6 +19,12 @@ public partial class AppHeaderView : ContentView
         {
             Command = new Command(async () => await OpenSettingsAsync().ConfigureAwait(true))
         });
+        var openProfile = new TapGestureRecognizer
+        {
+            Command = new Command(async () => await OpenProfileAsync().ConfigureAwait(true))
+        };
+        SelfAvatarHost.GestureRecognizers.Add(openProfile);
+        NickLabel.GestureRecognizers.Add(openProfile);
     }
 
     public void Bind(UserEntity? user, UserP2pRuntime p2p)
@@ -26,6 +32,17 @@ public partial class AppHeaderView : ContentView
         ApplySettingsAccessibility();
         NickLabel.Text = user?.Nickname ?? "";
         PortLabel.Text = user == null ? "" : Loc.Tf("header.port", user.DataUdpPort);
+        if (user == null)
+        {
+            SelfAvatarHost.IsVisible = false;
+        }
+        else
+        {
+            SelfAvatarHost.IsVisible = true;
+            AvatarBadge.Apply(SelfAvatarFill, SelfAvatarInitials, SelfAvatarImage, user.Nickname,
+                user.NetworkIdShort, user.Avatar);
+        }
+
         var meshOn = p2p.LocalScan.IsUdpListening || p2p.Settings.EnableUdpTransport;
         MeshDot.Fill = meshOn ? IskraTheme.Online : IskraTheme.Offline;
         MeshLabel.Text = meshOn ? Loc.T("header.mesh_on") : Loc.T("header.mesh_off");
@@ -41,6 +58,9 @@ public partial class AppHeaderView : ContentView
         ToolTipProperties.SetText(SettingsIcon, text);
         SemanticProperties.SetDescription(SettingsIcon, text);
         AutomationProperties.SetName(SettingsIcon, text);
+        var profile = Loc.T("profile.title");
+        ToolTipProperties.SetText(SelfAvatarHost, profile);
+        SemanticProperties.SetDescription(SelfAvatarHost, profile);
     }
 
     private static async Task OpenSettingsAsync()
@@ -49,6 +69,15 @@ public partial class AppHeaderView : ContentView
         if (current is null or SettingsPage)
             return;
         var page = MauiProgram.Services.GetRequiredService<SettingsPage>();
+        await current.Navigation.PushAsync(page).ConfigureAwait(true);
+    }
+
+    private static async Task OpenProfileAsync()
+    {
+        var current = Shell.Current?.CurrentPage;
+        if (current is null or ProfilePage)
+            return;
+        var page = MauiProgram.Services.GetRequiredService<ProfilePage>();
         await current.Navigation.PushAsync(page).ConfigureAwait(true);
     }
 

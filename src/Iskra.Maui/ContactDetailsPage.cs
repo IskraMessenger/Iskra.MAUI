@@ -1,20 +1,30 @@
 using Iskra.Maui.Localization;
+using Microsoft.Extensions.Logging;
+using ShortP2P.Auth.Data;
+using ShortP2P.Client.Services;
+using ShortP2P.Discovery;
 
 namespace Iskra.Maui;
 
-/// <summary>
-/// Просмотр контакта: ник и Network ID.
-/// На будущее: «О себе» и аватар (не более <see cref="MaxAvatarBytes"/> и <see cref="MaxAvatarDimension"/>×<see cref="MaxAvatarDimension"/>).
-/// </summary>
+/// <summary>Просмотр контакта: ник, Network ID, AboutMe и аватар из локального кэша профиля.</summary>
 public sealed class ContactDetailsPage : ContentPage
 {
-    public const int MaxAvatarBytes = 20 * 1024;
-    public const int MaxAvatarDimension = 512;
+    private readonly Border _avatarFill;
+    private readonly Label _avatarInitials;
+    private readonly Image _avatarImage;
+    private readonly Label _aboutValue;
+    private readonly string _nickname;
+    private readonly string _networkIdShort;
+    private readonly UserP2pRuntime? _p2p;
+    private readonly ILogger? _logger;
 
-    public ContactDetailsPage(string nickname, string networkIdShort)
+    public ContactDetailsPage(string nickname, string networkIdShort, UserP2pRuntime? p2p = null,
+        ILogger? logger = null)
     {
-        var nick = string.IsNullOrWhiteSpace(nickname) ? networkIdShort : nickname.Trim();
-        var id = networkIdShort?.Trim() ?? "";
+        _nickname = string.IsNullOrWhiteSpace(nickname) ? networkIdShort : nickname.Trim();
+        _networkIdShort = networkIdShort?.Trim() ?? "";
+        _p2p = p2p;
+        _logger = logger;
 
         Title = Loc.T("contact.title");
         Shell.SetNavBarIsVisible(this, false);
@@ -55,40 +65,46 @@ public sealed class ContactDetailsPage : ContentPage
         };
         Grid.SetColumn(title, 1);
 
-        var avatar = new Border
+        _avatarFill = new Border
         {
             WidthRequest = 96,
             HeightRequest = 96,
             StrokeThickness = 0,
             StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 48 },
-            BackgroundColor = IskraTheme.AvatarColor(id),
+            BackgroundColor = IskraTheme.AvatarColor(_networkIdShort),
             HorizontalOptions = LayoutOptions.Center
         };
-        // Future: replace initials with Image when avatar blob ≤ MaxAvatarBytes and ≤ MaxAvatarDimension.
-        var initials = new Label
+        _avatarInitials = new Label
         {
-            Text = IskraTheme.Initials(nick),
+            Text = IskraTheme.Initials(_nickname),
             TextColor = Colors.White,
             FontAttributes = FontAttributes.Bold,
             FontSize = 32,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center
         };
+        _avatarImage = new Image
+        {
+            WidthRequest = 96,
+            HeightRequest = 96,
+            Aspect = Aspect.AspectFill,
+            IsVisible = false
+        };
         var avatarHost = new Grid
         {
             WidthRequest = 96,
             HeightRequest = 96,
             HorizontalOptions = LayoutOptions.Center,
-            Children = { avatar, initials }
+            Children = { _avatarFill, _avatarInitials, _avatarImage }
         };
 
         var nickLabel = FieldLabel(Loc.T("contact.nickname"));
-        var nickValue = FieldValue(nick);
+        var nickValue = FieldValue(_nickname);
         var idLabel = FieldLabel(Loc.T("contact.network_id"));
-        var idValue = FieldValue(id);
+        var idValue = FieldValue(_networkIdShort);
         var aboutLabel = FieldLabel(Loc.T("contact.about"));
-        var aboutValue = FieldValue(Loc.T("contact.not_set"));
-        aboutValue.TextColor = IskraTheme.Muted;
+        _aboutValue = FieldValue(Loc.T("contact.not_set"));
+        _aboutValue.TextColor = IskraTheme.Muted;
 
         Content = new ScrollView
         {
@@ -111,12 +127,56 @@ public sealed class ContactDetailsPage : ContentPage
                             idLabel,
                             idValue,
                             aboutLabel,
-                            aboutValue
+                            _aboutValue
                         }
                     }
                 }
             }
         };
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        _ = LoadPeerProfileBestEffortAsync();
+    }
+
+    private async Task LoadPeerProfileBestEffortAsync()
+    {
+        var store = _p2p?.PeerProfiles;
+        if (store == null || string.IsNullOrWhiteSpace(_networkIdShort))
+            return;
+
+        try
+        {
+            var id = CompressedNetworkId.FromShortString(_networkIdShort);
+            var snap = await store.GetAsync(id).ConfigureAwait(true);
+            if (snap == null)
+                return;
+
+            var nick = string.IsNullOrWhiteSpace(snap.Nickname) ? _nickname : snap.Nickname.Trim();
+            byte[]? avatar = snap.Avatar;
+            if (avatar is { Length: > PeerProfileLimits.MaxAvatarBytes })
+            {
+                _logger?.LogWarning(
+                    "Peer avatar for {NetworkId} is {Bytes} bytes (max {Max}); ignoring oversized blob",
+                    _networkIdShort, avatar.Length, PeerProfileLimits.MaxAvatarBytes);
+                avatar = null;
+            }
+
+            AvatarBadge.Apply(_avatarFill, _avatarInitials, _avatarImage, nick, _networkIdShort, avatar);
+            if (!string.IsNullOrWhiteSpace(snap.AboutMe))
+            {
+                _aboutValue.Text = snap.AboutMe.Trim();
+                _aboutValue.SetDynamicResource(Label.TextColorProperty, "MidnightBlue");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex,
+                "Failed to load peer profile for {NetworkId} (best-effort); continuing",
+                _networkIdShort);
+        }
     }
 
     private static Label FieldLabel(string text)

@@ -17,12 +17,14 @@
                 <Label x:Name="TitleLabel" Grid.Column="1" FontSize="20" FontAttributes="Bold"
                        TextColor="{DynamicResource MidnightBlue}" VerticalOptions="Center" />
             </Grid>
-            <Grid Padding="16,8,16,16" ColumnDefinitions="56,*,Auto" ColumnSpacing="12">
+            <Grid Padding="16,8,16,16" ColumnDefinitions="56,*,Auto" ColumnSpacing="12" x:Name="ProfileRow">
                 <Grid WidthRequest="52" HeightRequest="52">
                     <Border x:Name="ProfileAvatar" WidthRequest="52" HeightRequest="52" StrokeThickness="0"
                             StrokeShape="RoundRectangle 26" BackgroundColor="{DynamicResource Accent}" />
                     <Label x:Name="ProfileInitials" TextColor="White" FontAttributes="Bold" FontSize="16"
                            HorizontalOptions="Center" VerticalOptions="Center" />
+                    <Image x:Name="ProfileAvatarImage" WidthRequest="52" HeightRequest="52" Aspect="AspectFill"
+                           IsVisible="False" />
                 </Grid>
                 <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
                     <Label x:Name="ProfileName" FontSize="18" FontAttributes="Bold"

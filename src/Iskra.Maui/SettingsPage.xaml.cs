@@ -32,6 +32,14 @@ public partial class SettingsPage : ContentPage
         _databaseSettings = databaseSettings;
         _logger = logger;
         LanguageService.Changed += OnLanguageChanged;
+        ProfileRow.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () =>
+            {
+                await Navigation.PushAsync(MauiProgram.Services.GetRequiredService<ProfilePage>())
+                    .ConfigureAwait(true);
+            })
+        });
     }
 
     private void OnLanguageChanged(object? sender, EventArgs e) =>
@@ -58,8 +66,8 @@ public partial class SettingsPage : ContentPage
         {
             ProfileName.Text = u.Nickname;
             ProfileId.Text = u.NetworkIdShort;
-            ProfileInitials.Text = IskraTheme.Initials(u.Nickname);
-            ProfileAvatar.BackgroundColor = IskraTheme.AvatarColor(u.NetworkIdShort);
+            AvatarBadge.Apply(ProfileAvatar, ProfileInitials, ProfileAvatarImage, u.Nickname, u.NetworkIdShort,
+                u.Avatar);
             UdpPortLabel.Text = u.DataUdpPort.ToString();
         }
 

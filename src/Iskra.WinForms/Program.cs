@@ -10,6 +10,7 @@ using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
 using ShortP2P.Client.Routing;
 using ShortP2P.Discovery;
+using ShortP2P.Discovery.Profile;
 using ShortP2P.MessengerServer.Contracts.Dtos;
 using ShortP2P.Transport;
 using SQLitePCL;
@@ -50,6 +51,8 @@ internal static class Program
         services.AddSingleton<MessengerServerManager>();
         services.AddSingleton<MessengerServerSyncService>();
         services.AddSingleton<P2pRoutingSettingsStore>();
+        services.AddSingleton<IPeerProfileStore, SqlitePeerProfileStore>();
+        services.AddSingleton<ILocalPeerProfileSource, AuthLocalPeerProfileSource>();
         services.AddSingleton(sp =>
         {
             var store = sp.GetRequiredService<P2pRoutingSettingsStore>();
@@ -67,7 +70,12 @@ internal static class Program
             var sync = sp.GetRequiredService<MessengerServerSyncService>();
             var auth = sp.GetRequiredService<AuthService>();
             var chats = sp.GetRequiredService<ChatRepository>();
-            var scan = new LocalNetworkScanner(settings, factory);
+            var scan = new LocalNetworkScanner(
+                settings,
+                factory,
+                peerProfileStore: sp.GetRequiredService<IPeerProfileStore>(),
+                localPeerProfileSource: sp.GetRequiredService<ILocalPeerProfileSource>(),
+                logger: sp.GetService<ILoggerFactory>()?.CreateLogger("Iskra.WinForms.Discovery"));
             // Same as UserP2pRuntime: GetClients first, then annotate/merge into discovery list.
             scan.PrioritizedExternalDiscoveryRound = async ct =>
             {
@@ -90,9 +98,13 @@ internal static class Program
                     throw;
                 }
             };
+            scan.RequestPeerProfileViaMessengerServer = (id, ct) =>
+                sync.RequestPeerProfileViaForwardAsync(id, ct);
+            sync.PeerAboutMeApplied = (id, about) => scan.ApplyCachedAboutMe(id, about);
             return scan;
         });
         services.AddTransient<SettingsForm>();
+        services.AddTransient<ProfileForm>();
         services.AddTransient<LoginForm>();
         services.AddTransient<RegisterForm>();
         services.AddTransient<MainForm>();

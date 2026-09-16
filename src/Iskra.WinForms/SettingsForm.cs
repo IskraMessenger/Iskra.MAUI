@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Client.Routing;
@@ -14,6 +15,7 @@ public sealed class SettingsForm : Form
     private readonly AuthService _auth;
     private readonly P2pRoutingSettings _live;
     private readonly P2pRoutingSettingsStore _store;
+    private readonly IServiceProvider _services;
     private readonly string _appRoot;
     private readonly ILogger<SettingsForm> _logger;
 
@@ -34,11 +36,13 @@ public sealed class SettingsForm : Form
         AuthService auth,
         P2pRoutingSettings live,
         P2pRoutingSettingsStore store,
+        IServiceProvider services,
         ILogger<SettingsForm> logger)
     {
         _auth = auth;
         _live = live;
         _store = store;
+        _services = services;
         _logger = logger;
         _appRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -62,10 +66,17 @@ public sealed class SettingsForm : Form
         _economy.SelectedIndexChanged += (_, _) => UpdateEconomyHint();
 
         var save = new Button { Text = "Сохранить", AutoSize = true };
+        var editProfile = new Button { Text = "Мой профиль…", AutoSize = true };
         var keys = new Button { Text = "Копировать ключи", AutoSize = true };
         var about = new Button { Text = "О программе", AutoSize = true };
         var close = new Button { Text = "Закрыть", DialogResult = DialogResult.OK, AutoSize = true };
         save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
+        editProfile.Click += (_, _) =>
+        {
+            using var f = _services.GetRequiredService<ProfileForm>();
+            if (f.ShowDialog(this) == DialogResult.OK)
+                _ = LoadAsync();
+        };
         keys.Click += (_, _) => CopyKeys();
         about.Click += (_, _) => MessageBox.Show(this,
             "Mesh-мессенджер.\nIskra.WinForms 0.1 (.NET Framework 4.8)\nWindows 7 SP1+\nБез BLE и камеры. QR — из файла.",
@@ -84,6 +95,7 @@ public sealed class SettingsForm : Form
 
         Add(new Label { Text = "Профиль", Font = new Font(Font, FontStyle.Bold), AutoSize = true });
         Add(_profile);
+        Add(editProfile);
         Add(new Label { Text = "UDP-порт данных (только просмотр)", AutoSize = true });
         Add(_udpPort);
         Add(new Label
@@ -132,7 +144,10 @@ public sealed class SettingsForm : Form
     private async Task LoadAsync()
     {
         var u = _auth.CurrentUser;
-        _profile.Text = u == null ? "Не выполнен вход" : $"{u.Nickname}  ·  {u.NetworkIdShort}";
+        var about = u != null && !string.IsNullOrWhiteSpace(u.AboutMe)
+            ? $" · {TrimAbout(u.AboutMe, 60)}"
+            : "";
+        _profile.Text = u == null ? "Не выполнен вход" : $"{u.Nickname}  ·  {u.NetworkIdShort}{about}";
         _udpPort.Text = u?.DataUdpPort.ToString() ?? "—";
         _storage.Text = FormatStorage(_appRoot);
 
@@ -261,6 +276,12 @@ public sealed class SettingsForm : Form
         {
             return "—";
         }
+    }
+
+    private static string TrimAbout(string text, int max)
+    {
+        var t = text.Trim();
+        return t.Length <= max ? t : t[..max] + "…";
     }
 
     private sealed record EconomyItem(TrafficQualityMode Mode)

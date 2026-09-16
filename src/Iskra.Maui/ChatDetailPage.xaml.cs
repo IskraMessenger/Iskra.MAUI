@@ -12,6 +12,7 @@ using ShortP2P.Client.Data;
 using ShortP2P.Client.Routing;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
+using ShortP2P.Discovery;
 
 namespace Iskra.Maui;
 
@@ -101,6 +102,10 @@ public partial class ChatDetailPage : ContentPage
         SidebarChats.ItemsSource = _sidebarRows;
         Unloaded += OnPageUnloaded;
         UpdateSidebarVisibility();
+        PeerAvatarHost.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await OpenPeerContactAsync().ConfigureAwait(true))
+        });
     }
 
     public int ChatId { get; set; }
@@ -175,8 +180,8 @@ public partial class ChatDetailPage : ContentPage
 
         Title = chat.PeerNickname;
         PeerNameLabel.Text = chat.PeerNickname;
-        PeerAvatarInitials.Text = IskraTheme.Initials(chat.PeerNickname);
-        PeerAvatarFill.BackgroundColor = IskraTheme.AvatarColor(chat.PeerNetworkIdShort);
+        AvatarBadge.Apply(PeerAvatarFill, PeerAvatarInitials, PeerAvatarImage, chat.PeerNickname,
+            chat.PeerNetworkIdShort, null);
         PeerIdLabel.Text = Loc.Tf("chat.node", chat.PeerNetworkIdShort);
         await RefreshSidebarAsync().ConfigureAwait(true);
         SetControlHint(BlockPeerButton, Loc.T("blacklist.add_hint"));
@@ -1431,9 +1436,55 @@ public partial class ChatDetailPage : ContentPage
 
         Title = display;
         PeerNameLabel.Text = display;
-        PeerAvatarInitials.Text = IskraTheme.Initials(display);
         PeerIdLabel.Text = Loc.Tf("chat.node", id);
         RefreshSafetyLabel(chat);
+        await ApplyPeerAvatarBestEffortAsync(chat, display).ConfigureAwait(true);
+    }
+
+    private async Task ApplyPeerAvatarBestEffortAsync(ChatEntity chat, string displayName)
+    {
+        byte[]? avatar = null;
+        try
+        {
+            var store = _p2p.PeerProfiles;
+            if (store != null)
+            {
+                var snap = await store.GetAsync(CompressedNetworkId.FromShortString(chat.PeerNetworkIdShort))
+                    .ConfigureAwait(true);
+                if (snap != null)
+                {
+                    if (snap.Avatar is { Length: > PeerProfileLimits.MaxAvatarBytes })
+                    {
+                        _logger.LogWarning(
+                            "Peer avatar for {NetworkId} is {Bytes} bytes (max {Max}); ignoring oversized blob",
+                            chat.PeerNetworkIdShort, snap.Avatar.Length, PeerProfileLimits.MaxAvatarBytes);
+                    }
+                    else
+                        avatar = snap.Avatar;
+
+                    if (string.IsNullOrWhiteSpace(displayName) && !string.IsNullOrWhiteSpace(snap.Nickname))
+                        displayName = snap.Nickname;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to load peer profile avatar for {NetworkId} (best-effort); continuing",
+                chat.PeerNetworkIdShort);
+        }
+
+        AvatarBadge.Apply(PeerAvatarFill, PeerAvatarInitials, PeerAvatarImage, displayName,
+            chat.PeerNetworkIdShort, avatar);
+    }
+
+    private async Task OpenPeerContactAsync()
+    {
+        var chat = _chat;
+        if (chat == null)
+            return;
+        var page = new ContactDetailsPage(chat.PeerNickname, chat.PeerNetworkIdShort, _p2p, _logger);
+        await Navigation.PushAsync(page).ConfigureAwait(true);
     }
 
     private string ResolvePeerDisplayName(ChatEntity chat)

@@ -201,7 +201,7 @@ internal static class ChatListContextMenu
 
     public static async Task ViewContactAsync(ChatListRowVm row, Deps deps)
     {
-        var page = new ContactDetailsPage(row.PeerNickname, row.PeerNetworkIdShort);
+        var page = new ContactDetailsPage(row.PeerNickname, row.PeerNetworkIdShort, deps.P2p);
         await deps.Host.Navigation.PushAsync(page).ConfigureAwait(true);
     }
 

@@ -61,11 +61,13 @@
                 <Grid Padding="8,8,12,4" ColumnDefinitions="36,48,*,Auto,Auto" ColumnSpacing="8">
                     <Button Text="‹" FontSize="28" BackgroundColor="Transparent"
                             TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
-                    <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40">
+                    <Grid Grid.Column="1" WidthRequest="40" HeightRequest="40" x:Name="PeerAvatarHost">
                         <Border x:Name="PeerAvatarFill" WidthRequest="40" HeightRequest="40" StrokeThickness="0"
                                 StrokeShape="RoundRectangle 20" BackgroundColor="{DynamicResource Accent}" />
                         <Label x:Name="PeerAvatarInitials" TextColor="White" FontAttributes="Bold" FontSize="13"
                                HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Image x:Name="PeerAvatarImage" WidthRequest="40" HeightRequest="40" Aspect="AspectFill"
+                               IsVisible="False" />
                     </Grid>
                     <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
                         <Label x:Name="PeerNameLabel" FontSize="16" FontAttributes="Bold"

@@ -24,6 +24,7 @@ public sealed class LanScanForm : Form
         public required string NetworkId { get; init; }
         public required string Transport { get; init; }
         public required string Status { get; init; }
+        public required string AboutMe { get; init; }
         public required string LastSeen { get; init; }
     }
 
@@ -86,6 +87,7 @@ public sealed class LanScanForm : Form
         _list.Columns.Add("Network id", 180);
         _list.Columns.Add("Транспорт", 100);
         _list.Columns.Add("Статус", 80);
+        _list.Columns.Add("О себе", 160);
         _list.Columns.Add("Последний контакт", 140);
 
         var bottom = new FlowLayoutPanel
@@ -200,6 +202,7 @@ public sealed class LanScanForm : Form
                 NetworkId = c.PeerNetworkIdShort,
                 Transport = peer != null ? FormatTransport(peer.TransportKind) : "чат",
                 Status = IsOnline(id, peer) ? "онлайн" : "офлайн",
+                AboutMe = TrimAbout(peer?.AboutMe, 40),
                 LastSeen = peer != null ? peer.LastSeenUtc.ToLocalTime().ToString("T") : "—"
             });
         }
@@ -218,6 +221,7 @@ public sealed class LanScanForm : Form
                 NetworkId = id,
                 Transport = FormatTransport(p.TransportKind),
                 Status = IsOnline(id, p) ? "онлайн" : "офлайн",
+                AboutMe = TrimAbout(p.AboutMe, 40),
                 LastSeen = p.LastSeenUtc.ToLocalTime().ToString("T")
             });
         }
@@ -237,6 +241,7 @@ public sealed class LanScanForm : Form
                 item.SubItems.Add(r.NetworkId);
                 item.SubItems.Add(r.Transport);
                 item.SubItems.Add(r.Status);
+                item.SubItems.Add(r.AboutMe);
                 item.SubItems.Add(r.LastSeen);
                 _list.Items.Add(item);
             }
@@ -418,5 +423,13 @@ public sealed class LanScanForm : Form
             _status.Text = "GetClients не удался — проверьте «Серверы» (active/trusted).";
             return Array.Empty<ClientPresenceDto>();
         }
+    }
+
+    private static string TrimAbout(string? text, int max)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return "";
+        var t = text.Trim();
+        return t.Length <= max ? t : t[..max] + "…";
     }
 }

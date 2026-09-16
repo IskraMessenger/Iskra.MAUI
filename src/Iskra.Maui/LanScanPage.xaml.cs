@@ -30,13 +30,22 @@ public sealed class LanScanRow
         };
         var seen = p.LastSeenUtc.ToLocalTime().ToString("g");
         var presence = isPeerOnline ? Loc.T("online") : Loc.T("offline");
+        var detail = Loc.Tf("lan.detail", transport, presence, Loc.Tf("lan.last", seen));
+        if (!string.IsNullOrWhiteSpace(p.AboutMe))
+        {
+            var about = p.AboutMe.Trim();
+            if (about.Length > 80)
+                about = about[..80] + "…";
+            detail = $"{detail}\n{about}";
+        }
+
         return new LanScanRow
         {
             Peer = p,
             IsPeerOnline = isPeerOnline,
             Nickname = string.IsNullOrEmpty(p.Nickname) ? "—" : p.Nickname,
             NetworkIdShort = idShort,
-            DetailLine = Loc.Tf("lan.detail", transport, presence, Loc.Tf("lan.last", seen))
+            DetailLine = detail
         };
     }
 }
