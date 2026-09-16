@@ -27,6 +27,8 @@
                    LineBreakMode="TailTruncation" MaximumWidthRequest="140" />
             <Label x:Name="PortLabel" FontSize="12" TextColor="{DynamicResource MutedText}"
                    VerticalOptions="Center" />
+            <Image x:Name="SettingsIcon" Source="tab_settings.png" WidthRequest="44" HeightRequest="44"
+                   Aspect="AspectFit" VerticalOptions="Center" Margin="2,0,0,0" />
         </HorizontalStackLayout>
     </Grid>
 </ContentView>

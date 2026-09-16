@@ -35,7 +35,8 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid Padding="16,10" ColumnDefinitions="*,40" ColumnSpacing="8">
-                        <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="8"
+                              Loaded="OnChatRowLoaded">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnChatRowTapped" />
                             </Grid.GestureRecognizers>

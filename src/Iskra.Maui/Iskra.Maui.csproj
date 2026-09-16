@@ -91,6 +91,8 @@
         <MauiSplashScreen Include="Resources\Splash\splash.png" Color="#121212" BaseSize="256,320" />
         <MauiImage Include="Resources\Images\*" />
         <MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
+        <!-- Шестерёнка шапки показывается 44x44 — растрируем в этом размере, чтобы не была мыльной -->
+        <MauiImage Update="Resources\Images\tab_settings.svg" Resize="True" BaseSize="44,44" />
         <MauiFont Include="Resources\Fonts\*" />
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>

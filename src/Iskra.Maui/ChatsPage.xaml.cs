@@ -358,34 +358,29 @@ public partial class ChatsPage : ContentPage
         await RefreshAsync().ConfigureAwait(true);
     }
 
+    private void OnChatRowLoaded(object? sender, EventArgs e)
+    {
+        if (sender is not View rowRoot)
+            return;
+        ChatListContextMenu.EnsureWired(rowRoot, CreateChatMenuDeps());
+    }
+
+    private ChatListContextMenu.Deps CreateChatMenuDeps() => new()
+    {
+        Host = this,
+        Auth = _auth,
+        Blacklist = _blacklist,
+        Chats = _chats,
+        P2p = _p2p,
+        AfterChange = RefreshAsync
+    };
+
     private async void OnChatSwipeDelete(object? sender, EventArgs e)
     {
-        ChatEntity? chat = null;
-        for (var p = sender as Element; p != null; p = p.Parent)
-            if (p is SwipeView sw && sw.BindingContext is ChatListRowVm row)
-            {
-                chat = row.Chat;
-                break;
-            }
-
-        if (chat == null)
+        var row = ChatListContextMenu.FindRow(sender as Element);
+        if (row == null)
             return;
-
-        var u = _auth.CurrentUser;
-        if (u == null)
-            return;
-
-        var confirm = await DisplayAlert(Loc.T("chats.delete_title"),
-            Loc.Tf("chats.delete_body", chat.PeerNickname),
-            Loc.T("delete"), Loc.T("cancel")).ConfigureAwait(true);
-        if (!confirm)
-            return;
-
-        await _p2p.RemoveChatSessionAsync(chat.Id).ConfigureAwait(true);
-        var deleted = await _chats.DeleteChatAsync(chat.Id, u.Id).ConfigureAwait(true);
-        if (deleted)
-            AppLog.ChatDeleted(chat.Id);
-        await RefreshAsync().ConfigureAwait(true);
+        await ChatListContextMenu.DeleteChatAsync(row, CreateChatMenuDeps()).ConfigureAwait(true);
     }
 
     private void OnChatCreated(object? sender, ChatCreatedEventArgs e)
@@ -425,14 +420,10 @@ public partial class ChatsPage : ContentPage
             Element el => el,
             _ => null
         };
-        ChatListRowVm? row = null;
-        for (var el = walk; el != null; el = el.Parent as Element)
-            if (el.BindingContext is ChatListRowVm vm)
-            {
-                row = vm;
-                break;
-            }
+        if (ChatListContextMenu.ConsumeSuppressPrimaryTap(walk))
+            return;
 
+        var row = ChatListContextMenu.FindRow(walk);
         if (row == null)
             return;
 

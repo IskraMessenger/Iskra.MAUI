@@ -1366,6 +1366,27 @@ public partial class ChatDetailPage : ContentPage
         await RefreshSidebarAsync().ConfigureAwait(true);
     }
 
+    private void OnSidebarChatRowLoaded(object? sender, EventArgs e)
+    {
+        if (sender is not View rowRoot)
+            return;
+        ChatListContextMenu.EnsureWired(rowRoot, new ChatListContextMenu.Deps
+        {
+            Host = this,
+            Auth = _auth,
+            Blacklist = _blacklist,
+            Chats = _repo,
+            P2p = _p2p,
+            AfterChange = RefreshSidebarAsync,
+            AfterDelete = async deletedId =>
+            {
+                await RefreshSidebarAsync().ConfigureAwait(true);
+                if (deletedId == ChatId)
+                    await Navigation.PopAsync().ConfigureAwait(true);
+            }
+        });
+    }
+
     private async void OnSidebarChatTapped(object? sender, TappedEventArgs e)
     {
         var walk = sender switch
@@ -1374,15 +1395,10 @@ public partial class ChatDetailPage : ContentPage
             Element el => el,
             _ => null
         };
+        if (ChatListContextMenu.ConsumeSuppressPrimaryTap(walk))
+            return;
 
-        ChatListRowVm? row = null;
-        for (var el = walk; el != null; el = el.Parent as Element)
-            if (el.BindingContext is ChatListRowVm vm)
-            {
-                row = vm;
-                break;
-            }
-
+        var row = ChatListContextMenu.FindRow(walk);
         if (row == null)
             return;
 

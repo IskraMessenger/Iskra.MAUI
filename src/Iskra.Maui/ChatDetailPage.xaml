@@ -20,7 +20,8 @@
                 <CollectionView x:Name="SidebarChats" Grid.Row="1" SelectionMode="None" Margin="0,4,0,0">
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <Grid Padding="10,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="8">
+                            <Grid Padding="10,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="8"
+                                  Loaded="OnSidebarChatRowLoaded">
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnSidebarChatTapped" />
                                 </Grid.GestureRecognizers>

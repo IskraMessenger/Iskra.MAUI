@@ -4,13 +4,12 @@ namespace Iskra.Maui;
 
 public partial class AppShell : Shell
 {
-    public AppShell(ChatsPage chats, ContactsPage contacts, NetworkPage network, SettingsPage settings)
+    public AppShell(ChatsPage chats, ContactsPage contacts, NetworkPage network)
     {
         InitializeComponent();
         ChatsHost.Content = chats;
         ContactsHost.Content = contacts;
         NetworkHost.Content = network;
-        SettingsHost.Content = settings;
         ApplyChrome();
         ApplyLocalizedTitles();
         ThemeService.Changed += (_, _) => MainThread.BeginInvokeOnMainThread(ApplyChrome);
@@ -35,27 +34,23 @@ public partial class AppShell : Shell
         var chats = Loc.T("tab.chats");
         var contacts = Loc.T("tab.contacts");
         var network = Loc.T("tab.network");
-        var settings = Loc.T("tab.settings");
 
         // TabBar reads Tab.Title (not ShellContent). Named tabs so we never miss the section.
         ChatsTab.Title = chats;
         ContactsTab.Title = contacts;
         NetworkTab.Title = network;
-        SettingsTab.Title = settings;
 
         ChatsHost.Title = chats;
         ContactsHost.Title = contacts;
         NetworkHost.Title = network;
-        SettingsHost.Title = settings;
 
         SetPageTitle(ChatsHost.Content, chats);
         SetPageTitle(ContactsHost.Content, contacts);
         SetPageTitle(NetworkHost.Content, network);
-        SetPageTitle(SettingsHost.Content, settings);
 
         // Fallback walk for platforms that flatten / wrap TabBar differently
         foreach (var item in Items)
-            ApplyTitlesToItem(item, chats, contacts, network, settings);
+            ApplyTitlesToItem(item, chats, contacts, network);
     }
 
     private static void SetPageTitle(object? content, string title)
@@ -64,30 +59,27 @@ public partial class AppShell : Shell
             page.Title = title;
     }
 
-    private static void ApplyTitlesToItem(ShellItem item, string chats, string contacts, string network,
-        string settings)
+    private static void ApplyTitlesToItem(ShellItem item, string chats, string contacts, string network)
     {
         foreach (var section in item.Items)
-            ApplyTitlesToSection(section, chats, contacts, network, settings);
+            ApplyTitlesToSection(section, chats, contacts, network);
     }
 
-    private static void ApplyTitlesToSection(ShellSection section, string chats, string contacts, string network,
-        string settings)
+    private static void ApplyTitlesToSection(ShellSection section, string chats, string contacts, string network)
     {
-        var title = MatchTabTitle(section, chats, contacts, network, settings);
+        var title = MatchTabTitle(section, chats, contacts, network);
         if (title != null)
             section.Title = title;
 
         foreach (var content in section.Items)
         {
-            var contentTitle = MatchTabTitle(content, chats, contacts, network, settings) ?? title;
+            var contentTitle = MatchTabTitle(content, chats, contacts, network) ?? title;
             if (contentTitle != null)
                 content.Title = contentTitle;
         }
     }
 
-    private static string? MatchTabTitle(BaseShellItem item, string chats, string contacts, string network,
-        string settings)
+    private static string? MatchTabTitle(BaseShellItem item, string chats, string contacts, string network)
     {
         // Match by route/name when available; otherwise by known RU/EN/ES/ZH titles already set.
         var key = item.Route ?? item.Title ?? "";
@@ -97,8 +89,6 @@ public partial class AppShell : Shell
             return contacts;
         if (ContainsAny(key, "network", "сеть", "red", "网络"))
             return network;
-        if (ContainsAny(key, "setting", "настрой", "ajust", "设置"))
-            return settings;
         return null;
     }
 

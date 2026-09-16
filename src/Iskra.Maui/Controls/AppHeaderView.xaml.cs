@@ -14,10 +14,16 @@ public partial class AppHeaderView : ContentView
     {
         InitializeComponent();
         ApplyServerStatus(MessengerServerLinkStatus.Disabled);
+        ApplySettingsAccessibility();
+        SettingsIcon.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await OpenSettingsAsync().ConfigureAwait(true))
+        });
     }
 
     public void Bind(UserEntity? user, UserP2pRuntime p2p)
     {
+        ApplySettingsAccessibility();
         NickLabel.Text = user?.Nickname ?? "";
         PortLabel.Text = user == null ? "" : Loc.Tf("header.port", user.DataUdpPort);
         var meshOn = p2p.LocalScan.IsUdpListening || p2p.Settings.EnableUdpTransport;
@@ -27,6 +33,23 @@ public partial class AppHeaderView : ContentView
         var btOn = p2p.Settings.EnableBluetoothTransport && p2p.LocalScan.IsBluetoothListening;
         BtIcon.Opacity = btOn ? 1 : 0.28;
         _ = RefreshServerStatusAsync(p2p);
+    }
+
+    private void ApplySettingsAccessibility()
+    {
+        var text = Loc.T("tab.settings");
+        ToolTipProperties.SetText(SettingsIcon, text);
+        SemanticProperties.SetDescription(SettingsIcon, text);
+        AutomationProperties.SetName(SettingsIcon, text);
+    }
+
+    private static async Task OpenSettingsAsync()
+    {
+        var current = Shell.Current?.CurrentPage;
+        if (current is null or SettingsPage)
+            return;
+        var page = MauiProgram.Services.GetRequiredService<SettingsPage>();
+        await current.Navigation.PushAsync(page).ConfigureAwait(true);
     }
 
     private async Task RefreshServerStatusAsync(UserP2pRuntime p2p)

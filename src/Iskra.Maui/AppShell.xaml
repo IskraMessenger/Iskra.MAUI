@@ -17,8 +17,5 @@
         <Tab x:Name="NetworkTab" Title="Network" Icon="tab_network.png">
             <ShellContent x:Name="NetworkHost" Title="Network" />
         </Tab>
-        <Tab x:Name="SettingsTab" Title="Settings" Icon="tab_settings.png">
-            <ShellContent x:Name="SettingsHost" Title="Settings" />
-        </Tab>
     </TabBar>
 </Shell>

@@ -37,6 +37,12 @@ public partial class SettingsPage : ContentPage
     private void OnLanguageChanged(object? sender, EventArgs e) =>
         MainThread.BeginInvokeOnMainThread(async () => await LoadAsync().ConfigureAwait(true));
 
+    private async void OnBackClicked(object? sender, EventArgs e)
+    {
+        if (Navigation.NavigationStack.Count > 1)
+            await Navigation.PopAsync().ConfigureAwait(true);
+    }
+
     protected override async void OnAppearing()
     {
         base.OnAppearing();
@@ -95,6 +101,7 @@ public partial class SettingsPage : ContentPage
     private void ApplyLocalizedChrome()
     {
         Title = Loc.T("settings.title");
+        TitleLabel.Text = Title;
         LanguageSectionLabel.Text = Loc.T("lang.section");
         AppearanceLabel.Text = Loc.T("settings.appearance");
         BluetoothLabel.Text = Loc.T("settings.bluetooth");

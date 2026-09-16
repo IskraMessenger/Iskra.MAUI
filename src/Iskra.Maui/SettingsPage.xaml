@@ -6,10 +6,17 @@
              x:Class="Iskra.Maui.SettingsPage"
              Title="Settings"
              Shell.NavBarIsVisible="False"
+             Shell.TabBarIsVisible="False"
              BackgroundColor="{DynamicResource PageBackground}">
     <ScrollView>
         <VerticalStackLayout Spacing="0" Padding="0,0,0,24">
             <local:AppHeaderView x:Name="Header" />
+            <Grid Padding="12,0,16,2" ColumnDefinitions="36,*" ColumnSpacing="4">
+                <Button Text="&#x2039;" FontSize="28" BackgroundColor="Transparent"
+                        TextColor="{DynamicResource MidnightBlue}" Padding="0" Clicked="OnBackClicked" />
+                <Label x:Name="TitleLabel" Grid.Column="1" FontSize="20" FontAttributes="Bold"
+                       TextColor="{DynamicResource MidnightBlue}" VerticalOptions="Center" />
+            </Grid>
             <Grid Padding="16,8,16,16" ColumnDefinitions="56,*,Auto" ColumnSpacing="12">
                 <Grid WidthRequest="52" HeightRequest="52">
                     <Border x:Name="ProfileAvatar" WidthRequest="52" HeightRequest="52" StrokeThickness="0"
