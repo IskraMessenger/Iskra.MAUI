@@ -259,6 +259,7 @@ internal static class AppEndpoints
         {
             MessageDeliveryStatus.Pending => "pending",
             MessageDeliveryStatus.Failed => "failed",
+            MessageDeliveryStatus.Sent => "sent",
             _ => "ok"
         };
     }

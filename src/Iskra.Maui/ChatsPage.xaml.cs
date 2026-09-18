@@ -5,6 +5,7 @@ using Iskra.Maui.Services;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Auth.Data;
+using ShortP2P.Client;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
@@ -79,6 +80,8 @@ public partial class ChatsPage : ContentPage
         _chats.ChatCreated += OnChatCreated;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
         _chats.ChatMessageAppended += OnChatMessageAppended;
+        _chats.ChatMessageDeliveryChanged -= OnChatMessageDeliveryChanged;
+        _chats.ChatMessageDeliveryChanged += OnChatMessageDeliveryChanged;
         _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
         _p2p.LocalScan.ClientsChanged += OnLanPresenceChanged;
         _messengerServers.TrustThreatDetected -= OnMessengerServerTrustThreat;
@@ -133,6 +136,7 @@ public partial class ChatsPage : ContentPage
     {
         _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
         _chats.ChatMessageAppended -= OnChatMessageAppended;
+        _chats.ChatMessageDeliveryChanged -= OnChatMessageDeliveryChanged;
         _chats.ChatCreated -= OnChatCreated;
         _messengerServers.TrustThreatDetected -= OnMessengerServerTrustThreat;
         _blacklist.Changed -= OnBlacklistChanged;
@@ -151,6 +155,9 @@ public partial class ChatsPage : ContentPage
         var chatId = e.ChatId;
         _ = PatchLastMessageAsync(chatId);
     }
+
+    private void OnChatMessageDeliveryChanged(object? sender, ChatMessageAppendedEventArgs e) =>
+        OnChatMessageAppended(sender, e);
 
     private void OnMessengerServerTrustThreat(object? sender, MessengerServerTrustThreatEventArgs e)
     {
@@ -220,6 +227,7 @@ public partial class ChatsPage : ContentPage
             {
                 _chats.ChatListChanged -= OnChatListChangedFromInvite;
                 _chats.ChatMessageAppended -= OnChatMessageAppended;
+                _chats.ChatMessageDeliveryChanged -= OnChatMessageDeliveryChanged;
                 _p2p.LocalScan.ClientsChanged -= OnLanPresenceChanged;
                 Application.Current!.MainPage =
                     new NavigationPage(MauiProgram.Services.GetRequiredService<LoginPage>());
@@ -547,8 +555,9 @@ public sealed class ChatListRowVm : INotifyPropertyChanged
         return ds switch
         {
             MessageDeliveryStatus.Pending => (preview, time, "\u23f3", Color.FromArgb("#B8860B"), true),
+            MessageDeliveryStatus.Sent => (preview, time, OutgoingDeliveryIndicators.Sent, IskraTheme.Check, true),
             MessageDeliveryStatus.Failed => (preview, time, "!", Colors.Red, true),
-            _ => (preview, time, "\u2713\u2713", IskraTheme.Check, true)
+            _ => (preview, time, OutgoingDeliveryIndicators.Delivered, IskraTheme.Check, true)
         };
     }
 }

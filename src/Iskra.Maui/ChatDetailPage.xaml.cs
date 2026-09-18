@@ -384,6 +384,8 @@ public partial class ChatDetailPage : ContentPage
         _repo.PeerPublicKeyChanged += OnPeerPublicKeyChanged;
         _repo.ChatMessageAppended -= OnChatMessageAppended;
         _repo.ChatMessageAppended += OnChatMessageAppended;
+        _repo.ChatMessageDeliveryChanged -= OnChatMessageDeliveryChanged;
+        _repo.ChatMessageDeliveryChanged += OnChatMessageDeliveryChanged;
         _messengerServers.FailoverCompleted -= OnMessengerServerFailover;
         _messengerServers.FailoverCompleted += OnMessengerServerFailover;
         if (_p2pSession != null)
@@ -406,6 +408,7 @@ public partial class ChatDetailPage : ContentPage
         _p2p.LocalScan.ClientsChanged -= OnPeerLanPresenceChanged;
         _repo.PeerPublicKeyChanged -= OnPeerPublicKeyChanged;
         _repo.ChatMessageAppended -= OnChatMessageAppended;
+        _repo.ChatMessageDeliveryChanged -= OnChatMessageDeliveryChanged;
         _messengerServers.FailoverCompleted -= OnMessengerServerFailover;
         if (_presenceRefreshTimer != null)
             _presenceRefreshTimer.Stop();
@@ -496,6 +499,9 @@ public partial class ChatDetailPage : ContentPage
         _ = AppendLatestMessagesAsync();
     }
 
+    private void OnChatMessageDeliveryChanged(object? sender, ChatMessageAppendedEventArgs e) =>
+        OnChatMessageAppended(sender, e);
+
     private void OnP2PTransferStateChanged(object? sender, int messageId)
     {
         ScheduleReloadMessages();
@@ -531,6 +537,31 @@ public partial class ChatDetailPage : ContentPage
 
             void ApplyNew()
             {
+                var byId = _loadedRows.ToDictionary(r => r.Id);
+                var refreshedIds = new HashSet<int>();
+                foreach (var m in newest)
+                {
+                    if (!byId.TryGetValue(m.Id, out var existing))
+                        continue;
+                    if (!MessageDisplayChanged(existing, m))
+                        continue;
+                    CopyMessageDisplayFields(existing, m);
+                    refreshedIds.Add(m.Id);
+                }
+
+                if (refreshedIds.Count > 0)
+                {
+                    for (var i = 0; i < _messageItems.Count; i++)
+                    {
+                        var vm = _messageItems[i];
+                        if (vm.MessageId <= 0 ||
+                            !refreshedIds.Contains(vm.MessageId) ||
+                            !byId.TryGetValue(vm.MessageId, out var row))
+                            continue;
+                        _messageItems[i] = BuildMessageRowVm(row);
+                    }
+                }
+
                 var known = new HashSet<int>(_loadedRows.Select(r => r.Id));
                 var missing = newest.Where(m => !known.Contains(m.Id)).ToList();
                 if (missing.Count == 0)
@@ -710,6 +741,37 @@ public partial class ChatDetailPage : ContentPage
             else if (!MessageRowsEqual(previous, next))
                 _messageItems[i] = next;
         }
+    }
+
+    private static bool MessageDisplayChanged(ChatMessageEntity existing, ChatMessageEntity newer) =>
+        existing.DeliveryStatus != newer.DeliveryStatus ||
+        existing.TransferState != newer.TransferState ||
+        existing.PayloadKind != newer.PayloadKind ||
+        existing.MimeType != newer.MimeType ||
+        existing.Text != newer.Text ||
+        existing.TransferPayloadKind != newer.TransferPayloadKind ||
+        existing.TransferFileName != newer.TransferFileName ||
+        existing.TransferSizeBytes != newer.TransferSizeBytes ||
+        existing.TransferHost != newer.TransferHost ||
+        existing.TransferPort != newer.TransferPort ||
+        existing.HasPayloadBlob != newer.HasPayloadBlob;
+
+    private static void CopyMessageDisplayFields(ChatMessageEntity existing, ChatMessageEntity newer)
+    {
+        existing.DeliveryStatus = newer.DeliveryStatus;
+        existing.TransferState = newer.TransferState;
+        existing.PayloadKind = newer.PayloadKind;
+        existing.MimeType = newer.MimeType;
+        existing.Text = newer.Text;
+        existing.TransferPayloadKind = newer.TransferPayloadKind;
+        existing.TransferFileName = newer.TransferFileName;
+        existing.TransferSizeBytes = newer.TransferSizeBytes;
+        existing.TransferHost = newer.TransferHost;
+        existing.TransferPort = newer.TransferPort;
+        existing.TransferId = newer.TransferId;
+        existing.TransferToken = newer.TransferToken;
+        existing.TransferExpiresUtcTicks = newer.TransferExpiresUtcTicks;
+        existing.HasPayloadBlob = newer.HasPayloadBlob;
     }
 
     private static bool MessageRowsEqual(MessageRowVm a, MessageRowVm b) =>
@@ -1547,9 +1609,10 @@ public partial class ChatDetailPage : ContentPage
         return status switch
         {
             MessageDeliveryStatus.Pending => (OutgoingDeliveryIndicators.Pending, Color.FromArgb("#B8860B"), true),
-            MessageDeliveryStatus.Delivered => ("\u2713\u2713", IskraTheme.Check, true),
+            MessageDeliveryStatus.Sent => (OutgoingDeliveryIndicators.Sent, IskraTheme.Check, true),
+            MessageDeliveryStatus.Delivered => (OutgoingDeliveryIndicators.Delivered, IskraTheme.Check, true),
             MessageDeliveryStatus.Failed => (OutgoingDeliveryIndicators.Failed, Colors.Red, true),
-            _ => ("\u2713\u2713", IskraTheme.Check, true)
+            _ => (OutgoingDeliveryIndicators.Delivered, IskraTheme.Check, true)
         };
     }
 
