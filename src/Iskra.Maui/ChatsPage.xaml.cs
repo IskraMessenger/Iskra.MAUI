@@ -370,6 +370,7 @@ public partial class ChatsPage : ContentPage
     {
         if (sender is not View rowRoot)
             return;
+        ListRowHighlight.Attach(rowRoot);
         ChatListContextMenu.EnsureWired(rowRoot, CreateChatMenuDeps());
     }
 

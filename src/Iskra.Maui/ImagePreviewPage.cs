@@ -9,11 +9,13 @@ public sealed class ImagePreviewPage : ContentPage
 {
     private readonly string _filePath;
     private readonly string _displayName;
+    private readonly DateTimeOffset? _receivedAt;
 
-    public ImagePreviewPage(string filePath, string? displayName = null)
+    public ImagePreviewPage(string filePath, string? displayName = null, DateTimeOffset? receivedAt = null)
     {
         _filePath = filePath;
         _displayName = string.IsNullOrWhiteSpace(displayName) ? Path.GetFileName(filePath) : displayName;
+        _receivedAt = receivedAt;
         Title = Loc.T("image.title");
         BackgroundColor = Colors.Black;
         ToolbarItems.Add(new ToolbarItem
@@ -42,7 +44,7 @@ public sealed class ImagePreviewPage : ContentPage
     {
         try
         {
-            await MediaFileSaver.SaveAsync(_filePath, _displayName).ConfigureAwait(true);
+            await MediaFileSaver.SaveAsync(_filePath, _displayName, _receivedAt).ConfigureAwait(true);
         }
         catch (Exception ex)
         {

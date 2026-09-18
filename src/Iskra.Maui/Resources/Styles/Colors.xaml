@@ -20,6 +20,7 @@
     <Color x:Key="TabBarBackground">#1E1E20</Color>
     <Color x:Key="Danger">#FF453A</Color>
     <Color x:Key="Check">#5AC8FA</Color>
+    <Color x:Key="ListRowHover">#3A3A3C</Color>
 
     <Color x:Key="Primary">#FF6A00</Color>
     <Color x:Key="PrimaryDark">#E55E00</Color>

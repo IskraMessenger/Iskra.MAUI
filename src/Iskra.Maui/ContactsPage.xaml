@@ -44,7 +44,8 @@
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="16,10" ColumnDefinitions="52,*" ColumnSpacing="12">
+                    <Grid Padding="16,10" ColumnDefinitions="52,*" ColumnSpacing="12"
+                          Loaded="OnContactRowLoaded">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Tapped="OnContactRowTapped" />
                         </Grid.GestureRecognizers>

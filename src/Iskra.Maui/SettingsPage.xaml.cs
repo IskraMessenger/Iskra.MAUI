@@ -97,7 +97,7 @@ public partial class SettingsPage : ContentPage
     private void InitializeDatabaseProviderPicker()
     {
         DatabasePicker.ItemsSource = DatabaseProviderSettings.AvailableProviders
-            .Select(p => p.ToString())
+            .Select(DatabaseProviderSettings.GetDisplayName)
             .ToList();
 
         var currentProviderIndex = Array.IndexOf(DatabaseProviderSettings.AvailableProviders, _databaseSettings.CurrentProvider);

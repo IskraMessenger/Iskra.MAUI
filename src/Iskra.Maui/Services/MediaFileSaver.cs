@@ -7,16 +7,49 @@ namespace Iskra.Maui.Services;
 /// </summary>
 public static class MediaFileSaver
 {
-    public static async Task<bool> SaveAsync(string sourcePath, string suggestedName)
+    public static async Task<bool> SaveAsync(string sourcePath, string suggestedName, DateTimeOffset? receivedAt = null)
     {
+        var name = SuggestSaveFileName(sourcePath, suggestedName, receivedAt);
 #if WINDOWS
-        return await SaveWindowsAsync(sourcePath, suggestedName).ConfigureAwait(false);
+        return await SaveWindowsAsync(sourcePath, name).ConfigureAwait(false);
 #elif ANDROID
-        return await SaveAndroidAsync(sourcePath, suggestedName).ConfigureAwait(false);
+        return await SaveAndroidAsync(sourcePath, name).ConfigureAwait(false);
 #else
         await Task.CompletedTask;
         return false;
 #endif
+    }
+
+    /// <summary>
+    /// Suggested save name: <c>image_18.09.2026_22_29_05.jpg</c> / <c>video_…</c>.
+    /// Non-media files keep the original suggested name.
+    /// </summary>
+    public static string SuggestSaveFileName(string? sourcePath, string? suggestedName, DateTimeOffset? when = null)
+    {
+        var raw = !string.IsNullOrWhiteSpace(suggestedName)
+            ? suggestedName
+            : sourcePath ?? "";
+        var ext = ExtensionOf(raw);
+        if (string.IsNullOrWhiteSpace(ext) || ext == ".bin")
+            ext = ExtensionOf(sourcePath ?? "");
+
+        if (IsVideoExt(ext))
+            return FormatTimestampedName("video", ext, when);
+        if (IsImageExt(ext))
+            return FormatTimestampedName("image", ext, when);
+
+        if (!string.IsNullOrWhiteSpace(suggestedName))
+            return Path.GetFileName(suggestedName);
+        if (!string.IsNullOrWhiteSpace(sourcePath))
+            return Path.GetFileName(sourcePath);
+        return "file.bin";
+    }
+
+    private static string FormatTimestampedName(string kind, string ext, DateTimeOffset? when)
+    {
+        var t = (when ?? DateTimeOffset.Now).ToLocalTime();
+        // image_dd.MM.yyyy_HH_mm_ss.ext  (mm = minutes)
+        return $"{kind}_{t:dd.MM.yyyy}_{t:HH_mm_ss}{ext}";
     }
 
     private static string ExtensionOf(string name)

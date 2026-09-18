@@ -1358,13 +1358,14 @@ public partial class ChatDetailPage : ContentPage
         var isImage = IsImageAttachment(row);
         var isVideo = IsVideoAttachment(row);
         var name = SanitizeFileName(EnsureMediaFileName(AttachmentDisplayName(row), row));
+        var receivedAt = new DateTimeOffset(row.SentUtcTicks, TimeSpan.Zero);
         var temp = Path.Combine(FileSystem.CacheDirectory, $"{row.Id}_{name}");
         await File.WriteAllBytesAsync(temp, blob).ConfigureAwait(true);
         AppLog.BinaryLoaded(isImage ? "received-image" : isVideo ? "received-video" : "received-document", name,
             blob.Length);
         if (isImage)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new ImagePreviewPage(temp, name))
+            await Navigation.PushModalAsync(new NavigationPage(new ImagePreviewPage(temp, name, receivedAt))
             {
                 BarBackgroundColor = Colors.Black,
                 BarTextColor = Colors.White
@@ -1374,7 +1375,7 @@ public partial class ChatDetailPage : ContentPage
 
         if (isVideo)
         {
-            await Navigation.PushModalAsync(new NavigationPage(new VideoPreviewPage(temp, name))
+            await Navigation.PushModalAsync(new NavigationPage(new VideoPreviewPage(temp, name, receivedAt))
             {
                 BarBackgroundColor = Colors.Black,
                 BarTextColor = Colors.White
@@ -1437,6 +1438,7 @@ public partial class ChatDetailPage : ContentPage
     {
         if (sender is not View rowRoot)
             return;
+        ListRowHighlight.Attach(rowRoot);
         ChatListContextMenu.EnsureWired(rowRoot, new ChatListContextMenu.Deps
         {
             Host = this,

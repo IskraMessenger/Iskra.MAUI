@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Microsoft.Extensions.Logging;
 using Iskra.Maui.Localization;
+using Iskra.Maui.Services;
 using ShortP2P.Auth;
 using ShortP2P.Auth.Data;
 using ShortP2P.Client.Data;
@@ -242,6 +243,12 @@ public partial class ContactsPage : ContentPage
             TransportKind.MessengerServer => Loc.T("network.servers"),
             _ => p.TransportKind.ToString()
         };
+
+    private void OnContactRowLoaded(object? sender, EventArgs e)
+    {
+        if (sender is View rowRoot)
+            ListRowHighlight.Attach(rowRoot);
+    }
 
     private async void OnContactRowTapped(object? sender, TappedEventArgs e)
     {

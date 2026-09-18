@@ -62,6 +62,10 @@ internal static class ThemeService
         Set(app, "Danger", p.Danger);
         Set(app, "Magenta", p.Accent);
         Set(app, "OffBlack", p.PageBackground);
+        // Hover/press for chat & contact list rows: gray on dark themes, light-gray on light.
+        Set(app, "ListRowHover", p.IsDark
+            ? Color.FromArgb("#3A3A3C")
+            : Color.FromArgb("#E5E5EA"));
 
         app.Resources["PrimaryBrush"] = new SolidColorBrush(p.Accent);
         app.Resources["SecondaryBrush"] = new SolidColorBrush(p.Surface);
