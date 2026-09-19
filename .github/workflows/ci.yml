@@ -27,3 +27,58 @@ jobs:
       # push/PR → Release; workflow_dispatch → выбранная конфигурация
       configuration: ${{ inputs.configuration || 'Release' }}
     secrets: inherit
+
+  # Rolling public prerelease so anonymous users can download CI ZIPs
+  # (Actions artifacts still require a GitHub login even on public repos).
+  publish-ci-builds:
+    name: Publish ci-builds prerelease
+    needs: build
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev/'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Pack release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          for dir in artifacts/*; do
+            [ -d "$dir" ] || continue
+            name=$(basename "$dir")
+            (cd "$dir" && zip -r "$GITHUB_WORKSPACE/release-assets/${name}.zip" .)
+          done
+          ls -la release-assets
+
+      - name: Clear previous ci-builds assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_json=$(gh api "repos/${{ github.repository }}/releases/tags/ci-builds" 2>/dev/null || true)
+          if [ -z "${release_json}" ]; then
+            echo "No existing ci-builds release"
+            exit 0
+          fi
+          echo "$release_json" | jq -r '.assets[].id' | while read -r id; do
+            [ -n "$id" ] || continue
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/${id}"
+          done
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-builds
+          name: CI builds (rolling)
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          body: |
+            Rolling intermediate builds from the **CI** workflow (WinForms x86/x64, MAUI Windows x64, Android arm64).
+            Updated on pushes to `main` and `dev/**`. ZIP names match CI artifact names.
+          files: release-assets/*
+          fail_on_unmatched_files: true
