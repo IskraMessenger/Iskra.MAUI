@@ -171,7 +171,8 @@ public sealed class MainForm : AppForm
             return;
         void Mark()
         {
-            if (_openChats.ContainsKey(chatId))
+            // Active chat in any open ChatForm is considered read.
+            if (_openChats.TryGetValue(chatId, out var open) && open is { IsDisposed: false })
                 return;
             _unreadChatIds.Add(chatId);
             _list.Invalidate();
@@ -401,6 +402,14 @@ public sealed class MainForm : AppForm
             return;
         }
 
+        // Prefer switching an already-open ChatForm (MAUI-style left list) instead of a second window.
+        var anyOpen = _openChats.Values.FirstOrDefault(f => f is { IsDisposed: false });
+        if (anyOpen != null)
+        {
+            _ = SwitchOpenChatAsync(anyOpen, chat);
+            return;
+        }
+
         var form = new ChatForm(
             _auth,
             _chats,
@@ -408,10 +417,69 @@ public sealed class MainForm : AppForm
             _services.GetRequiredService<MessengerServerSyncService>(),
             chat,
             _logger);
-        _openChats[chat.Id] = form;
-        form.FormClosed += (_, _) => _openChats.Remove(chat.Id);
+        WireChatForm(form, chat.Id);
         form.Show(this);
         ScheduleReload();
+    }
+
+    private void WireChatForm(ChatForm form, int chatId)
+    {
+        _openChats[chatId] = form;
+        form.ActiveChatChanged += OnChatFormActiveChatChanged;
+        form.ChatSwitchRequested += OnChatFormSwitchRequested;
+        form.FormClosed += (_, _) =>
+        {
+            form.ActiveChatChanged -= OnChatFormActiveChatChanged;
+            form.ChatSwitchRequested -= OnChatFormSwitchRequested;
+            foreach (var key in _openChats.Where(kv => ReferenceEquals(kv.Value, form)).Select(kv => kv.Key).ToList())
+                _openChats.Remove(key);
+        };
+    }
+
+    private void OnChatFormActiveChatChanged(object? sender, ChatSwitchedEventArgs e)
+    {
+        if (sender is not ChatForm form)
+            return;
+
+        if (_openChats.TryGetValue(e.OldChatId, out var mapped) && ReferenceEquals(mapped, form))
+            _openChats.Remove(e.OldChatId);
+
+        _openChats[e.NewChatId] = form;
+        _unreadChatIds.Remove(e.NewChatId);
+        _list.Invalidate();
+        ScheduleReload();
+    }
+
+    private void OnChatFormSwitchRequested(object? sender, ChatSwitchRequestEventArgs e)
+    {
+        if (sender is not ChatForm form)
+            return;
+
+        // Avoid two windows for the same chat: activate the existing one instead of switching.
+        if (_openChats.TryGetValue(e.Chat.Id, out var other) &&
+            other is { IsDisposed: false } &&
+            !ReferenceEquals(other, form))
+        {
+            e.Handled = true;
+            other.BringToFront();
+            other.Activate();
+        }
+    }
+
+    private async Task SwitchOpenChatAsync(ChatForm form, ChatEntity chat)
+    {
+        try
+        {
+            await form.SwitchToChatAsync(chat).ConfigureAwait(true);
+            if (form.IsDisposed)
+                return;
+            form.BringToFront();
+            form.Activate();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Switch open chat to {ChatId}", chat.Id);
+        }
     }
 
     private void OnDrawChatItem(object? sender, DrawItemEventArgs e)
