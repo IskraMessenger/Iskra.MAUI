@@ -17,10 +17,16 @@ public sealed class MainForm : Form
     private readonly ChatRepository _chats;
     private readonly IServiceProvider _services;
     private readonly ILogger<MainForm> _logger;
-    private readonly ListBox _list = new() { Dock = DockStyle.Fill, IntegralHeight = false };
+    private readonly ListBox _list = new()
+    {
+        Dock = DockStyle.Fill,
+        IntegralHeight = false,
+        DrawMode = DrawMode.OwnerDrawFixed
+    };
     private readonly Label _status = new() { AutoSize = true, Dock = DockStyle.Bottom, Padding = new Padding(8) };
     private readonly System.Windows.Forms.Timer _refreshTimer = new() { Interval = 4000 };
     private List<ChatEntity> _items = [];
+    private readonly HashSet<int> _unreadChatIds = [];
     private bool _reloadBusy;
     private bool _reloadPending;
 
@@ -87,6 +93,8 @@ public sealed class MainForm : Form
         toolbar.Controls.Add(logout);
 
         _list.DoubleClick += (_, _) => OpenSelected();
+        _list.DrawItem += OnDrawChatItem;
+        _list.ItemHeight = Math.Max(_list.Font.Height + 4, 18);
 
         Controls.Add(_list);
         Controls.Add(_status);
@@ -148,7 +156,41 @@ public sealed class MainForm : Form
         ScheduleOpenChat(e.ChatId);
     }
 
-    private void OnChatMessageAppended(object? sender, ChatMessageAppendedEventArgs e) => ScheduleReload();
+    private void OnChatMessageAppended(object? sender, ChatMessageAppendedEventArgs e)
+    {
+        if (!e.Outgoing)
+            MarkChatUnread(e.ChatId);
+        ScheduleReload();
+    }
+
+    private void MarkChatUnread(int chatId)
+    {
+        if (IsDisposed || !IsHandleCreated)
+            return;
+        void Mark()
+        {
+            if (_openChats.ContainsKey(chatId))
+                return;
+            _unreadChatIds.Add(chatId);
+            _list.Invalidate();
+        }
+
+        try
+        {
+            if (InvokeRequired)
+                BeginInvoke(Mark);
+            else
+                Mark();
+        }
+        catch (ObjectDisposedException)
+        {
+            // ignore
+        }
+        catch (InvalidOperationException)
+        {
+            // handle not ready
+        }
+    }
 
     private void ScheduleReload()
     {
@@ -346,6 +388,10 @@ public sealed class MainForm : Form
             BeginInvoke(new Action(() => OpenChat(chat)));
             return;
         }
+
+        _unreadChatIds.Remove(chat.Id);
+        _list.Invalidate();
+
         if (_openChats.TryGetValue(chat.Id, out var existing) && existing is { IsDisposed: false })
         {
             existing.BringToFront();
@@ -354,11 +400,35 @@ public sealed class MainForm : Form
         }
 
         var form = new ChatForm(
-            _auth, _chats, _services.GetRequiredService<MessengerServerSyncService>(), chat, _logger);
+            _auth,
+            _chats,
+            _services.GetRequiredService<ChatSessionCache>(),
+            _services.GetRequiredService<MessengerServerSyncService>(),
+            chat,
+            _logger);
         _openChats[chat.Id] = form;
         form.FormClosed += (_, _) => _openChats.Remove(chat.Id);
         form.Show(this);
         ScheduleReload();
+    }
+
+    private void OnDrawChatItem(object? sender, DrawItemEventArgs e)
+    {
+        e.DrawBackground();
+        if (e.Index < 0 || e.Index >= _items.Count)
+            return;
+
+        var chat = _items[e.Index];
+        var text = e.Index < _list.Items.Count
+            ? _list.Items[e.Index]?.ToString() ?? chat.PeerNickname
+            : $"{chat.PeerNickname}  ({chat.PeerNetworkIdShort})";
+        var emphasize = _unreadChatIds.Contains(chat.Id);
+        var baseFont = e.Font ?? _list.Font;
+        using var drawFont = emphasize ? new Font(baseFont, FontStyle.Bold) : null;
+        var font = drawFont ?? baseFont;
+        TextRenderer.DrawText(e.Graphics, text, font, e.Bounds, e.ForeColor,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        e.DrawFocusRectangle();
     }
 
     private void OnMyQr(object? sender, EventArgs e)

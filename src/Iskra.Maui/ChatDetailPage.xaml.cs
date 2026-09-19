@@ -825,7 +825,7 @@ public partial class ChatDetailPage : ContentPage
         if (m.Outgoing && ds == MessageDeliveryStatus.NotApplicable)
             ds = MessageDeliveryStatus.Delivered;
         var (glyph, gColor, show) = DeliveryUiFor(ds, m.Outgoing);
-        var bubble = m.Outgoing ? IskraTheme.OutgoingBubble : IskraTheme.IncomingBubble;
+        var bubble = m.Outgoing ? IskraTheme.OutgoingBubble : Color.FromArgb("#009999");
 
         if (m.PayloadKind == (int)ChatPayloadKind.File)
             return AttachmentPlaceholder(m, isTransferOffer: false, ds, color, show, glyph, gColor, bubble, ts);

@@ -50,14 +50,12 @@ public partial class ContactsPage : ContentPage
         SearchEntry.Placeholder = Loc.T("contacts.search");
         ScanButton.Text = Loc.T("contacts.scan");
         EmptyContactsLabel.Text = Loc.T("contacts.empty");
-        _p2p.LocalScan.ClientsChanged -= OnClientsChanged;
-        _p2p.LocalScan.ClientsChanged += OnClientsChanged;
         var u = _auth.CurrentUser;
         if (u != null)
             _ = EnsureConnectivityAsync(u);
 
+        // Known chats (+ already-discovered peers in memory). No LAN/server probe until Scan.
         await RefreshAsync().ConfigureAwait(true);
-        _ = ProbeDiscoveryAsync();
     }
 
     private async Task EnsureConnectivityAsync(UserEntity u)
@@ -73,33 +71,10 @@ public partial class ContactsPage : ContentPage
         }
     }
 
-    protected override void OnDisappearing()
-    {
-        _p2p.LocalScan.ClientsChanged -= OnClientsChanged;
-        base.OnDisappearing();
-    }
-
-    private void OnClientsChanged(object? sender, EventArgs e)
-    {
-        MainThread.BeginInvokeOnMainThread(() => _ = RefreshAsync());
-    }
-
     private void OnSearchChanged(object? sender, TextChangedEventArgs e)
     {
         _search = e.NewTextValue?.Trim() ?? "";
         ApplyFilter();
-    }
-
-    private async Task ProbeDiscoveryAsync()
-    {
-        try
-        {
-            await _p2p.LocalScan.TriggerScanAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Contacts discovery round");
-        }
     }
 
     private async void OnScanClicked(object? sender, EventArgs e)

@@ -131,49 +131,12 @@ public sealed class LanScanForm : Form
         _list.ItemActivate += async (_, _) => await OnActivateAsync().ConfigureAwait(true);
         AcceptButton = _close;
 
+        // Known chats (+ already-discovered peers). No GetClients/LAN probe until «Сканировать».
         Shown += async (_, _) =>
         {
-            _scanner.ClientsChanged += OnClientsChanged;
-            await OnAppearingAsync().ConfigureAwait(true);
+            _status.Text = "Нажмите «Сканировать» для опроса серверов и LAN.";
+            await RefreshAsync().ConfigureAwait(true);
         };
-        FormClosed += (_, _) => _scanner.ClientsChanged -= OnClientsChanged;
-    }
-
-    private async Task OnAppearingAsync()
-    {
-        try
-        {
-            _status.Text = "Опрос messenger-серверов (GetClients)…";
-            var remote = await MessengerServersBootstrap
-                .EnsureRunningAsync(_sync, _manager, _logger).ConfigureAwait(true);
-            _scanner.ApplyMessengerServerDirectory(Program.ToDirectoryEntries(remote));
-            await RefreshAsync().ConfigureAwait(true);
-
-            _status.Text = "Быстрый раунд discovery…";
-            await _scanner.TriggerScanAsync().ConfigureAwait(true);
-            await RefreshAsync().ConfigureAwait(true);
-            _status.Text = FormatStatusSummary(remote.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Contacts appear / GetClients probe");
-            _status.Text = "";
-            await RefreshAsync().ConfigureAwait(true);
-        }
-    }
-
-    private void OnClientsChanged(object? sender, EventArgs e)
-    {
-        if (IsDisposed || !IsHandleCreated)
-            return;
-        try
-        {
-            BeginInvoke(new Action(() => _ = RefreshAsync()));
-        }
-        catch (ObjectDisposedException)
-        {
-            // ignore
-        }
     }
 
     private async Task RefreshAsync()

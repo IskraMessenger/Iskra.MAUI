@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
-using ShortP2P.Client.ChatMedia;
+using ShortP2P.Auth.Data;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
@@ -11,22 +11,34 @@ public sealed class ChatForm : Form
 {
     private readonly AuthService _auth;
     private readonly ChatRepository _chats;
+    private readonly ChatSessionCache _sessions;
     private readonly MessengerServerSyncService _sync;
     private ChatEntity _chat;
     private readonly ILogger _logger;
-    private readonly ListBox _messages = new() { Dock = DockStyle.Fill, IntegralHeight = false };
+    private static readonly Color PeerMessageColor = Color.FromArgb(0x00, 0x99, 0x99);
+
+    private ChatP2PSession? _p2pSession;
+
+    private readonly ListBox _messages = new()
+    {
+        Dock = DockStyle.Fill,
+        IntegralHeight = false,
+        DrawMode = DrawMode.OwnerDrawFixed
+    };
     private readonly TextBox _input = new() { Dock = DockStyle.Fill };
     private readonly Button _send = new() { Text = "Отправить", Width = 100 };
 
     public ChatForm(
         AuthService auth,
         ChatRepository chats,
+        ChatSessionCache sessions,
         MessengerServerSyncService sync,
         ChatEntity chat,
         ILogger logger)
     {
         _auth = auth;
         _chats = chats;
+        _sessions = sessions;
         _sync = sync;
         _chat = chat;
         _logger = logger;
@@ -37,6 +49,7 @@ public sealed class ChatForm : Form
 
         _send.Click += async (_, _) => await SendAsync().ConfigureAwait(true);
         AcceptButton = _send;
+        _messages.DrawItem += OnMessagesDrawItem;
 
         var bottom = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 40, ColumnCount = 2 };
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -47,27 +60,62 @@ public sealed class ChatForm : Form
         Controls.Add(_messages);
         Controls.Add(bottom);
 
-        Load += async (_, _) =>
-        {
-            await ReloadAsync().ConfigureAwait(true);
-            try
-            {
-                await _sync.PublishChatRequestAsync(_chat.PeerNetworkIdShort).ConfigureAwait(true);
-                await _sync.DrainInboxOnceAsync().ConfigureAwait(true);
-                await RefreshChatEntityAsync().ConfigureAwait(true);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "PublishChatRequest on chat open");
-            }
-        };
-        _chats.ChatMessageAppended += OnAppended;
+        Load += async (_, _) => await OnLoadAsync().ConfigureAwait(true);
+        _chats.ChatMessageAppended += OnRepoMessagesChanged;
+        _chats.ChatMessageDeliveryChanged += OnRepoMessagesChanged;
         _chats.ChatListChanged += OnChatListChanged;
         FormClosed += (_, _) =>
         {
-            _chats.ChatMessageAppended -= OnAppended;
+            if (_p2pSession != null)
+            {
+                _p2pSession.MessagesChanged -= OnP2pMessagesChanged;
+                _p2pSession = null;
+            }
+
+            _chats.ChatMessageAppended -= OnRepoMessagesChanged;
+            _chats.ChatMessageDeliveryChanged -= OnRepoMessagesChanged;
             _chats.ChatListChanged -= OnChatListChanged;
         };
+    }
+
+    private async Task OnLoadAsync()
+    {
+        var user = _auth.CurrentUser;
+        if (user != null)
+            EnsureSession(user);
+
+        await ReloadAsync().ConfigureAwait(true);
+
+        if (_p2pSession == null)
+            return;
+
+        try
+        {
+            if (!_sessions.IsStarted(_chat.Id))
+            {
+                await _p2pSession.StartAsync().ConfigureAwait(true);
+                _sessions.MarkStarted(_chat.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Chat session start for chat {ChatId}", _chat.Id);
+        }
+
+        await RefreshChatEntityAsync().ConfigureAwait(true);
+    }
+
+    private void EnsureSession(UserEntity user)
+    {
+        var uiSync = SynchronizationContext.Current;
+        var logger = _logger;
+        var sync = _sync;
+        _p2pSession = _sessions.GetSession(
+            _chat.Id,
+            () => new ChatP2PSession(_chat, user, _chats, sync, uiSync, logger),
+            s => s.ApplyChatRow(_chat));
+        _p2pSession.MessagesChanged -= OnP2pMessagesChanged;
+        _p2pSession.MessagesChanged += OnP2pMessagesChanged;
     }
 
     private void OnChatListChanged(object? sender, EventArgs e)
@@ -76,10 +124,17 @@ public sealed class ChatForm : Form
             BeginInvoke(new Action(() => _ = RefreshChatEntityAsync()));
     }
 
-    private void OnAppended(object? sender, ChatMessageAppendedEventArgs e)
+    private void OnRepoMessagesChanged(object? sender, ChatMessageAppendedEventArgs e)
     {
         if (e.ChatId != _chat.Id)
             return;
+        ScheduleReload();
+    }
+
+    private void OnP2pMessagesChanged(object? sender, EventArgs e) => ScheduleReload();
+
+    private void ScheduleReload()
+    {
         if (IsHandleCreated)
             BeginInvoke(new Action(() => _ = ReloadAsync()));
     }
@@ -90,6 +145,7 @@ public sealed class ChatForm : Form
         if (fresh == null)
             return;
         _chat = fresh;
+        _p2pSession?.ApplyChatRow(fresh);
         if (IsHandleCreated && InvokeRequired)
         {
             BeginInvoke(new Action(() =>
@@ -109,7 +165,8 @@ public sealed class ChatForm : Form
             foreach (var m in rows)
             {
                 var who = m.Outgoing ? "я" : _chat.PeerNickname;
-                _messages.Items.Add($"{who}: {m.Text}");
+                var status = m.Outgoing ? FormatDeliverySuffix(m.DeliveryStatus) : "";
+                _messages.Items.Add(new ChatLine($"{who}: {m.Text}{status}", m.Outgoing));
             }
 
             if (_messages.Items.Count > 0)
@@ -122,6 +179,16 @@ public sealed class ChatForm : Form
             Bind();
     }
 
+    private static string FormatDeliverySuffix(int deliveryStatus) =>
+        (MessageDeliveryStatus)deliveryStatus switch
+        {
+            MessageDeliveryStatus.Pending => " ⌛",
+            MessageDeliveryStatus.Sent => " ✓",
+            MessageDeliveryStatus.Delivered => " ✓✓",
+            MessageDeliveryStatus.Failed => " !",
+            _ => ""
+        };
+
     private async Task SendAsync()
     {
         var text = _input.Text.Trim();
@@ -131,38 +198,17 @@ public sealed class ChatForm : Form
         if (user == null)
             return;
 
+        EnsureSession(user);
+
         _send.Enabled = false;
         try
         {
-            await RefreshChatEntityAsync().ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(_chat.PeerRsaPublicJson))
-            {
-                await _sync.DrainInboxOnceAsync().ConfigureAwait(false);
-                await RefreshChatEntityAsync().ConfigureAwait(false);
-            }
-
-            if (string.IsNullOrWhiteSpace(_chat.PeerRsaPublicJson))
-            {
-                ShowSendWarning(
-                    "Пока нет ключа пира. Второй клиент должен быть запущен и ответить на приглашение — после этого сообщение можно отправить. «Офлайн» в контактах не значит, что сервер выключен.");
-                return;
-            }
-
-            var wire = ChatWireCodec.EncodeText(text);
-            await _chats.AddMessageAsync(_chat.Id, true, text, MessageDeliveryStatus.Pending).ConfigureAwait(false);
-            var ok = await _sync.TryDeliverWireAsync(_chat, user, wire).ConfigureAwait(false);
-            if (!ok)
-                ShowSendWarning(
-                    "Сервер не принял сообщение. Проверьте «Серверы»: доверенный и активный, клиент должен быть зарегистрирован на том же сервере.");
+            // UI only enqueues Pending into DB; the session flush worker delivers from DB.
+            await _p2pSession!.SendTextAsync(text).ConfigureAwait(false);
+            if (InvokeRequired)
+                BeginInvoke(new Action(() => _input.Clear()));
             else
-            {
-                if (InvokeRequired)
-                    BeginInvoke(new Action(() => _input.Clear()));
-                else
-                    _input.Clear();
-            }
-
-            await ReloadAsync().ConfigureAwait(false);
+                _input.Clear();
         }
         catch (Exception ex)
         {
@@ -178,16 +224,6 @@ public sealed class ChatForm : Form
         }
     }
 
-    private void ShowSendWarning(string text)
-    {
-        void Show() =>
-            MessageBox.Show(this, text, "Отправка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        if (InvokeRequired)
-            BeginInvoke(new Action(Show));
-        else
-            Show();
-    }
-
     private void ShowSendError(string text)
     {
         void Show() =>
@@ -196,5 +232,30 @@ public sealed class ChatForm : Form
             BeginInvoke(new Action(Show));
         else
             Show();
+    }
+
+    private void OnMessagesDrawItem(object? sender, DrawItemEventArgs e)
+    {
+        e.DrawBackground();
+        if (e.Index < 0 || e.Index >= _messages.Items.Count)
+            return;
+
+        var line = _messages.Items[e.Index] as ChatLine;
+        var text = line?.Text ?? _messages.Items[e.Index]?.ToString() ?? "";
+        var color = line is { Outgoing: false } ? PeerMessageColor : e.ForeColor;
+        var font = e.Font ?? _messages.Font;
+        var bounds = new Rectangle(e.Bounds.X + 2, e.Bounds.Y, e.Bounds.Width - 4, e.Bounds.Height);
+        TextRenderer.DrawText(e.Graphics, text, font, bounds, color,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis |
+            TextFormatFlags.NoPadding);
+        e.DrawFocusRectangle();
+    }
+
+    private sealed class ChatLine(string text, bool outgoing)
+    {
+        public string Text { get; } = text;
+        public bool Outgoing { get; } = outgoing;
+
+        public override string ToString() => Text;
     }
 }

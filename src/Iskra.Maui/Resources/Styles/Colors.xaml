@@ -8,7 +8,7 @@
     <Color x:Key="AccentDark">#E55E00</Color>
     <Color x:Key="OnlineGreen">#34C759</Color>
     <Color x:Key="SentText">#FFFFFF</Color>
-    <Color x:Key="IncomingBubble">#2A2A2C</Color>
+    <Color x:Key="IncomingBubble">#009999</Color>
     <Color x:Key="OutgoingBubble">#FF6A00</Color>
     <Color x:Key="PageBackground">#121212</Color>
     <Color x:Key="Surface">#1E1E20</Color>

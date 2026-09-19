@@ -1,5 +1,5 @@
 import { get, post } from "../api.js";
-import { onTick, t } from "../session.js";
+import { t } from "../session.js";
 import { nav } from "../router.js";
 import { el, clear } from "../dom.js";
 
@@ -63,8 +63,8 @@ export function ContactsPage() {
     }
     renderList();
   }
+  // Initial known contacts only; discovery/scan updates only via Scan button (no onTick).
   void load();
-  const off = onTick(() => void load());
 
   scanBtn.addEventListener("click", async () => {
     busy = true;
@@ -98,5 +98,5 @@ export function ContactsPage() {
     ),
     listEl
   );
-  return { root, dispose: off };
+  return { root, dispose: () => {} };
 }
