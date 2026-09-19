@@ -8,7 +8,7 @@ using ShortP2P.Client.Services.MessengerServers;
 
 namespace Iskra.WinForms;
 
-public sealed class AddChatForm : Form
+public sealed class AddChatForm : AppForm
 {
     private readonly AuthService _auth;
     private readonly ChatRepository _chats;

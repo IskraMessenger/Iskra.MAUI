@@ -11,7 +11,7 @@ using ShortP2P.Transport;
 
 namespace Iskra.WinForms;
 
-public sealed class MainForm : Form
+public sealed class MainForm : AppForm
 {
     private readonly AuthService _auth;
     private readonly ChatRepository _chats;
@@ -94,7 +94,9 @@ public sealed class MainForm : Form
 
         _list.DoubleClick += (_, _) => OpenSelected();
         _list.DrawItem += OnDrawChatItem;
-        _list.ItemHeight = Math.Max(_list.Font.Height + 4, 18);
+        // Bold unread rows need a taller fixed height than regular Segoe UI 12pt.
+        using (var bold = new Font(_list.Font, FontStyle.Bold))
+            _list.ItemHeight = Math.Max(bold.Height + 8, 26);
 
         Controls.Add(_list);
         Controls.Add(_status);

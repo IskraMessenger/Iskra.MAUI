@@ -10,7 +10,7 @@ namespace Iskra.WinForms;
 /// <summary>
 /// Maui Settings subset that works without BLE/camera: profile, LAN, routing, economy, keys, about.
 /// </summary>
-public sealed class SettingsForm : Form
+public sealed class SettingsForm : AppForm
 {
     private readonly AuthService _auth;
     private readonly P2pRoutingSettings _live;

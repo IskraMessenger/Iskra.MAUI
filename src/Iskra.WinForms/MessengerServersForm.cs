@@ -5,7 +5,7 @@ using ShortP2P.Client.Services.MessengerServers;
 
 namespace Iskra.WinForms;
 
-public sealed class MessengerServersForm : Form
+public sealed class MessengerServersForm : AppForm
 {
     private readonly MessengerServerManager _manager;
     private readonly ILogger<MessengerServersForm> _logger;

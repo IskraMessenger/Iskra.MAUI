@@ -14,7 +14,7 @@ namespace Iskra.WinForms;
 /// <summary>
 /// Contacts-style list: existing chats + discovered peers (UDP LAN + messenger GetClients). No BLE.
 /// </summary>
-public sealed class LanScanForm : Form
+public sealed class LanScanForm : AppForm
 {
     private sealed class ContactRow
     {

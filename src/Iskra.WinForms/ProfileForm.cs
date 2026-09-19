@@ -11,7 +11,7 @@ using Rectangle = SixLabors.ImageSharp.Rectangle;
 namespace Iskra.WinForms;
 
 /// <summary>Редактирование своего Avatar и AboutMe (только локально). Аватар: квадратная обрезка 512×512.</summary>
-public sealed class ProfileForm : Form
+public sealed class ProfileForm : AppForm
 {
     private const int AvatarDimension = 512;
 

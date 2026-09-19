@@ -3,7 +3,7 @@ using ShortP2P.Auth;
 
 namespace Iskra.WinForms;
 
-public sealed class RegisterForm : Form
+public sealed class RegisterForm : AppForm
 {
     private readonly AuthService _auth;
     private readonly ILogger<RegisterForm> _logger;

@@ -1,6 +1,6 @@
 namespace Iskra.WinForms;
 
-public sealed class QrPreviewForm : Form
+public sealed class QrPreviewForm : AppForm
 {
     public QrPreviewForm(string title, byte[] png, string caption)
     {

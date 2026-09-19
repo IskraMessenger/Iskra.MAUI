@@ -7,7 +7,7 @@ using ShortP2P.Client.Services.MessengerServers;
 
 namespace Iskra.WinForms;
 
-public sealed class ChatForm : Form
+public sealed class ChatForm : AppForm
 {
     private readonly AuthService _auth;
     private readonly ChatRepository _chats;
@@ -50,6 +50,7 @@ public sealed class ChatForm : Form
         _send.Click += async (_, _) => await SendAsync().ConfigureAwait(true);
         AcceptButton = _send;
         _messages.DrawItem += OnMessagesDrawItem;
+        _messages.ItemHeight = Math.Max(_messages.Font.Height + 8, 26);
 
         var bottom = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 40, ColumnCount = 2 };
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
