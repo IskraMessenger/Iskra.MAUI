@@ -5,6 +5,7 @@ using NLog.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Auth.Data;
 using ShortP2P.Client;
+using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
@@ -51,6 +52,7 @@ internal static class Program
         services.AddSingleton<MessengerServerManager>();
         services.AddSingleton<MessengerServerSyncService>();
         services.AddSingleton<P2pRoutingSettingsStore>();
+        services.AddSingleton(_ => ChatMediaOptions.LoadOrDefault(Path.Combine(appRoot, "chat-media.json")));
         services.AddSingleton<IPeerProfileStore, SqlitePeerProfileStore>();
         services.AddSingleton<ILocalPeerProfileSource, AuthLocalPeerProfileSource>();
         services.AddSingleton(sp =>

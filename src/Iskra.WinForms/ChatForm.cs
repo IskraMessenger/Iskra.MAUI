@@ -3,23 +3,28 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
 using ShortP2P.Auth.Data;
+using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Services;
 using ShortP2P.Client.Services.MessengerServers;
+using ShortP2P.Discovery;
 
 namespace Iskra.WinForms;
 
-public sealed class ChatForm : AppForm
+public sealed partial class ChatForm : AppForm
 {
     private readonly AuthService _auth;
     private readonly ChatRepository _chats;
     private readonly ChatSessionCache _sessions;
     private readonly MessengerServerSyncService _sync;
+    private readonly ChatMediaOptions _media;
+    private readonly P2pRoutingSettings _routing;
     private ChatEntity _chat;
     private readonly ILogger _logger;
     private static readonly Color PeerMessageColor = Color.FromArgb(0x00, 0x99, 0x99);
     private static readonly Color PreviewColor = Color.FromArgb(0x66, 0x66, 0x66);
     private readonly ConcurrentDictionary<int, byte> _binaryDownloadsInFlight = new();
+    private readonly ToolTip _buttonTooltips = new() { ShowAlways = true };
 
     private ChatP2PSession? _p2pSession;
     private List<SidebarRow> _sidebarItems = [];
@@ -45,6 +50,27 @@ public sealed class ChatForm : AppForm
         DrawMode = DrawMode.OwnerDrawFixed
     };
     private readonly TextBox _input = new() { Dock = DockStyle.Fill };
+    private readonly Button _attachVoice = new()
+    {
+        Text = "🎤",
+        Width = 36,
+        Height = 32,
+        Font = new Font("Segoe UI Emoji", 11f)
+    };
+    private readonly Button _attachImage = new()
+    {
+        Text = "🖼",
+        Width = 36,
+        Height = 32,
+        Font = new Font("Segoe UI Emoji", 11f)
+    };
+    private readonly Button _attachDocument = new()
+    {
+        Text = "📄",
+        Width = 36,
+        Height = 32,
+        Font = new Font("Segoe UI Emoji", 11f)
+    };
     private readonly Button _send = new() { Text = "Отправить", Width = 120, Height = 32 };
 
     public int ActiveChatId => _chat.Id;
@@ -63,6 +89,8 @@ public sealed class ChatForm : AppForm
         ChatRepository chats,
         ChatSessionCache sessions,
         MessengerServerSyncService sync,
+        ChatMediaOptions media,
+        P2pRoutingSettings routing,
         ChatEntity chat,
         ILogger logger)
     {
@@ -70,6 +98,8 @@ public sealed class ChatForm : AppForm
         _chats = chats;
         _sessions = sessions;
         _sync = sync;
+        _media = media;
+        _routing = routing;
         _chat = chat;
         _logger = logger;
         Text = FormatTitle(chat);
@@ -78,21 +108,36 @@ public sealed class ChatForm : AppForm
         StartPosition = FormStartPosition.CenterParent;
 
         _send.Click += async (_, _) => await SendAsync().ConfigureAwait(true);
+        _attachVoice.Click += (_, _) => OnAttachVoice();
+        _attachImage.Click += async (_, _) => await OnAttachImageAsync().ConfigureAwait(true);
+        _attachDocument.Click += async (_, _) => await OnAttachDocumentAsync().ConfigureAwait(true);
         AcceptButton = _send;
         _messages.DrawItem += OnMessagesDrawItem;
         _messages.MouseClick += OnMessagesMouseClick;
         _messages.ItemHeight = Math.Max(_messages.Font.Height + 8, 26);
+
+        _buttonTooltips.SetToolTip(_attachVoice,
+            "Голосовое (Ogg Opus): нажмите для начала записи, ещё раз — остановить и отправить. Битрейт зависит от режима экономии трафика.");
+        _buttonTooltips.SetToolTip(_attachImage, "Отправить изображение (сжатие по режиму экономии)");
+        _buttonTooltips.SetToolTip(_attachDocument, "Отправить документ");
+        _buttonTooltips.SetToolTip(_send, "Отправить сообщение");
 
         using (var bold = new Font(_sidebar.Font, FontStyle.Bold))
             _sidebar.ItemHeight = Math.Max(bold.Height + _sidebar.Font.Height + 10, 40);
         _sidebar.DrawItem += OnSidebarDrawItem;
         _sidebar.SelectedIndexChanged += OnSidebarSelectedIndexChanged;
 
-        var bottom = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 44, ColumnCount = 2 };
+        var bottom = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 44, ColumnCount = 5 };
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         bottom.Controls.Add(_input, 0, 0);
-        bottom.Controls.Add(_send, 1, 0);
+        bottom.Controls.Add(_attachVoice, 1, 0);
+        bottom.Controls.Add(_attachImage, 2, 0);
+        bottom.Controls.Add(_attachDocument, 3, 0);
+        bottom.Controls.Add(_send, 4, 0);
 
         var right = new Panel { Dock = DockStyle.Fill };
         right.Controls.Add(_messages);
@@ -119,6 +164,9 @@ public sealed class ChatForm : AppForm
         _chats.ChatListChanged += OnChatListChanged;
         FormClosed += (_, _) =>
         {
+            _voiceDiscardNextStop = true;
+            CleanupVoiceRecordingHardware();
+
             if (_p2pSession != null)
             {
                 _p2pSession.MessagesChanged -= OnP2pMessagesChanged;
@@ -128,6 +176,7 @@ public sealed class ChatForm : AppForm
             _chats.ChatMessageAppended -= OnRepoMessagesChanged;
             _chats.ChatMessageDeliveryChanged -= OnRepoMessagesChanged;
             _chats.ChatListChanged -= OnChatListChanged;
+            _buttonTooltips.Dispose();
         };
     }
 

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ShortP2P.Auth;
+using ShortP2P.Client.ChatMedia;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Qr;
 using ShortP2P.Client.Services;
@@ -415,6 +416,8 @@ public sealed class MainForm : AppForm
             _chats,
             _services.GetRequiredService<ChatSessionCache>(),
             _services.GetRequiredService<MessengerServerSyncService>(),
+            _services.GetRequiredService<ChatMediaOptions>(),
+            _services.GetRequiredService<P2pRoutingSettings>(),
             chat,
             _logger);
         WireChatForm(form, chat.Id);
