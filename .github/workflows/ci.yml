@@ -1,0 +1,29 @@
+# CI: WinForms x86/x64, MAUI Windows x64, Android arm64.
+# Полные NSIS-инсталляторы и расширенная матрица — в release/debug/prerelease (_build.yml).
+
+name: CI
+
+on:
+  push:
+    branches: [main, 'dev/**']
+  pull_request:
+    branches: [main, 'dev/**']
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Конфигурация сборки'
+        required: true
+        type: choice
+        options:
+          - Release
+          - Debug
+        default: Release
+
+jobs:
+  build:
+    name: Build targets
+    uses: ./.github/workflows/_ci_targets.yml
+    with:
+      # push/PR → Release; workflow_dispatch → выбранная конфигурация
+      configuration: ${{ inputs.configuration || 'Release' }}
+    secrets: inherit

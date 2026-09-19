@@ -1,0 +1,178 @@
+# Reusable CI: четыре целевые сборки без NSIS (быстрее, чем _build.yml).
+# WinForms x86/x64, MAUI Windows x64, Android arm64.
+#
+# Android signing (опционально, только Release):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS,
+#   ANDROID_KEY_PASSWORD, ANDROID_KEYSTORE_PASSWORD
+# Без секретов — unsigned APK (подходит для CI).
+
+name: CI targets (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      configuration:
+        description: 'Build configuration: Release или Debug'
+        required: false
+        type: string
+        default: 'Release'
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  winforms-x86:
+    name: WinForms win-x86
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish WinForms x86
+        run: .\scripts\build_winforms_x86.ps1 -Configuration ${{ inputs.configuration }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winforms-x86-${{ inputs.configuration }}
+          path: dist/winforms-x86/
+          if-no-files-found: error
+
+  winforms-x64:
+    name: WinForms win-x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish WinForms x64
+        run: .\scripts\build_winforms_x64.ps1 -Configuration ${{ inputs.configuration }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winforms-x64-${{ inputs.configuration }}
+          path: dist/winforms-x64/
+          if-no-files-found: error
+
+  maui-windows-x64:
+    name: MAUI Windows win-x64
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI Windows workload
+        run: dotnet workload install maui-windows
+
+      - name: Publish MAUI Windows x64
+        # Win10+ unpackaged self-contained (scripts/build_win_10_x64.ps1 → dist/win10-x64)
+        run: .\scripts\build_win_10_x64.ps1 -Configuration ${{ inputs.configuration }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maui-windows-x64-${{ inputs.configuration }}
+          path: dist/win10-x64/
+          if-no-files-found: error
+
+  android-arm64:
+    name: Android android-arm64
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Decode keystore
+        if: inputs.configuration == 'Release'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "No keystore secret; publishing unsigned APK."
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/iskra.keystore"
+
+      - name: Publish APK (android-arm64)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "${{ inputs.configuration }}" = "Release" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ] && [ -n "${ANDROID_KEY_ALIAS:-}" ] && [ -n "${ANDROID_KEY_PASSWORD:-}" ] && [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ]; then
+            extra+=(
+              -p:AndroidKeyStore=true
+              -p:AndroidSigningKeyStore="$RUNNER_TEMP/iskra.keystore"
+              -p:AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS"
+              -p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD"
+              -p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
+            )
+          else
+            echo "Debug configuration or signing secrets incomplete; publishing without release signing."
+          fi
+          # EnableWindowsTargeting: restore вычисляет все TFM Iskra.Maui; на Linux без флага
+          # падает ShortP2P.Transport.Bluetooth.Windows (NETSDK1100). В android-сборку он не входит.
+          # IncludeAndroid=true → ShortP2PBuildAndroid через src/Directory.Build.props
+          dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
+            -c ${{ inputs.configuration }} \
+            -f net10.0-android \
+            -p:IncludeAndroid=true \
+            -p:EnableWindowsTargeting=true \
+            -p:RuntimeIdentifier=android-arm64 \
+            -p:AndroidPackageFormat=apk \
+            "${extra[@]}"
+          mkdir -p dist/apk
+          mapfile -t apks < <(find src/Iskra.Maui/bin -type f -name '*.apk' ! -name '*-Unsigned.apk' ! -name '*-unsigned.apk')
+          if [ ${#apks[@]} -eq 0 ]; then
+            mapfile -t apks < <(find src/Iskra.Maui/bin -type f -name '*.apk')
+          fi
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "No APK produced" >&2
+            exit 1
+          fi
+          cp "${apks[0]}" "dist/apk/Iskra-android-arm64.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-android-arm64-${{ inputs.configuration }}
+          path: dist/apk/Iskra-android-arm64.apk
+          if-no-files-found: error
