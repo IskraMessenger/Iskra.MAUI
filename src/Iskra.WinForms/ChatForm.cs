@@ -840,15 +840,19 @@ public sealed partial class ChatForm : AppForm
 
     private static string AttachmentActionHint(ChatMessageEntity m)
     {
-        if (IsLocallyAvailable(m) || m.Outgoing)
+        if (IsLocallyAvailable(m))
+            return IsImageAttachment(m) || IsVideoAttachment(m) || IsVoiceAttachment(m)
+                ? "щёлкните — открыть"
+                : "щёлкните — сохранить";
+
+        if (m.Outgoing)
             return "";
 
         return (ChatTransferState)m.TransferState switch
         {
             ChatTransferState.Transferring => "загрузка...",
-            ChatTransferState.Failed => "ошибка · скачать",
-            ChatTransferState.Received => "",
-            _ => "скачать"
+            ChatTransferState.Failed => "ошибка · щёлкните — скачать",
+            _ => "щёлкните — скачать"
         };
     }
 
