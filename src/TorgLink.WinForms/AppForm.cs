@@ -6,5 +6,6 @@ public abstract class AppForm : Form
     protected AppForm()
     {
         Font = new Font("Segoe UI", 12f, FontStyle.Regular, GraphicsUnit.Point);
+        Branding.ApplyFormIcon(this);
     }
 }

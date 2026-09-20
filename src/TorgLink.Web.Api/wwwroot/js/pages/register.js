@@ -62,7 +62,7 @@ export function RegisterPage() {
     el(
       "div",
       { class: "brand" },
-      el("img", { src: "/assets/logo.png", alt: "" }),
+      el("img", { src: "/assets/logo_wordmark_256.png", alt: "TorgLink" }),
       el("h1", null, t("register.title")),
       el("p", { class: "muted" }, t("register.subtitle"))
     ),

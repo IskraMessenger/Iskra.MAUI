@@ -45,8 +45,7 @@ export function LoginPage() {
     el(
       "div",
       { class: "brand" },
-      el("img", { src: "/assets/logo.png", alt: "" }),
-      el("h1", null, "TorgLink"),
+      el("img", { src: "/assets/logo_wordmark_256.png", alt: "TorgLink" }),
       el("p", { class: "muted" }, t("login.subtitle"))
     ),
     nick,

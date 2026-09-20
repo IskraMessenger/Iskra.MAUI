@@ -8,7 +8,7 @@
     <ScrollView>
         <VerticalStackLayout Padding="28,48" Spacing="16" MaximumWidthRequest="420"
                              HorizontalOptions="Center" VerticalOptions="Center">
-            <Image Source="logo_transparent_min.png" WidthRequest="88" HeightRequest="88" Aspect="AspectFit"
+            <Image Source="logo_128.png" WidthRequest="88" HeightRequest="88" Aspect="AspectFit"
                    HorizontalOptions="Center" />
             <Label Text="TorgLink" FontSize="32" FontAttributes="Bold"
                    TextColor="{DynamicResource Accent}" HorizontalOptions="Center" />

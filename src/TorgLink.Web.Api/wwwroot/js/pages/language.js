@@ -27,8 +27,7 @@ export function LanguagePage() {
     el(
       "div",
       { class: "brand" },
-      el("img", { src: "/assets/logo.png", alt: "" }),
-      el("h1", null, "TorgLink"),
+      el("img", { src: "/assets/logo_wordmark_256.png", alt: "TorgLink" }),
       el("p", { class: "muted" }, t("lang.choose"))
     ),
     languages.map((l) => {

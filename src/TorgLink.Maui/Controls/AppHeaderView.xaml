@@ -5,7 +5,7 @@
              x:Class="TorgLink.Maui.AppHeaderView">
     <Grid Padding="16,10,16,8" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
         <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-            <Image Source="logo_transparent_min.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit"
+            <Image Source="logo_32.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit"
                    VerticalOptions="Center" />
             <Label Text="TorgLink"
                    FontSize="22"

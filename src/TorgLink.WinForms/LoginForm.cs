@@ -35,6 +35,12 @@ public sealed class LoginForm : AppForm
         CancelButton = exit;
 
         var layout = new TableLayoutPanel { ColumnCount = 1, AutoSize = true };
+        var logo = Branding.CreateLogoPicture(64);
+        if (logo != null)
+        {
+            logo.Margin = new Padding(0, 0, 0, 8);
+            layout.Controls.Add(logo);
+        }
         layout.Controls.Add(new Label { Text = "Ник", AutoSize = true });
         layout.Controls.Add(_nick);
         layout.Controls.Add(new Label { Text = "Пароль", AutoSize = true });

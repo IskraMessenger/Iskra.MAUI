@@ -9,6 +9,7 @@
     <RootNamespace>TorgLink.WinForms</RootNamespace>
     <AssemblyName>TorgLink.WinForms</AssemblyName>
     <ApplicationTitle>TorgLink</ApplicationTitle>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);CS0436</NoWarn>
     <!-- Explicit PE bitness for SQLite native (e_sqlite3) and Win7 deployments -->
     <Platforms>x86;x64</Platforms>
@@ -37,5 +38,13 @@
     <ProjectReference Include="..\..\ShortP2P\src\Fx48\ShortP2P.Client.Fx48.csproj" />
     <ProjectReference Include="..\..\ShortP2P\src\Fx48\ShortP2P.Auth.Fx48.csproj" />
     <ProjectReference Include="..\..\ShortP2P\src\Fx48\ShortP2P.Crypto.Fx48.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\logo_32.png" />
+    <EmbeddedResource Include="Resources\logo_64.png" />
+    <EmbeddedResource Include="Resources\logo_256.png" />
+    <Content Include="Resources\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

@@ -26,7 +26,7 @@ public sealed class LanguageSelectPage : ContentPage
         };
         stack.Children.Add(new Image
         {
-            Source = "logo_transparent_min.png",
+            Source = "logo_128.png",
             WidthRequest = 72,
             HeightRequest = 72,
             Aspect = Aspect.AspectFit,
