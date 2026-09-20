@@ -105,17 +105,19 @@ public partial class NetworkPage : ContentPage
         }
 
         NodesTitle.Text = Loc.Tf("network.nodes_count", _nodes.Count);
-        RenderQr(u);
+        _ = RenderQrAsync(u);
     }
 
-    private void RenderQr(UserEntity? u)
+    private async Task RenderQrAsync(UserEntity? u)
     {
         if (u == null)
             return;
         try
         {
             var pub = RsaKeySerializer.SerializePublic(_auth.GetCurrentPublicKey());
-            var png = PeerQrService.EncodeQrPng(PeerQrService.BuildPayload(u, pub));
+            // InviteHostsBuilder → NIC enum / public IP — blocking; off UI thread.
+            var png = await Task.Run(() => PeerQrService.EncodeQrPng(PeerQrService.BuildPayload(u, pub)))
+                .ConfigureAwait(true);
             QrImage.Source = ImageSource.FromStream(() => new MemoryStream(png));
         }
         catch (Exception ex)

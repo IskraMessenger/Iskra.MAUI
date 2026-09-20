@@ -27,7 +27,9 @@ internal static class ProfileShare
             // ignore
         }
 
-        var text = MyTransportEndpointsText.Build(u, p2p.Settings, bt);
+        // NIC enum + public IP lookup are sync/blocking — keep off UI thread.
+        var text = await Task.Run(() => MyTransportEndpointsText.Build(u, p2p.Settings, bt))
+            .ConfigureAwait(true);
         await Clipboard.Default.SetTextAsync(text).ConfigureAwait(true);
         await host.DisplayAlert(Loc.T("copied"), Loc.T("copied.addresses"), Loc.T("ok")).ConfigureAwait(true);
     }

@@ -504,15 +504,19 @@ public sealed class MainForm : AppForm
         e.DrawFocusRectangle();
     }
 
-    private void OnMyQr(object? sender, EventArgs e)
+    private async void OnMyQr(object? sender, EventArgs e)
     {
         var user = _auth.CurrentUser;
         if (user == null)
             return;
         try
         {
-            var payload = PeerQrService.BuildPayload(user, user.RsaPublicJson);
-            var png = PeerQrService.EncodeQrPng(payload);
+            // InviteHostsBuilder → NIC enum / public IP — blocking; off UI thread.
+            var (payload, png) = await Task.Run(() =>
+            {
+                var p = PeerQrService.BuildPayload(user, user.RsaPublicJson);
+                return (p, PeerQrService.EncodeQrPng(p));
+            }).ConfigureAwait(true);
             using var preview = new QrPreviewForm("Мой QR", png, payload.Id);
             preview.ShowDialog(this);
         }
