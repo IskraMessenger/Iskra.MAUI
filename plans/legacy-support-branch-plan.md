@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the plan to create a `legacy-support` branch for the Iskra Messenger project to support older x86 and ARM32 processors that are not compatible with .NET 10.0.
+This document outlines the plan to create a `legacy-support` branch for the TorgLink Messenger project to support older x86 and ARM32 processors that are not compatible with .NET 10.0.
 
 ## Current State Analysis
 
@@ -63,9 +63,9 @@ git checkout -b legacy-support
 
 ### Phase 2: Update Project Files
 
-#### 2.1 Update Iskra.Maui Project
+#### 2.1 Update TorgLink.Maui Project
 
-**File**: [`src/Iskra.Maui/Iskra.Maui.csproj`](src/Iskra.Maui/Iskra.Maui.csproj:6)
+**File**: [`src/TorgLink.Maui/TorgLink.Maui.csproj`](src/TorgLink.Maui/TorgLink.Maui.csproj:6)
 
 Changes needed:
 - Target frameworks: `net8.0-windows10.0.19041.0` and `net8.0-android`
@@ -107,10 +107,10 @@ All projects using `$(NetCoreTargetFramework)` will automatically use net8.0 aft
 <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
 ```
 
-**Web API**: [`src/Iskra.Web.Api/Iskra.Web.Api.csproj`](src/Iskra.Web.Api/Iskra.Web.Api.csproj:4)
+**Web API**: [`src/TorgLink.Web.Api/TorgLink.Web.Api.csproj`](src/TorgLink.Web.Api/TorgLink.Web.Api.csproj:4)
 - Already uses `$(NetCoreTargetFramework)`, will automatically use net8.0
 
-**WinForms**: [`src/Iskra.WinForms/Iskra.WinForms.csproj`](src/Iskra.WinForms/Iskra.WinForms.csproj:4)
+**WinForms**: [`src/TorgLink.WinForms/TorgLink.WinForms.csproj`](src/TorgLink.WinForms/TorgLink.WinForms.csproj:4)
 - Already targets net48, no changes needed
 
 ### Phase 3: NuGet Package Version Updates
@@ -153,7 +153,7 @@ Example PowerShell script:
 # Build Android ARM32 (armeabi-v7a)
 $ErrorActionPreference = 'Stop'
 
-dotnet publish src/Iskra.Maui/Iskra.Maui.csproj `
+dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj `
     -f net8.0-android `
     -c Release `
     -p:AndroidSupportedAbis=armeabi-v7a `
@@ -171,9 +171,9 @@ Update references from net10.0 to net8.0 in:
 
 ### Phase 5: Android ARM32 Configuration
 
-#### 5.1 Update Iskra.Maui Android Settings
+#### 5.1 Update TorgLink.Maui Android Settings
 
-Add to [`src/Iskra.Maui/Iskra.Maui.csproj`](src/Iskra.Maui/Iskra.Maui.csproj:65):
+Add to [`src/TorgLink.Maui/TorgLink.Maui.csproj`](src/TorgLink.Maui/TorgLink.Maui.csproj:65):
 
 ```xml
 <PropertyGroup Condition="$(TargetFramework.Contains('-android'))">
@@ -222,10 +222,10 @@ This branch provides support for older processors:
 ## Building
 
 ### Windows x86
-dotnet build src/Iskra.WinForms/Iskra.WinForms.csproj -p:Platform=x86
+dotnet build src/TorgLink.WinForms/TorgLink.WinForms.csproj -p:Platform=x86
 
 ### Android ARM32
-dotnet publish src/Iskra.Maui/Iskra.Maui.csproj -f net8.0-android -p:AndroidSupportedAbis=armeabi-v7a
+dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj -f net8.0-android -p:AndroidSupportedAbis=armeabi-v7a
 
 ## Maintenance
 
@@ -272,7 +272,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Build WinForms x86
-        run: dotnet build src/Iskra.WinForms/Iskra.WinForms.csproj -p:Platform=x86
+        run: dotnet build src/TorgLink.WinForms/TorgLink.WinForms.csproj -p:Platform=x86
 
   build-android-arm32:
     runs-on: ubuntu-latest
@@ -289,7 +289,7 @@ jobs:
       - name: Build Android ARM32
         run: |
           dotnet workload install maui-android
-          dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
+          dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj \
             -f net8.0-android \
             -c Release \
             -p:AndroidSupportedAbis=armeabi-v7a \

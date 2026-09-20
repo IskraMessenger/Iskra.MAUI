@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Publish Iskra for Windows 8 x64 (self-contained unpackaged MAUI).
+# Publish TorgLink for Windows 8 x64 (self-contained unpackaged MAUI).
 param([ValidateSet('Debug','Release')][string]$Configuration = 'Release')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

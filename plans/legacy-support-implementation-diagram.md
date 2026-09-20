@@ -176,9 +176,9 @@ graph TD
     end
     
     subgraph "Project Files"
-        P1[Iskra.Maui.csproj]
+        P1[TorgLink.Maui.csproj]
         P2[ShortP2P.*.csproj x20]
-        P3[Iskra.Web.Api.csproj]
+        P3[TorgLink.Web.Api.csproj]
     end
     
     subgraph "Build Scripts"

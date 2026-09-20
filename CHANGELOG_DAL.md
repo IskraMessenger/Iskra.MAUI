@@ -17,10 +17,10 @@
 ## Изменённые файлы
 
 ### Файлы проекта
-- `src/Iskra.Maui/Iskra.Maui.csproj` - добавлен пакет LiteDB v5.0.16
+- `src/TorgLink.Maui/TorgLink.Maui.csproj` - добавлен пакет LiteDB v5.0.16
 
 ### Программа инициализации
-- `src/Iskra.Maui/MauiProgram.cs`
+- `src/TorgLink.Maui/MauiProgram.cs`
   - Добавлен импорт `ShortP2P.Client.Data.Abstractions`
   - Добавлена регистрация `DatabaseProviderSettings`
   - Добавлена регистрация `IDataAccessProvider` с выбором провайдера на основе настроек
@@ -34,17 +34,17 @@
 - `ShortP2P/src/ShortP2P.Client/Services/BluetoothPresencePingTargetsProvider.cs` - используется IDataAccessProvider
 
 ### UI Компоненты
-- `src/Iskra.Maui/SettingsPage.xaml` - добавлен раздел "База данных" с Picker для выбора провайдера
-- `src/Iskra.Maui/SettingsPage.xaml.cs` - добавлена логика для управления выбором провайдера
+- `src/TorgLink.Maui/SettingsPage.xaml` - добавлен раздел "База данных" с Picker для выбора провайдера
+- `src/TorgLink.Maui/SettingsPage.xaml.cs` - добавлена логика для управления выбором провайдера
 
 ### Локализация
-- `src/Iskra.Maui/Localization/StringCatalog.Ru.cs` - добавлены строки для РУ локализации:
+- `src/TorgLink.Maui/Localization/StringCatalog.Ru.cs` - добавлены строки для РУ локализации:
   - `settings.database` - название раздела
   - `settings.database_hint` - подсказка о перезагрузке
   - `settings.database_change_title` - заголовок диалога
   - `settings.database_change_message` - сообщение диалога
   
-- `src/Iskra.Maui/Localization/StringCatalog.En.cs` - добавлены строки для EN локализации
+- `src/TorgLink.Maui/Localization/StringCatalog.En.cs` - добавлены строки для EN локализации
 
 ## Ключевые особенности
 
@@ -111,7 +111,7 @@ public sealed class MyRepository(IDataAccessProvider dataAccessProvider)
    - Каждый провайдер работает со своей БД
 
 3. **WinForms приложение** - требует отдельной модификации:
-   - `Iskra.WinForms/Program.cs` ещё использует AppDatabase напрямую
+   - `TorgLink.WinForms/Program.cs` ещё использует AppDatabase напрямую
    - Нужно будет обновить аналогично MAUI приложению
 
 ## Следующие шаги

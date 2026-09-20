@@ -1,0 +1,138 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Windows is the default TFM so `dotnet run` / IDE F5 can start the desktop app.
+             Android is opt-in: -p:IncludeAndroid=true -->
+        <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+        <TargetFrameworks Condition="'$(ShortP2PBuildAndroid)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
+
+        <OutputType>Exe</OutputType>
+        <RootNamespace>TorgLink.Maui</RootNamespace>
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <ApplicationTitle>TorgLink</ApplicationTitle>
+        <ApplicationId>com.torglink.maui</ApplicationId>
+        <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+        <ApplicationVersion>7</ApplicationVersion>
+
+        <!-- Unpackaged WinUI (same as ShortP2P.MauiApp). Do not set EnableMsixTooling here:
+             it is evaluated after NuGet props and breaks WinUI's CustomBeforeMicrosoftCommonTargets chain
+             (Microsoft.WinUI.targets CheckForInvalidCustomBeforeMicrosoftCommonTargets), especially in Rider.
+             Keep WindowsPackageType=None for F5; still ship AppxManifest.xml next to the exe
+             (CopyUnpackagedAppxManifest target) so MAUI Permissions.Camera/Microphone EnsureDeclared can Load() it. -->
+        <WindowsPackageType>None</WindowsPackageType>
+        <Platforms>AnyCPU;x86;x64;ARM64</Platforms>
+
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+        <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+
+        <AndroidPackageFormat Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">apk</AndroidPackageFormat>
+    </PropertyGroup>
+
+    <!-- Unpackaged WinUI: ship Windows App SDK so F5 / `dotnet run` works without a separate runtime install. -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+        <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
+        <AppxPackage>false</AppxPackage>
+        <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and ('$(Platform)' == 'ARM64' or '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64')">win-arm64</RuntimeIdentifier>
+        <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    </PropertyGroup>
+
+    <!-- Do not use @(AppxManifest) with WindowsPackageType=None (MSBuild errors). Explicitly copy so
+         Permissions.IsCapabilityDeclared finds AppxManifest.xml beside the unpackaged exe.
+         Cover both bin\$(Configuration)\… and bin\$(Platform)\$(Configuration)\… layouts. -->
+    <Target Name="CopyUnpackagedAppxManifest" AfterTargets="Build" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(WindowsPackageType)' == 'None'">
+        <PropertyGroup>
+            <_AppxManifestSrc>$(MSBuildProjectDirectory)\Platforms\Windows\Package.appxmanifest</_AppxManifestSrc>
+            <_AppxManifestRidDir Condition="'$(RuntimeIdentifier)' != ''">$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_AppxManifestRidDir>
+            <_AppxManifestPlatformDir Condition="'$(Platform)' != '' and '$(Platform)' != 'AnyCPU' and '$(RuntimeIdentifier)' != ''">$(MSBuildProjectDirectory)\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_AppxManifestPlatformDir>
+        </PropertyGroup>
+        <ItemGroup>
+            <_AppxManifestDest Include="$(TargetDir)AppxManifest.xml" Condition="'$(TargetDir)' != ''" />
+            <_AppxManifestDest Include="$(_AppxManifestRidDir)AppxManifest.xml" Condition="'$(_AppxManifestRidDir)' != ''" />
+            <_AppxManifestDest Include="$(_AppxManifestPlatformDir)AppxManifest.xml" Condition="'$(_AppxManifestPlatformDir)' != ''" />
+        </ItemGroup>
+        <Copy SourceFiles="@(_AppxManifestDest->'$(_AppxManifestSrc)')" DestinationFiles="@(_AppxManifestDest)" SkipUnchangedFiles="true" Condition="Exists('$(_AppxManifestSrc)') and '@(_AppxManifestDest)' != ''" />
+        <Message Importance="high" Text="Copied unpackaged AppxManifest.xml -&gt; @(_AppxManifestDest)" />
+    </Target>
+
+    <!--
+      Min SDK 21 (Android 5.0). BLE GATT still needs API 31+ at runtime; older devices run without BT transport.
+    -->
+    <PropertyGroup Condition="$(TargetFramework.Contains('-android'))">
+        <TargetPlatformVersion>36.0</TargetPlatformVersion>
+        <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
+        <AndroidMinSdkVersion>21</AndroidMinSdkVersion>
+        <!-- BlueStacks x86_64: AOT SIGSEGV; trim TypeLoadException abort; marshal methods
+             drop JNI n_onCreate (UnsatisfiedLinkError). Interpreter, untrimmed, classic JNI. -->
+        <RunAOTCompilation>false</RunAOTCompilation>
+        <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+        <EnableLLVM>false</EnableLLVM>
+        <PublishTrimmed>false</PublishTrimmed>
+        <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Debug'">
+        <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    </PropertyGroup>
+
+    <!-- Release AOT crashes on BlueStacks (and some emulators): SIGSEGV in libmonosgen-2.0.so
+         (mono_class_vtable_checked). Debug (no AOT) starts fine — keep JIT for Release Android. -->
+    <PropertyGroup Condition="$(TargetFramework.Contains('-android')) and '$(Configuration)' == 'Release'">
+        <RunAOTCompilation>false</RunAOTCompilation>
+        <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <MauiIcon Include="Resources\AppIcon\appicon.png" Color="#121212" ForegroundScale="0.72" />
+        <MauiSplashScreen Include="Resources\Splash\splash.png" Color="#121212" BaseSize="256,320" />
+        <MauiImage Include="Resources\Images\*" />
+        <MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
+        <!-- Шестерёнка шапки показывается 44x44 — растрируем в этом размере, чтобы не была мыльной -->
+        <MauiImage Update="Resources\Images\tab_settings.svg" Resize="True" BaseSize="44,44" />
+        <MauiFont Include="Resources\Fonts\*" />
+        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.30" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="$(MicrosoftExtensionsVersion)" />
+        <PackageReference Include="NLog" Version="5.3.4" />
+        <PackageReference Include="NLog.Extensions.Logging" Version="5.3.11" />
+        <PackageReference Include="Concentus" Version="2.2.2" />
+        <PackageReference Include="Concentus.Oggfile" Version="1.0.6" />
+        <PackageReference Include="LiteDB" Version="5.0.16" />
+        <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" Condition="!$(TargetFramework.Contains('-android'))" />
+        <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" Condition="$(TargetFramework.Contains('-android'))">
+            <ExcludeAssets>native</ExcludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" Version="2.1.13" Condition="$(TargetFramework.Contains('-android'))" />
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+        <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250909003" />
+        <ProjectReference Include="..\..\ShortP2P\src\ShortP2P.Transport.Bluetooth.Windows\ShortP2P.Transport.Bluetooth.Windows.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\ShortP2P\src\ShortP2P.Auth\ShortP2P.Auth.csproj" />
+        <ProjectReference Include="..\..\ShortP2P\src\ShortP2P.Client\ShortP2P.Client.csproj" />
+        <ProjectReference Include="..\..\ShortP2P\src\ShortP2P.TrustSystem\ShortP2P.TrustSystem.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Condition="$(TargetFramework.Contains('-android'))">
+        <ProjectReference Include="..\..\ShortP2P\src\ShortP2P.Transport.Bluetooth.Android\ShortP2P.Transport.Bluetooth.Android.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'">
+        <None Update="nlog.config">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
+    </ItemGroup>
+
+</Project>

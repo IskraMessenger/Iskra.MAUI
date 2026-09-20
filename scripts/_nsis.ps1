@@ -26,23 +26,23 @@ makensis.exe не найден. Установите NSIS 3: https://nsis.source
 "@
 }
 
-$ver = Get-IskraVersion
+$ver = Get-TorgLinkVersion
 $sourceDir = (Get-PublishDir $WinVer $Arch).TrimEnd('\')
 $installerDir = Get-InstallerDir
 New-Item -ItemType Directory -Force -Path $installerDir | Out-Null
 
-$outFile = Join-Path $installerDir "Iskra-$($ver.Display)-win$WinVer-$Arch-setup.exe"
+$outFile = Join-Path $installerDir "TorgLink-$($ver.Display)-win$WinVer-$Arch-setup.exe"
 $nsi = Join-Path $PSScriptRoot 'installer.nsi'
 $sourceFwd = ($sourceDir -replace '\\', '/')
 $outFwd = ($outFile -replace '\\', '/')
 
 $nsisArgs = @(
-    "/DAPP_NAME=Iskra",
+    "/DAPP_NAME=TorgLink",
     "/DAPP_VERSION=$($ver.Display)",
     "/DAPP_PRODUCT_VERSION=$($ver.Product)",
     "/DWINVER=$WinVer",
     "/DARCH=$Arch",
-    "/DEXE_NAME=Iskra.Maui.exe",
+    "/DEXE_NAME=TorgLink.Maui.exe",
     "/DSOURCE_DIR=$sourceFwd",
     "/DOUT_FILE=$outFwd",
     $nsi

@@ -75,7 +75,7 @@
 
 ---
 
-## Решение для Iskra Messenger
+## Решение для TorgLink Messenger
 
 ### Вариант 1: .NET 8.0 MAUI с Mono (РЕКОМЕНДУЕТСЯ) ⭐
 
@@ -91,7 +91,7 @@
 
 #### Конфигурация
 
-**Файл: [`src/Iskra.Maui/Iskra.Maui.csproj`](src/Iskra.Maui/Iskra.Maui.csproj:1)**
+**Файл: [`src/TorgLink.Maui/TorgLink.Maui.csproj`](src/TorgLink.Maui/TorgLink.Maui.csproj:1)**
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -242,7 +242,7 @@
 
 ```powershell
 #!/usr/bin/env pwsh
-# Build Iskra Messenger for Android ARM32 with Mono runtime
+# Build TorgLink Messenger for Android ARM32 with Mono runtime
 
 param(
     [string]$Configuration = "Release",
@@ -252,12 +252,12 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Building Iskra for Android ARM32 (Mono)" -ForegroundColor Cyan
+Write-Host "Building TorgLink for Android ARM32 (Mono)" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Параметры
-$ProjectPath = "src/Iskra.Maui/Iskra.Maui.csproj"
+$ProjectPath = "src/TorgLink.Maui/TorgLink.Maui.csproj"
 $OutputDir = "artifacts/android-arm32-mono"
 $Framework = "net8.0-android"
 $RuntimeId = "android-arm"
@@ -339,7 +339,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Building Universal Android APK (ARM32 + ARM64 with Mono)" -ForegroundColor Cyan
 
-$ProjectPath = "src/Iskra.Maui/Iskra.Maui.csproj"
+$ProjectPath = "src/TorgLink.Maui/TorgLink.Maui.csproj"
 $OutputDir = "artifacts/android-universal-mono"
 $Framework = "net8.0-android"
 
@@ -371,18 +371,18 @@ Write-Host "Universal APK created: $OutputDir" -ForegroundColor Green
 
 ```bash
 #!/bin/bash
-# Build Iskra Messenger for Android ARM32 with Mono runtime
+# Build TorgLink Messenger for Android ARM32 with Mono runtime
 
 set -e
 
 CONFIGURATION="${1:-Release}"
-PROJECT_PATH="src/Iskra.Maui/Iskra.Maui.csproj"
+PROJECT_PATH="src/TorgLink.Maui/TorgLink.Maui.csproj"
 OUTPUT_DIR="artifacts/android-arm32-mono"
 FRAMEWORK="net8.0-android"
 RUNTIME_ID="android-arm"
 
 echo "========================================"
-echo "Building Iskra for Android ARM32 (Mono)"
+echo "Building TorgLink for Android ARM32 (Mono)"
 echo "========================================"
 echo ""
 
@@ -549,7 +549,7 @@ fi
 
 ```bash
 # Проверить native библиотеки в APK
-unzip -l com.iskra.maui.apk | grep "lib/armeabi-v7a"
+unzip -l com.torglink.maui.apk | grep "lib/armeabi-v7a"
 
 # Должны быть:
 # lib/armeabi-v7a/libmonosgen-2.0.so (Mono runtime)
@@ -613,7 +613,7 @@ public class RuntimeInfo
 ```bash
 # Запустить приложение с профилировщиком Mono
 adb shell setprop debug.mono.profile log:calls
-adb shell am start -n com.iskra.maui/.MainActivity
+adb shell am start -n com.torglink.maui/.MainActivity
 adb logcat | grep "MONO"
 ```
 
@@ -634,7 +634,7 @@ adb logcat | grep "MONO"
 
 ---
 
-## Рекомендация для Iskra Messenger
+## Рекомендация для TorgLink Messenger
 
 ### ⭐ Рекомендуемое решение: .NET 8.0 + Mono
 
@@ -702,8 +702,8 @@ git checkout -b legacy-support-mono
 - ARM32 устройства → .NET 8 + Mono
 
 Создать два APK:
-- `iskra-modern.apk` - для ARM64
-- `iskra-legacy.apk` - для ARM32
+- `torglink-modern.apk` - для ARM64
+- `torglink-legacy.apk` - для ARM32
 
 ### Если нужен минимальный размер
 
@@ -725,7 +725,7 @@ git checkout -b legacy-support-mono
 
 ### Итоговая рекомендация
 
-**Для проекта Iskra Messenger:**
+**Для проекта TorgLink Messenger:**
 
 1. ✅ **Используйте .NET 8.0 с Mono runtime**
 2. ✅ **Mono автоматически используется** для Android в MAUI

@@ -6,8 +6,8 @@ function Get-RepoRoot {
     Split-Path -Parent $PSScriptRoot
 }
 
-function Get-IskraVersion {
-    $csproj = Join-Path (Get-RepoRoot) 'src\Iskra.Maui\Iskra.Maui.csproj'
+function Get-TorgLinkVersion {
+    $csproj = Join-Path (Get-RepoRoot) 'src\TorgLink.Maui\TorgLink.Maui.csproj'
     $text = Get-Content -LiteralPath $csproj -Raw
     if ($text -notmatch '<ApplicationDisplayVersion>([^<]+)</ApplicationDisplayVersion>') {
         throw "ApplicationDisplayVersion not found in $csproj"
@@ -64,7 +64,7 @@ function Write-LegacyWindowsWarning([string]$WinVer) {
         return
     }
     Write-Warning @"
-Iskra.Maui — WinUI 3 / Windows App SDK / net10.0-windows10.0.19041.0.
+TorgLink.Maui — WinUI 3 / Windows App SDK / net10.0-windows10.0.19041.0.
 Официально нужен Windows 10 1809+ (сборка 17763). Папка dist\win$WinVer-* всё равно создаётся,
 но на Windows $WinVer приложение, скорее всего, не запустится.
 "@

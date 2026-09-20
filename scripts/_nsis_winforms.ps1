@@ -12,7 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_common.ps1"
 
-# x32 is an alias for x86; installer file stays Iskra-*-winforms-x86-setup.exe
+# x32 is an alias for x86; installer file stays TorgLink-*-winforms-x86-setup.exe
 if ($Arch -eq 'x32') { $Arch = 'x86' }
 
 & "$PSScriptRoot\_publish_winforms.ps1" -Arch $Arch -Configuration $Configuration
@@ -25,12 +25,12 @@ makensis.exe не найден. Установите NSIS 3: https://nsis.source
 "@
 }
 
-$ver = Get-IskraVersion
+$ver = Get-TorgLinkVersion
 $sourceDir = (Get-WinFormsPublishDir $Arch).TrimEnd('\')
 $installerDir = Get-InstallerDir
 New-Item -ItemType Directory -Force -Path $installerDir | Out-Null
 
-$outFile = Join-Path $installerDir "Iskra-$($ver.Display)-winforms-$Arch-setup.exe"
+$outFile = Join-Path $installerDir "TorgLink-$($ver.Display)-winforms-$Arch-setup.exe"
 $nsi = Join-Path $PSScriptRoot 'installer_winforms.nsi'
 $sourceFwd = ($sourceDir -replace '\\', '/')
 $outFwd = ($outFile -replace '\\', '/')

@@ -13,7 +13,7 @@ Write-Host "ARM32 + ARM64" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-$ProjectPath = "src/Iskra.Maui/Iskra.Maui.csproj"
+$ProjectPath = "src/TorgLink.Maui/TorgLink.Maui.csproj"
 $OutputDir = "artifacts/android-universal-mono"
 $Framework = "net8.0-android"
 

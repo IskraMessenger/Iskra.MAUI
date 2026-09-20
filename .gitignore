@@ -3,7 +3,7 @@ obj/
 .vs/
 *.user
 *.suo
-src/Iskra.Maui/bin/
-src/Iskra.Maui/obj/
+src/TorgLink.Maui/bin/
+src/TorgLink.Maui/obj/
 dist/
 node_modules/

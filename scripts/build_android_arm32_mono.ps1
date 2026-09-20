@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Build Iskra Messenger for Android ARM32 with Mono runtime
+# Build TorgLink Messenger for Android ARM32 with Mono runtime
 
 param(
     [string]$Configuration = "Release",
@@ -9,12 +9,12 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Building Iskra for Android ARM32 (Mono)" -ForegroundColor Cyan
+Write-Host "Building TorgLink for Android ARM32 (Mono)" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Параметры
-$ProjectPath = "src/Iskra.Maui/Iskra.Maui.csproj"
+$ProjectPath = "src/TorgLink.Maui/TorgLink.Maui.csproj"
 $OutputDir = "artifacts/android-arm32-mono"
 $Framework = "net8.0-android"
 $RuntimeId = "android-arm"

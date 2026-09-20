@@ -44,7 +44,7 @@
 <!-- Directory.Build.props -->
 <NetCoreTargetFramework>net8.0</NetCoreTargetFramework>
 
-<!-- Iskra.Maui.csproj -->
+<!-- TorgLink.Maui.csproj -->
 <TargetFrameworks>net8.0-android</TargetFrameworks>
 <RuntimeIdentifiers>android-arm;android-arm64</RuntimeIdentifiers>
 <AndroidSupportedAbis>armeabi-v7a;arm64-v8a</AndroidSupportedAbis>
@@ -187,7 +187,7 @@ chmod +x eng/native/build-android-arm.sh
   </packageSources>
 </configuration>
 
-<!-- Iskra.Maui.csproj -->
+<!-- TorgLink.Maui.csproj -->
 <ItemGroup>
   <PackageReference Include="Microsoft.NETCore.App.Runtime.android-arm" 
                     Version="10.0.0-custom" />
@@ -288,7 +288,7 @@ chmod +x eng/native/build-android-arm.sh
 
 ## Рекомендации
 
-### Для вашего проекта Iskra Messenger
+### Для вашего проекта TorgLink Messenger
 
 **Рекомендуемое решение: Вариант 1 (.NET 8.0 LTS)** ⭐
 
@@ -309,8 +309,8 @@ chmod +x eng/native/build-android-arm.sh
 **Альтернатива: Вариант 4 (Гибридный подход)**
 
 Создать два варианта приложения:
-- **Iskra Modern** - .NET 10.0 для ARM64 (основная версия)
-- **Iskra Legacy** - .NET 8.0 для ARM32 (legacy версия)
+- **TorgLink Modern** - .NET 10.0 для ARM64 (основная версия)
+- **TorgLink Legacy** - .NET 8.0 для ARM32 (legacy версия)
 
 ---
 
@@ -329,7 +329,7 @@ git checkout -b legacy-support
 <MicrosoftExtensionsVersion>8.0.2</MicrosoftExtensionsVersion>
 ```
 
-#### 2.2 Обновить Iskra.Maui.csproj
+#### 2.2 Обновить TorgLink.Maui.csproj
 ```xml
 <TargetFrameworks>net8.0-windows10.0.19041.0</TargetFrameworks>
 <TargetFrameworks Condition="'$(ShortP2PBuildAndroid)' == 'true'">
@@ -356,14 +356,14 @@ dotnet add package Microsoft.Extensions.Logging --version 8.0.2
 
 ```bash
 # Сборка APK для ARM32
-dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
+dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj \
   -f net8.0-android \
   -c Release \
   -r android-arm \
   -p:AndroidSupportedAbis=armeabi-v7a
 
 # Сборка APK для ARM64
-dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
+dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj \
   -f net8.0-android \
   -c Release \
   -r android-arm64 \
@@ -382,13 +382,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Building Iskra Messenger for Android ARM32..." -ForegroundColor Green
+Write-Host "Building TorgLink Messenger for Android ARM32..." -ForegroundColor Green
 
 # Restore dependencies
-dotnet restore src/Iskra.Maui/Iskra.Maui.csproj
+dotnet restore src/TorgLink.Maui/TorgLink.Maui.csproj
 
 # Build and publish
-dotnet publish src/Iskra.Maui/Iskra.Maui.csproj `
+dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj `
     -f net8.0-android `
     -c $Configuration `
     -r android-arm `
@@ -513,7 +513,7 @@ Google Play автоматически создаст оптимизирован
 
 ### Итоговая рекомендация
 
-**Для проекта Iskra Messenger:**
+**Для проекта TorgLink Messenger:**
 
 1. ✅ **Используйте .NET 8.0 LTS** в ветке `legacy-support`
 2. ✅ **Добавьте ARM32 поддержку** через `android-arm` RID

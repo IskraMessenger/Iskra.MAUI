@@ -1,10 +1,10 @@
-; Iskra unpackaged MAUI installer. Defines are passed from nsis_win_*.ps1:
+; TorgLink unpackaged MAUI installer. Defines are passed from nsis_win_*.ps1:
 ;   APP_NAME APP_VERSION APP_PRODUCT_VERSION WINVER ARCH EXE_NAME SOURCE_DIR OUT_FILE
 Unicode true
 SetCompressor /SOLID lzma
 
 !ifndef APP_NAME
-  !define APP_NAME "Iskra"
+  !define APP_NAME "TorgLink"
 !endif
 !ifndef APP_VERSION
   !define APP_VERSION "0.1"
@@ -19,7 +19,7 @@ SetCompressor /SOLID lzma
   !define ARCH "x64"
 !endif
 !ifndef EXE_NAME
-  !define EXE_NAME "Iskra.Maui.exe"
+  !define EXE_NAME "TorgLink.Maui.exe"
 !endif
 !ifndef SOURCE_DIR
   !error "SOURCE_DIR is required"

@@ -19,13 +19,13 @@ $ErrorActionPreference = 'Stop'
 Write-LegacyWindowsWarning $WinVer
 
 $repo = Get-RepoRoot
-$proj = Join-Path $repo 'src\Iskra.Maui\Iskra.Maui.csproj'
+$proj = Join-Path $repo 'src\TorgLink.Maui\TorgLink.Maui.csproj'
 $rid = Get-PublishRid $Arch
 $platform = Get-MsbuildPlatform $Arch
 $outDir = Get-PublishDir $WinVer $Arch
-$ver = Get-IskraVersion
+$ver = Get-TorgLinkVersion
 
-Write-Host "Iskra $($ver.Display)  Windows $WinVer $Arch  RID=$rid  -> $outDir"
+Write-Host "TorgLink $($ver.Display)  Windows $WinVer $Arch  RID=$rid  -> $outDir"
 
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
@@ -49,7 +49,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish завершился с кодом $LASTEXITCODE"
 }
 
-$exe = Join-Path $outDir 'Iskra.Maui.exe'
+$exe = Join-Path $outDir 'TorgLink.Maui.exe'
 if (-not (Test-Path -LiteralPath $exe)) {
     throw "Не найден $exe после publish"
 }

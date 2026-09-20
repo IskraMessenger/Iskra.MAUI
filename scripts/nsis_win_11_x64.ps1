@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Build Iskra then pack an NSIS installer for Windows 11 x64.
+# Build TorgLink then pack an NSIS installer for Windows 11 x64.
 param([ValidateSet('Debug','Release')][string]$Configuration = 'Release')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

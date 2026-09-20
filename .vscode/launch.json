@@ -2,33 +2,33 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Iskra (Windows)",
+      "name": "TorgLink (Windows)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-windows",
-      "program": "${workspaceFolder}/src/Iskra.Maui/bin/Debug/net10.0-windows10.0.19041.0/win-x64/Iskra.Maui.exe",
-      "cwd": "${workspaceFolder}/src/Iskra.Maui/bin/Debug/net10.0-windows10.0.19041.0/win-x64",
+      "program": "${workspaceFolder}/src/TorgLink.Maui/bin/Debug/net10.0-windows10.0.19041.0/win-x64/TorgLink.Maui.exe",
+      "cwd": "${workspaceFolder}/src/TorgLink.Maui/bin/Debug/net10.0-windows10.0.19041.0/win-x64",
       "console": "internalConsole",
       "stopAtEntry": false
     },
     {
-      "name": "Iskra MAUI (Windows) - release",
+      "name": "TorgLink MAUI (Windows) - release",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-windows-release",
-      "program": "${workspaceFolder}/src/Iskra.Maui/bin/Release/net10.0-windows10.0.19041.0/win-x64/Iskra.Maui.exe",
-      "cwd": "${workspaceFolder}/src/Iskra.Maui/bin/Release/net10.0-windows10.0.19041.0/win-x64",
+      "program": "${workspaceFolder}/src/TorgLink.Maui/bin/Release/net10.0-windows10.0.19041.0/win-x64/TorgLink.Maui.exe",
+      "cwd": "${workspaceFolder}/src/TorgLink.Maui/bin/Release/net10.0-windows10.0.19041.0/win-x64",
       "console": "internalConsole",
       "stopAtEntry": false
     },
     {
-      "name": "Iskra.Web",
+      "name": "TorgLink.Web",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-web",
-      "program": "${workspaceFolder}/src/Iskra.Web.Api/bin/Debug/net10.0/Iskra.Web.Api.dll",
+      "program": "${workspaceFolder}/src/TorgLink.Web.Api/bin/Debug/net10.0/TorgLink.Web.Api.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/src/Iskra.Web.Api",
+      "cwd": "${workspaceFolder}/src/TorgLink.Web.Api",
       "console": "internalConsole",
       "stopAtEntry": false,
       "env": {

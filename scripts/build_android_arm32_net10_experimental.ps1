@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# EXPERIMENTAL: Build Iskra for Android ARM32 with Mono runtime on .NET 10.0
+# EXPERIMENTAL: Build TorgLink for Android ARM32 with Mono runtime on .NET 10.0
 # WARNING: This is unsupported and may not work!
 
 param(
@@ -18,7 +18,7 @@ Write-Host "ARM32 is not officially supported in .NET 10.0" -ForegroundColor Yel
 Write-Host "This may fail or produce unstable results." -ForegroundColor Yellow
 Write-Host ""
 
-$ProjectPath = "src/Iskra.Maui/Iskra.Maui.csproj"
+$ProjectPath = "src/TorgLink.Maui/TorgLink.Maui.csproj"
 $OutputDir = "artifacts/android-arm32-net10-experimental"
 $Framework = "net10.0-android"
 

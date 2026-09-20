@@ -16,12 +16,12 @@ $ErrorActionPreference = 'Stop'
 if ($Arch -eq 'x32') { $Arch = 'x86' }
 
 $repo = Get-RepoRoot
-$proj = Join-Path $repo 'src\Iskra.WinForms\Iskra.WinForms.csproj'
+$proj = Join-Path $repo 'src\TorgLink.WinForms\TorgLink.WinForms.csproj'
 $rid = if ($Arch -eq 'x86') { 'win-x86' } else { 'win-x64' }
 $outDir = Get-WinFormsPublishDir $Arch
-$ver = Get-IskraVersion
+$ver = Get-TorgLinkVersion
 
-Write-Host "Iskra.WinForms $($ver.Display)  $Arch  RID=$rid  -> $outDir"
+Write-Host "TorgLink.WinForms $($ver.Display)  $Arch  RID=$rid  -> $outDir"
 
 if (Test-Path -LiteralPath $outDir) {
     Remove-Item -LiteralPath $outDir -Recurse -Force
@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish завершился с кодом $LASTEXITCODE"
 }
 
-$exe = Join-Path $outDir 'Iskra.WinForms.exe'
+$exe = Join-Path $outDir 'TorgLink.WinForms.exe'
 if (-not (Test-Path -LiteralPath $exe)) {
     throw "Не найден $exe после publish"
 }

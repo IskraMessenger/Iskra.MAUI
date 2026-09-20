@@ -1,0 +1,6 @@
+@TorgLink.Web.Api_HostAddress = http://localhost:5088
+
+GET {{TorgLink.Web.Api_HostAddress}}/api/bootstrap
+Accept: application/json
+
+###

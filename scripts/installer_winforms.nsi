@@ -1,13 +1,13 @@
-; Iskra.WinForms (.NET Framework 4.8) installer. Defines from nsis_winforms_*.ps1:
+; TorgLink.WinForms (.NET Framework 4.8) installer. Defines from nsis_winforms_*.ps1:
 ;   APP_VERSION APP_PRODUCT_VERSION ARCH SOURCE_DIR OUT_FILE
 Unicode true
 SetCompressor /SOLID lzma
 
 !ifndef APP_NAME
-  !define APP_NAME "Iskra WinForms"
+  !define APP_NAME "TorgLink WinForms"
 !endif
 !ifndef APP_ID
-  !define APP_ID "IskraWinForms"
+  !define APP_ID "TorgLinkWinForms"
 !endif
 !ifndef APP_VERSION
   !define APP_VERSION "0.1"
@@ -19,7 +19,7 @@ SetCompressor /SOLID lzma
   !define ARCH "x86"
 !endif
 !ifndef EXE_NAME
-  !define EXE_NAME "Iskra.WinForms.exe"
+  !define EXE_NAME "TorgLink.WinForms.exe"
 !endif
 !ifndef SOURCE_DIR
   !error "SOURCE_DIR is required"
@@ -104,7 +104,7 @@ Section "Install"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKLM "${UNINSTALL_REG}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKLM "${UNINSTALL_REG}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKLM "${UNINSTALL_REG}" "Publisher" "Iskra"
+  WriteRegStr HKLM "${UNINSTALL_REG}" "Publisher" "TorgLink"
   WriteRegStr HKLM "${UNINSTALL_REG}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKLM "${UNINSTALL_REG}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegStr HKLM "${UNINSTALL_REG}" "DisplayIcon" "$INSTDIR\${EXE_NAME}"

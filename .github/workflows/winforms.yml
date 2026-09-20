@@ -41,5 +41,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: winforms-win7-${{ inputs.configuration }}
-          path: dist/installers/Iskra-*-winforms-*-setup.exe
+          path: dist/installers/TorgLink-*-winforms-*-setup.exe
           if-no-files-found: error

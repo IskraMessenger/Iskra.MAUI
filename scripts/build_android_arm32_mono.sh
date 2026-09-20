@@ -1,16 +1,16 @@
 #!/bin/bash
-# Build Iskra Messenger for Android ARM32 with Mono runtime
+# Build TorgLink Messenger for Android ARM32 with Mono runtime
 
 set -e
 
 CONFIGURATION="${1:-Release}"
-PROJECT_PATH="src/Iskra.Maui/Iskra.Maui.csproj"
+PROJECT_PATH="src/TorgLink.Maui/TorgLink.Maui.csproj"
 OUTPUT_DIR="artifacts/android-arm32-mono"
 FRAMEWORK="net8.0-android"
 RUNTIME_ID="android-arm"
 
 echo "========================================"
-echo "Building Iskra for Android ARM32 (Mono)"
+echo "Building TorgLink for Android ARM32 (Mono)"
 echo "========================================"
 echo ""
 

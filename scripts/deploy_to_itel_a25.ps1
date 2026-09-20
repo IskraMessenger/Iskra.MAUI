@@ -1,15 +1,15 @@
 #!/usr/bin/env pwsh
-# Deploy Iskra Messenger ARM32 APK to itel A25
+# Deploy TorgLink Messenger ARM32 APK to itel A25
 
 param(
-    [string]$ApkPath = "artifacts/android-arm32-net10-experimental/com.iskra.maui-Signed.apk",
+    [string]$ApkPath = "artifacts/android-arm32-net10-experimental/com.torglink.maui-Signed.apk",
     [string]$AdbPath = "C:\platform-tools\adb.exe"
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Deploying Iskra to itel A25" -ForegroundColor Cyan
+Write-Host "Deploying TorgLink to itel A25" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -80,10 +80,10 @@ if ($abi -notmatch "armeabi-v7a") {
 
 # Удаление старой версии (если есть)
 Write-Host "Checking for existing installation..." -ForegroundColor Yellow
-$existing = & $AdbPath shell pm list packages | Select-String "com.iskra.maui"
+$existing = & $AdbPath shell pm list packages | Select-String "com.torglink.maui"
 if ($existing) {
     Write-Host "Found existing installation, uninstalling..." -ForegroundColor Yellow
-    & $AdbPath uninstall com.iskra.maui
+    & $AdbPath uninstall com.torglink.maui
     Write-Host "Uninstalled successfully" -ForegroundColor Green
     Write-Host ""
 }
@@ -107,17 +107,17 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     
     # Запуск приложения
-    Write-Host "Launching Iskra Messenger..." -ForegroundColor Yellow
-    & $AdbPath shell am start -n com.iskra.maui/crc64e1fb321c08285b90.MainActivity
+    Write-Host "Launching TorgLink Messenger..." -ForegroundColor Yellow
+    & $AdbPath shell am start -n com.torglink.maui/crc64e1fb321c08285b90.MainActivity
     
     Write-Host ""
     Write-Host "App launched on device!" -ForegroundColor Green
     Write-Host ""
     Write-Host "To view logs:" -ForegroundColor Cyan
-    Write-Host "  $AdbPath logcat | Select-String 'Iskra|Mono|FATAL'" -ForegroundColor Gray
+    Write-Host "  $AdbPath logcat | Select-String 'TorgLink|Mono|FATAL'" -ForegroundColor Gray
     Write-Host ""
     Write-Host "To view app info:" -ForegroundColor Cyan
-    Write-Host "  $AdbPath shell dumpsys package com.iskra.maui" -ForegroundColor Gray
+    Write-Host "  $AdbPath shell dumpsys package com.torglink.maui" -ForegroundColor Gray
     Write-Host ""
     
     # Начать мониторинг логов
@@ -126,7 +126,7 @@ if ($LASTEXITCODE -eq 0) {
         Write-Host ""
         Write-Host "Monitoring logs (Ctrl+C to stop)..." -ForegroundColor Yellow
         Write-Host "========================================" -ForegroundColor Gray
-        & $AdbPath logcat | Select-String "Iskra|Mono|mono|FATAL|AndroidRuntime"
+        & $AdbPath logcat | Select-String "TorgLink|Mono|mono|FATAL|AndroidRuntime"
     }
     
 } else {

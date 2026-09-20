@@ -14,7 +14,7 @@
 
 | Параметр | Значение |
 |----------|----------|
-| **Файл** | `com.iskra.maui-Signed.apk` |
+| **Файл** | `com.torglink.maui-Signed.apk` |
 | **Размер** | 40.54 MB |
 | **Расположение** | `artifacts/android-arm32-net10-experimental/` |
 | **Framework** | .NET 10.0 (net10.0-android) |
@@ -82,7 +82,7 @@ lib/armeabi-v7a/
 
 ### Прямая команда
 ```bash
-dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
+dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj \
     -f net10.0-android \
     -c Release \
     -r android-arm \
@@ -105,13 +105,13 @@ dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
 #### 1. Установка и запуск
 ```bash
 # Установить на ARM32 устройство
-adb install artifacts/android-arm32-net10-experimental/com.iskra.maui-Signed.apk
+adb install artifacts/android-arm32-net10-experimental/com.torglink.maui-Signed.apk
 
 # Запустить
-adb shell am start -n com.iskra.maui/.MainActivity
+adb shell am start -n com.torglink.maui/.MainActivity
 
 # Проверить логи
-adb logcat | grep -i "mono\|iskra"
+adb logcat | grep -i "mono\|torglink"
 ```
 
 #### 2. Проверка runtime
@@ -356,7 +356,7 @@ ARM32 будет медленнее ARM64 на:
 
 ### 🎯 Итоговая рекомендация
 
-**Для проекта Iskra Messenger:**
+**Для проекта TorgLink Messenger:**
 
 1. **Используйте текущую сборку** для тестирования
 2. **Если работает стабильно** - можно использовать в production
@@ -371,7 +371,7 @@ ARM32 будет медленнее ARM64 на:
 
 ### Build команда
 ```bash
-dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
+dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj \
     -f net10.0-android \
     -c Release \
     -r android-arm \
@@ -421,4 +421,4 @@ dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
 **Дата**: 2026-09-11  
 **Версия**: 1.0  
 **Статус**: ✅ УСПЕШНО  
-**APK**: `artifacts/android-arm32-net10-experimental/com.iskra.maui-Signed.apk`
+**APK**: `artifacts/android-arm32-net10-experimental/com.torglink.maui-Signed.apk`
