@@ -65,7 +65,7 @@ jobs:
             echo "No existing ci-builds release"
             exit 0
           fi
-          echo "$release_json" | jq -r '.assets[].id' | while read -r id; do
+          echo "$release_json" | jq -r '(.assets // [])[].id' | while read -r id; do
             [ -n "$id" ] || continue
             gh api -X DELETE "repos/${{ github.repository }}/releases/assets/${id}"
           done
