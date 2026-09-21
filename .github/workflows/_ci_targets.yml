@@ -1,4 +1,12 @@
-name: Build (reusable)
+# Reusable CI: четыре целевые сборки без NSIS (быстрее, чем _build.yml).
+# WinForms x86/x64, MAUI Windows x64, Android arm64.
+#
+# Android signing (опционально, только Release):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS,
+#   ANDROID_KEY_PASSWORD, ANDROID_KEYSTORE_PASSWORD
+# Без секретов — unsigned APK (подходит для CI).
+
+name: CI targets (reusable)
 
 on:
   workflow_call:
@@ -14,8 +22,8 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
 jobs:
-  winforms:
-    name: WinForms NSIS (x86 32-bit / x64)
+  winforms-x86:
+    name: WinForms win-x86
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -27,28 +35,41 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install NSIS
-        run: choco install nsis -y --no-progress
-
-      - name: Build installers
-        run: |
-          .\scripts\nsis_winforms_x32.ps1 -Configuration ${{ inputs.configuration }}
-          .\scripts\nsis_winforms_x64.ps1 -Configuration ${{ inputs.configuration }}
+      - name: Publish WinForms x86
+        run: .\scripts\build_winforms_x86.ps1 -Configuration ${{ inputs.configuration }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: winforms-${{ inputs.configuration }}
-          path: dist/installers/Iskra-*-winforms-*-setup.exe
+          name: winforms-x86-${{ inputs.configuration }}
+          path: dist/winforms-x86/
           if-no-files-found: error
 
-  maui-windows:
-    name: MAUI Windows NSIS (${{ matrix.target }})
+  winforms-x64:
+    name: WinForms win-x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish WinForms x64
+        run: .\scripts\build_winforms_x64.ps1 -Configuration ${{ inputs.configuration }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winforms-x64-${{ inputs.configuration }}
+          path: dist/winforms-x64/
+          if-no-files-found: error
+
+  maui-windows-x64:
+    name: MAUI Windows win-x64
     runs-on: windows-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [win_10_x32, win_10_x64, win_10_arm64, win_11_x64]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,26 +82,20 @@ jobs:
       - name: Install MAUI Windows workload
         run: dotnet workload install maui-windows
 
-      - name: Install NSIS
-        run: choco install nsis -y --no-progress
-
-      - name: Build installer
-        run: .\scripts\nsis_${{ matrix.target }}.ps1 -Configuration ${{ inputs.configuration }}
+      - name: Publish MAUI Windows x64
+        # Win10+ unpackaged self-contained (scripts/build_win_10_x64.ps1 → dist/win10-x64)
+        run: .\scripts\build_win_10_x64.ps1 -Configuration ${{ inputs.configuration }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: maui-windows-${{ matrix.target }}-${{ inputs.configuration }}
-          path: dist/installers/Iskra-*-setup.exe
+          name: maui-windows-x64-${{ inputs.configuration }}
+          path: dist/win10-x64/
           if-no-files-found: error
 
-  android:
-    name: Android APK (${{ matrix.rid }})
+  android-arm64:
+    name: Android android-arm64
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        rid: [android-arm64, android-arm, android-x64, android-x86]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -109,12 +124,12 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
-            echo "No keystore secret; skipping decode (unsigned APK)."
+            echo "No keystore secret; publishing unsigned APK."
             exit 0
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/iskra.keystore"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/torglink.keystore"
 
-      - name: Publish APK
+      - name: Publish APK (android-arm64)
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -126,7 +141,7 @@ jobs:
           if [ "${{ inputs.configuration }}" = "Release" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ] && [ -n "${ANDROID_KEY_ALIAS:-}" ] && [ -n "${ANDROID_KEY_PASSWORD:-}" ] && [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ]; then
             extra+=(
               -p:AndroidKeyStore=true
-              -p:AndroidSigningKeyStore="$RUNNER_TEMP/iskra.keystore"
+              -p:AndroidSigningKeyStore="$RUNNER_TEMP/torglink.keystore"
               -p:AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS"
               -p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD"
               -p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
@@ -134,58 +149,30 @@ jobs:
           else
             echo "Debug configuration or signing secrets incomplete; publishing without release signing."
           fi
-          # EnableWindowsTargeting: restore вычисляет все TFM Iskra.Maui, и для windows-TFM
-          # в граф попадает ShortP2P.Transport.Bluetooth.Windows (net10.0-windows). На Linux
-          # его restore без этого флага падает с NETSDK1100. Проект только restore-ится,
-          # в сборку android-TFM он не входит (ProjectReference с условием на windows).
-          dotnet publish src/Iskra.Maui/Iskra.Maui.csproj \
+          # EnableWindowsTargeting: restore вычисляет все TFM TorgLink.Maui; на Linux без флага
+          # падает ShortP2P.Transport.Bluetooth.Windows (NETSDK1100). В android-сборку он не входит.
+          # IncludeAndroid=true → ShortP2PBuildAndroid через src/Directory.Build.props
+          dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj \
             -c ${{ inputs.configuration }} \
             -f net10.0-android \
             -p:IncludeAndroid=true \
             -p:EnableWindowsTargeting=true \
-            -p:RuntimeIdentifier=${{ matrix.rid }} \
+            -p:RuntimeIdentifier=android-arm64 \
             -p:AndroidPackageFormat=apk \
             "${extra[@]}"
           mkdir -p dist/apk
-          mapfile -t apks < <(find src/Iskra.Maui/bin -type f -name '*.apk' ! -name '*-unsigned.apk')
+          mapfile -t apks < <(find src/TorgLink.Maui/bin -type f -name '*.apk' ! -name '*-Unsigned.apk' ! -name '*-unsigned.apk')
           if [ ${#apks[@]} -eq 0 ]; then
-            mapfile -t apks < <(find src/Iskra.Maui/bin -type f -name '*.apk')
+            mapfile -t apks < <(find src/TorgLink.Maui/bin -type f -name '*.apk')
           fi
           if [ ${#apks[@]} -eq 0 ]; then
             echo "No APK produced" >&2
             exit 1
           fi
-          cp "${apks[0]}" "dist/apk/Iskra-${{ matrix.rid }}.apk"
+          cp "${apks[0]}" "dist/apk/TorgLink-android-arm64.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: apk-${{ matrix.rid }}-${{ inputs.configuration }}
-          path: dist/apk/Iskra-${{ matrix.rid }}.apk
-          if-no-files-found: error
-
-  web:
-    name: Web (Iskra.Web.Api)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Publish Web API
-        run: |
-          set -euo pipefail
-          ver=$(grep -oPm1 '(?<=<ApplicationDisplayVersion>)[^<]+' src/Iskra.Maui/Iskra.Maui.csproj)
-          dotnet publish src/Iskra.Web.Api/Iskra.Web.Api.csproj -c ${{ inputs.configuration }} -o dist/web
-          cd dist/web
-          zip -r "../Iskra-${ver}-web.zip" .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: web-${{ inputs.configuration }}
-          path: dist/Iskra-*-web.zip
+          name: apk-android-arm64-${{ inputs.configuration }}
+          path: dist/apk/TorgLink-android-arm64.apk
           if-no-files-found: error
