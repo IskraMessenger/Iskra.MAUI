@@ -1,5 +1,6 @@
-# Reusable CI: четыре целевые сборки без NSIS (быстрее, чем _build.yml).
-# WinForms x86/x64, MAUI Windows x64, Android arm64.
+# Reusable CI: четыре целевые сборки.
+# WinForms x86/x64 и MAUI Windows x64 — NSIS-инсталляторы (как в _build.yml).
+# Android arm64 — APK.
 #
 # Android signing (опционально, только Release):
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS,
@@ -35,13 +36,16 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish WinForms x86
-        run: .\scripts\build_winforms_x86.ps1 -Configuration ${{ inputs.configuration }}
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installer
+        run: .\scripts\nsis_winforms_x86.ps1 -Configuration ${{ inputs.configuration }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: winforms-x86-${{ inputs.configuration }}
-          path: dist/winforms-x86/
+          path: dist/installers/TorgLink-*-winforms-x86-setup.exe
           if-no-files-found: error
 
   winforms-x64:
@@ -57,13 +61,16 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish WinForms x64
-        run: .\scripts\build_winforms_x64.ps1 -Configuration ${{ inputs.configuration }}
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installer
+        run: .\scripts\nsis_winforms_x64.ps1 -Configuration ${{ inputs.configuration }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: winforms-x64-${{ inputs.configuration }}
-          path: dist/winforms-x64/
+          path: dist/installers/TorgLink-*-winforms-x64-setup.exe
           if-no-files-found: error
 
   maui-windows-x64:
@@ -82,14 +89,17 @@ jobs:
       - name: Install MAUI Windows workload
         run: dotnet workload install maui-windows
 
-      - name: Publish MAUI Windows x64
-        # Win10+ unpackaged self-contained (scripts/build_win_10_x64.ps1 → dist/win10-x64)
-        run: .\scripts\build_win_10_x64.ps1 -Configuration ${{ inputs.configuration }}
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installer
+        # Win10+ unpackaged self-contained + NSIS (scripts/nsis_win_10_x64.ps1 → dist/installers)
+        run: .\scripts\nsis_win_10_x64.ps1 -Configuration ${{ inputs.configuration }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: maui-windows-x64-${{ inputs.configuration }}
-          path: dist/win10-x64/
+          path: dist/installers/TorgLink-*-win10-x64-setup.exe
           if-no-files-found: error
 
   android-arm64:
