@@ -13,14 +13,14 @@ namespace TorgLink.WinForms;
 
 public sealed partial class ChatForm : AppForm
 {
-    private readonly AuthService _auth;
-    private readonly ChatRepository _chats;
-    private readonly ChatSessionCache _sessions;
-    private readonly MessengerServerSyncService _sync;
-    private readonly ChatMediaOptions _media;
-    private readonly P2pRoutingSettings _routing;
-    private ChatEntity _chat;
-    private readonly ILogger _logger;
+    private readonly AuthService _auth = null!;
+    private readonly ChatRepository _chats = null!;
+    private readonly ChatSessionCache _sessions = null!;
+    private readonly MessengerServerSyncService _sync = null!;
+    private readonly ChatMediaOptions _media = null!;
+    private readonly P2pRoutingSettings _routing = null!;
+    private ChatEntity _chat = null!;
+    private readonly ILogger _logger = null!;
     private static readonly Color PeerMessageColor = Color.FromArgb(0x00, 0x99, 0x99);
     private static readonly Color PreviewColor = Color.FromArgb(0x66, 0x66, 0x66);
     private readonly ConcurrentDictionary<int, byte> _binaryDownloadsInFlight = new();
@@ -32,46 +32,9 @@ public sealed partial class ChatForm : AppForm
     private bool _sidebarSelectSuppressed;
     private bool _switchBusy;
     private bool _splitterInitialized;
-    private readonly SplitContainer _split;
-    private const int SidebarPreferredWidth = 220;
+    private int _sidebarPreferredWidth = 220;
     private const int SidebarMinWidth = 140;
     private const int MessagesMinWidth = 240;
-
-    private readonly ListBox _sidebar = new()
-    {
-        Dock = DockStyle.Fill,
-        IntegralHeight = false,
-        DrawMode = DrawMode.OwnerDrawFixed
-    };
-    private readonly ListBox _messages = new()
-    {
-        Dock = DockStyle.Fill,
-        IntegralHeight = false,
-        DrawMode = DrawMode.OwnerDrawFixed
-    };
-    private readonly TextBox _input = new() { Dock = DockStyle.Fill };
-    private readonly Button _attachVoice = new()
-    {
-        Text = "🎤",
-        Width = 36,
-        Height = 32,
-        Font = new Font("Segoe UI Emoji", 11f)
-    };
-    private readonly Button _attachImage = new()
-    {
-        Text = "🖼",
-        Width = 36,
-        Height = 32,
-        Font = new Font("Segoe UI Emoji", 11f)
-    };
-    private readonly Button _attachDocument = new()
-    {
-        Text = "📄",
-        Width = 36,
-        Height = 32,
-        Font = new Font("Segoe UI Emoji", 11f)
-    };
-    private readonly Button _send = new() { Text = "Отправить", Width = 120, Height = 32 };
 
     public int ActiveChatId => _chat.Id;
 
@@ -84,6 +47,12 @@ public sealed partial class ChatForm : AppForm
     /// </summary>
     public event EventHandler<ChatSwitchRequestEventArgs>? ChatSwitchRequested;
 
+    public ChatForm()
+    {
+        InitializeComponent();
+        ApplyListRowMetrics();
+    }
+
     public ChatForm(
         AuthService auth,
         ChatRepository chats,
@@ -93,6 +62,7 @@ public sealed partial class ChatForm : AppForm
         P2pRoutingSettings routing,
         ChatEntity chat,
         ILogger logger)
+        : this()
     {
         _auth = auth;
         _chats = chats;
@@ -103,18 +73,13 @@ public sealed partial class ChatForm : AppForm
         _chat = chat;
         _logger = logger;
         Text = FormatTitle(chat);
-        Width = 780;
-        Height = 520;
-        StartPosition = FormStartPosition.CenterParent;
 
         _send.Click += async (_, _) => await SendAsync().ConfigureAwait(true);
         _attachVoice.Click += (_, _) => OnAttachVoice();
         _attachImage.Click += async (_, _) => await OnAttachImageAsync().ConfigureAwait(true);
         _attachDocument.Click += async (_, _) => await OnAttachDocumentAsync().ConfigureAwait(true);
-        AcceptButton = _send;
         _messages.DrawItem += OnMessagesDrawItem;
         _messages.MouseClick += OnMessagesMouseClick;
-        _messages.ItemHeight = Math.Max(_messages.Font.Height + 8, 26);
 
         _buttonTooltips.SetToolTip(_attachVoice,
             "Голосовое (Ogg Opus): нажмите для начала записи, ещё раз — остановить и отправить. Битрейт зависит от режима экономии трафика.");
@@ -122,38 +87,8 @@ public sealed partial class ChatForm : AppForm
         _buttonTooltips.SetToolTip(_attachDocument, "Отправить документ");
         _buttonTooltips.SetToolTip(_send, "Отправить сообщение");
 
-        using (var bold = new Font(_sidebar.Font, FontStyle.Bold))
-            _sidebar.ItemHeight = Math.Max(bold.Height + _sidebar.Font.Height + 10, 40);
         _sidebar.DrawItem += OnSidebarDrawItem;
         _sidebar.SelectedIndexChanged += OnSidebarSelectedIndexChanged;
-
-        var bottom = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 44, ColumnCount = 5 };
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        bottom.Controls.Add(_input, 0, 0);
-        bottom.Controls.Add(_attachVoice, 1, 0);
-        bottom.Controls.Add(_attachImage, 2, 0);
-        bottom.Controls.Add(_attachDocument, 3, 0);
-        bottom.Controls.Add(_send, 4, 0);
-
-        var right = new Panel { Dock = DockStyle.Fill };
-        right.Controls.Add(_messages);
-        right.Controls.Add(bottom);
-
-        // Do not set SplitterDistance here — Width is still 0 until layout, which throws.
-        _split = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            Panel1MinSize = 0,
-            Panel2MinSize = 0
-        };
-        _split.Panel1.Controls.Add(_sidebar);
-        _split.Panel2.Controls.Add(right);
-        Controls.Add(_split);
 
         Load += (_, _) => ApplySplitterLayout();
         Shown += (_, _) => ApplySplitterLayout();
@@ -178,6 +113,19 @@ public sealed partial class ChatForm : AppForm
             _chats.ChatListChanged -= OnChatListChanged;
             _buttonTooltips.Dispose();
         };
+    }
+
+    /// <summary>
+    /// Item heights and sidebar width after the form 12pt font is applied (not the default 8.25pt).
+    /// Two-line sidebar rows: bold name + preview. Width fits a typical 18-char nickname.
+    /// </summary>
+    private void ApplyListRowMetrics()
+    {
+        using var bold = new Font(Font, FontStyle.Bold);
+        _sidebar.ItemHeight = 4 + bold.Height + Font.Height + 4;
+        _messages.ItemHeight = Math.Max(Font.Height + 8, 26);
+        var nickWidth = TextRenderer.MeasureText("Wwwwwwwwwwwwwwwwww", bold).Width;
+        _sidebarPreferredWidth = Math.Max(220, nickWidth + 24);
     }
 
     /// <summary>Switch the open conversation in this window (reload DB messages + rebind session cache).</summary>
@@ -266,7 +214,7 @@ public sealed partial class ChatForm : AppForm
 
             var desired = _splitterInitialized
                 ? _split.SplitterDistance
-                : SidebarPreferredWidth;
+                : _sidebarPreferredWidth;
             var clamped = Math.Max(panel1Min, Math.Min(desired, maxDistance));
             if (_split.SplitterDistance != clamped)
                 _split.SplitterDistance = clamped;

@@ -12,19 +12,12 @@ using ShortP2P.Transport;
 
 namespace TorgLink.WinForms;
 
-public sealed class MainForm : AppForm
+public sealed partial class MainForm : AppForm
 {
-    private readonly AuthService _auth;
-    private readonly ChatRepository _chats;
-    private readonly IServiceProvider _services;
-    private readonly ILogger<MainForm> _logger;
-    private readonly ListBox _list = new()
-    {
-        Dock = DockStyle.Fill,
-        IntegralHeight = false,
-        DrawMode = DrawMode.OwnerDrawFixed
-    };
-    private readonly Label _status = new() { AutoSize = true, Dock = DockStyle.Bottom, Padding = new Padding(8) };
+    private readonly AuthService _auth = null!;
+    private readonly ChatRepository _chats = null!;
+    private readonly IServiceProvider _services = null!;
+    private readonly ILogger<MainForm> _logger = null!;
     private readonly System.Windows.Forms.Timer _refreshTimer = new() { Interval = 4000 };
     private List<ChatEntity> _items = [];
     private readonly HashSet<int> _unreadChatIds = [];
@@ -34,79 +27,98 @@ public sealed class MainForm : AppForm
     private readonly Dictionary<int, ChatForm> _openChats = new();
     private int? _pendingOpenChatId;
 
+    public MainForm()
+    {
+        InitializeComponent();
+        ApplyListRowHeight();
+        SizeFormToStatusLine();
+        UpdateStatusWrapWidth();
+    }
+
     public MainForm(
         AuthService auth,
         ChatRepository chats,
         IServiceProvider services,
         ILogger<MainForm> logger)
+        : this()
     {
         _auth = auth;
         _chats = chats;
         _services = services;
         _logger = logger;
-        Text = "TorgLink";
-        Width = 640;
-        Height = 480;
-        StartPosition = FormStartPosition.CenterScreen;
 
-        var add = new Button { Text = "Добавить чат", AutoSize = true };
-        var lan = new Button { Text = "Контакты", AutoSize = true };
-        var servers = new Button { Text = "Серверы", AutoSize = true };
-        var myQr = new Button { Text = "Мой QR", AutoSize = true };
-        var settings = new Button { Text = "Настройки", AutoSize = true };
-        var profile = new Button { Text = "Мой профиль", AutoSize = true };
-        var logout = new Button { Text = "Выйти", AutoSize = true };
-        add.Click += (_, _) => OnAddChat();
-        lan.Click += (_, _) => OnLanScan();
-        servers.Click += (_, _) =>
+        _btnAdd.Click += (_, _) => OnAddChat();
+        _btnLan.Click += (_, _) => OnLanScan();
+        _btnServers.Click += (_, _) =>
         {
             using var f = _services.GetRequiredService<MessengerServersForm>();
             f.ShowDialog(this);
             ScheduleReload();
         };
-        myQr.Click += OnMyQr;
-        settings.Click += (_, _) =>
+        _btnMyQr.Click += OnMyQr;
+        _btnSettings.Click += (_, _) =>
         {
             using var f = _services.GetRequiredService<SettingsForm>();
             f.ShowDialog(this);
             ScheduleReload();
         };
-        profile.Click += (_, _) =>
+        _btnProfile.Click += (_, _) =>
         {
             using var f = _services.GetRequiredService<ProfileForm>();
             if (f.ShowDialog(this) == DialogResult.OK)
                 ScheduleReload();
         };
-        logout.Click += async (_, _) =>
+        _btnLogout.Click += async (_, _) =>
         {
             await _auth.LogoutAsync().ConfigureAwait(true);
             DialogResult = DialogResult.Retry;
             Close();
         };
 
-        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
-        toolbar.Controls.Add(add);
-        toolbar.Controls.Add(lan);
-        toolbar.Controls.Add(servers);
-        toolbar.Controls.Add(myQr);
-        toolbar.Controls.Add(settings);
-        toolbar.Controls.Add(profile);
-        toolbar.Controls.Add(logout);
-
         _list.DoubleClick += (_, _) => OpenSelected();
         _list.DrawItem += OnDrawChatItem;
-        // Bold unread rows need a taller fixed height than regular Segoe UI 12pt.
-        using (var bold = new Font(_list.Font, FontStyle.Bold))
-            _list.ItemHeight = Math.Max(bold.Height + 8, 26);
-
-        Controls.Add(_list);
-        Controls.Add(_status);
-        Controls.Add(toolbar);
 
         Load += OnLoad;
+        Shown += (_, _) => UpdateStatusWrapWidth();
         Activated += (_, _) => ScheduleReload();
         FormClosed += OnFormClosed;
+        Resize += (_, _) => UpdateStatusWrapWidth();
         _refreshTimer.Tick += (_, _) => ScheduleReload();
+    }
+
+    private void ApplyListRowHeight()
+    {
+        using var bold = new Font(_list.Font, FontStyle.Bold);
+        _list.ItemHeight = Math.Max(bold.Height + 8, 26);
+    }
+
+    /// <summary>
+    /// Width fits a typical one-line status at the form 12pt font.
+    /// Longer text wraps; the AutoSize table row grows so the footer stays fully visible.
+    /// </summary>
+    private void SizeFormToStatusLine()
+    {
+        const string typical =
+            "Nickname  id=WWWWWWWWWWWWWWW  чатов: 99  (черновик net48, UDP LAN, без BLE/камеры)";
+        var textSize = TextRenderer.MeasureText(
+            typical,
+            Font,
+            new Size(int.MaxValue, int.MaxValue),
+            TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+        var chrome = Width - ClientSize.Width;
+        var pad = _root.Padding.Horizontal + _status.Padding.Horizontal + 16;
+        var neededWidth = textSize.Width + pad + chrome;
+        if (Width < neededWidth)
+            Width = neededWidth;
+    }
+
+    private void UpdateStatusWrapWidth()
+    {
+        if (_status == null || _root == null)
+            return;
+        var inner = Math.Max(50, _root.ClientSize.Width - _root.Padding.Horizontal);
+        if (_status.MaximumSize.Width != inner)
+            _status.MaximumSize = new Size(inner, 0);
     }
 
     private void OnLoad(object? sender, EventArgs e)
@@ -297,6 +309,7 @@ public sealed class MainForm : AppForm
                     var about = string.IsNullOrWhiteSpace(user.AboutMe) ? "" : $" · {TrimAbout(user.AboutMe, 40)}";
                     _status.Text =
                         $"{user.Nickname}  id={user.NetworkIdShort}{about}  чатов: {_items.Count}  (черновик net48, UDP LAN, без BLE/камеры)";
+                    UpdateStatusWrapWidth();
                 }
 
                 if (InvokeRequired)

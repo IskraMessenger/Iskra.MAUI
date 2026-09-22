@@ -4,54 +4,25 @@ using ShortP2P.Auth;
 
 namespace TorgLink.WinForms;
 
-public sealed class LoginForm : AppForm
+public sealed partial class LoginForm : AppForm
 {
-    private readonly AuthService _auth;
-    private readonly IServiceProvider _services;
-    private readonly ILogger<LoginForm> _logger;
-    private readonly TextBox _nick = new() { Width = 320 };
-    private readonly TextBox _pass = new() { Width = 320, UseSystemPasswordChar = true };
+    private readonly AuthService _auth = null!;
+    private readonly IServiceProvider _services = null!;
+    private readonly ILogger<LoginForm> _logger = null!;
+
+    public LoginForm()
+    {
+        InitializeComponent();
+    }
 
     public LoginForm(AuthService auth, IServiceProvider services, ILogger<LoginForm> logger)
+        : this()
     {
         _auth = auth;
         _services = services;
         _logger = logger;
-        Text = "TorgLink — вход";
-        StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        Padding = new Padding(16);
-
-        var login = new Button { Text = "Войти" };
-        var register = new Button { Text = "Регистрация" };
-        var exit = new Button { Text = "Выход", DialogResult = DialogResult.Cancel };
-        login.Click += async (_, _) => await OnLoginAsync().ConfigureAwait(true);
-        register.Click += OnRegister;
-        AcceptButton = login;
-        CancelButton = exit;
-
-        var layout = new TableLayoutPanel { ColumnCount = 1, AutoSize = true };
-        var logo = Branding.CreateLogoPicture(64);
-        if (logo != null)
-        {
-            logo.Margin = new Padding(0, 0, 0, 8);
-            layout.Controls.Add(logo);
-        }
-        layout.Controls.Add(new Label { Text = "Ник", AutoSize = true });
-        layout.Controls.Add(_nick);
-        layout.Controls.Add(new Label { Text = "Пароль", AutoSize = true });
-        layout.Controls.Add(_pass);
-        var buttons = new FlowLayoutPanel { AutoSize = true };
-        buttons.Controls.Add(login);
-        buttons.Controls.Add(register);
-        buttons.Controls.Add(exit);
-        layout.Controls.Add(buttons);
-        Controls.Add(layout);
-
+        _login.Click += async (_, _) => await OnLoginAsync().ConfigureAwait(true);
+        _register.Click += OnRegister;
         Load += async (_, _) =>
         {
             if (await _auth.TryRestoreSessionAsync().ConfigureAwait(true) && _auth.CurrentUser != null)

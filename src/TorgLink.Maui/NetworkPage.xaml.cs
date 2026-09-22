@@ -76,19 +76,17 @@ public partial class NetworkPage : ContentPage
 
     private void Refresh()
     {
-        var u = _auth.CurrentUser;
-        Header.Bind(u, _p2p);
+        var user = _auth.CurrentUser;
+        Header.Bind(user, _p2p);
         _nodes.Clear();
-        foreach (var p in _p2p.LocalScan.Clients)
+        foreach (var p in _p2p.LocalScan.Clients.OrderBy(c => GetOnline(c, c.NetworkId.ToShortString())))
         {
             var id = p.NetworkId.ToShortString();
             var nick = string.IsNullOrWhiteSpace(p.Nickname) ? id : p.Nickname;
-            var online = p.TransportKind == TransportKind.MessengerServer
-                ? p.MessengerServerOnline
-                : _p2p.LocalScan.IsPeerSeenRecentlyOnLan(id) || p.MessengerServerOnline;
+            var online = GetOnline(p, id);
             _nodes.Add(new NetworkNodeRow
             {
-                Peer = p,
+                Peer = p, 
                 Name = nick,
                 IdShort = id,
                 Initials = TorgLinkTheme.Initials(nick),
@@ -105,7 +103,14 @@ public partial class NetworkPage : ContentPage
         }
 
         NodesTitle.Text = Loc.Tf("network.nodes_count", _nodes.Count);
-        _ = RenderQrAsync(u);
+        _ = RenderQrAsync(user);
+    }
+
+    private bool GetOnline(DiscoveredLocalPeer p, string id)
+    {
+        return p.TransportKind == TransportKind.MessengerServer
+            ? p.MessengerServerOnline
+            : _p2p.LocalScan.IsPeerSeenRecentlyOnLan(id) || p.MessengerServerOnline;
     }
 
     private async Task RenderQrAsync(UserEntity? u)

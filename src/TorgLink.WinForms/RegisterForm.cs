@@ -3,41 +3,22 @@ using ShortP2P.Auth;
 
 namespace TorgLink.WinForms;
 
-public sealed class RegisterForm : AppForm
+public sealed partial class RegisterForm : AppForm
 {
-    private readonly AuthService _auth;
-    private readonly ILogger<RegisterForm> _logger;
-    private readonly TextBox _nick = new() { Width = 300 };
-    private readonly TextBox _pass = new() { Width = 300, UseSystemPasswordChar = true };
+    private readonly AuthService _auth = null!;
+    private readonly ILogger<RegisterForm> _logger = null!;
+
+    public RegisterForm()
+    {
+        InitializeComponent();
+    }
 
     public RegisterForm(AuthService auth, ILogger<RegisterForm> logger)
+        : this()
     {
         _auth = auth;
         _logger = logger;
-        Text = "TorgLink — регистрация";
-        StartPosition = FormStartPosition.CenterParent;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        Padding = new Padding(16);
-
-        var ok = new Button { Text = "Создать" };
-        var cancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel };
-        ok.Click += async (_, _) => await OnRegisterAsync().ConfigureAwait(true);
-        CancelButton = cancel;
-
-        var layout = new TableLayoutPanel { ColumnCount = 1, AutoSize = true };
-        layout.Controls.Add(new Label { Text = "Ник", AutoSize = true });
-        layout.Controls.Add(_nick);
-        layout.Controls.Add(new Label { Text = "Пароль", AutoSize = true });
-        layout.Controls.Add(_pass);
-        var buttons = new FlowLayoutPanel { AutoSize = true };
-        buttons.Controls.Add(ok);
-        buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons);
-        Controls.Add(layout);
+        _ok.Click += async (_, _) => await OnRegisterAsync().ConfigureAwait(true);
     }
 
     private async Task OnRegisterAsync()

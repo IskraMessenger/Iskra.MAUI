@@ -10,21 +10,21 @@ namespace TorgLink.WinForms;
 internal static class MediaEconomy
 {
     /// <summary>Soft image cap in Economy / UltraEconomy (same as MAUI).</summary>
-    public const int MaxImageBytes = 50 * 1024;
+    private const int MaxImageBytes = 51200;
 
-    public const int EconomyVoiceBitrateBps = 12_000;
-    public const int UltraEconomyVoiceBitrateBps = 8_000;
-    public const int MinVoiceBitrateBps = UltraEconomyVoiceBitrateBps;
-    public const int DefaultSpeechBitrateBps = TrafficQualityModeExtensions.NormalVoiceBitrate;
+    private const int EconomyVoiceBitrateBps = 12_000;
+    private const int UltraEconomyVoiceBitrateBps = 8_000;
+    private const int MinVoiceBitrateBps = UltraEconomyVoiceBitrateBps;
+    private const int DefaultSpeechBitrateBps = TrafficQualityModeExtensions.NormalVoiceBitrate;
 
-    public static TrafficQualityMode Mode(P2pRoutingSettings settings) => settings.TrafficQuality;
+    private static TrafficQualityMode Mode(P2pRoutingSettings settings) => settings.TrafficQuality;
 
-    public static bool UsesReducedMedia(P2pRoutingSettings settings) =>
+    private static bool UsesReducedMedia(P2pRoutingSettings settings) =>
         Mode(settings) is TrafficQualityMode.Economy or TrafficQualityMode.UltraEconomy;
 
     public static int SpeechBitrate(P2pRoutingSettings settings) => SpeechBitrate(Mode(settings));
 
-    public static int SpeechBitrate(TrafficQualityMode mode) =>
+    private static int SpeechBitrate(TrafficQualityMode mode) =>
         mode switch
         {
             TrafficQualityMode.UltraEconomy => UltraEconomyVoiceBitrateBps,
