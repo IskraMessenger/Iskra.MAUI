@@ -10,27 +10,19 @@ namespace TorgLink.WinForms;
 /// <summary>
 /// Maui Settings subset that works without BLE/camera: profile, LAN, routing, economy, keys, about.
 /// </summary>
-public sealed class SettingsForm : AppForm
+public sealed partial class SettingsForm : AppForm
 {
-    private readonly AuthService _auth;
-    private readonly P2pRoutingSettings _live;
-    private readonly P2pRoutingSettingsStore _store;
-    private readonly IServiceProvider _services;
-    private readonly string _appRoot;
-    private readonly ILogger<SettingsForm> _logger;
+    private readonly AuthService _auth = null!;
+    private readonly P2pRoutingSettings _live = null!;
+    private readonly P2pRoutingSettingsStore _store = null!;
+    private readonly IServiceProvider _services = null!;
+    private readonly string _appRoot = null!;
+    private readonly ILogger<SettingsForm> _logger = null!;
 
-    private readonly Label _profile = new() { AutoSize = true };
-    private readonly Label _udpPort = new() { AutoSize = true };
-    private readonly CheckBox _lan = new() { Text = "LAN (UDP)", AutoSize = true };
-    private readonly CheckBox _shareRoutes = new() { Text = "Делиться маршрутами (PeerSearch)", AutoSize = true };
-    private readonly ComboBox _economy = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
-    private readonly Label _economyHint = new() { AutoSize = true, ForeColor = SystemColors.GrayText, MaximumSize = new Size(520, 0) };
-    private readonly NumericUpDown _hops = new() { Minimum = 1, Maximum = 3, Width = 80 };
-    private readonly NumericUpDown _attempts = new() { Minimum = 1, Maximum = 20, Width = 80 };
-    private readonly NumericUpDown _delayMs = new() { Minimum = 0, Maximum = 3_600_000, Increment = 1000, Width = 120 };
-    private readonly NumericUpDown _timeoutMs = new() { Minimum = 500, Maximum = 120_000, Increment = 500, Width = 120 };
-    private readonly ComboBox _link = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 360 };
-    private readonly Label _storage = new() { AutoSize = true };
+    public SettingsForm()
+    {
+        InitializeComponent();
+    }
 
     public SettingsForm(
         AuthService auth,
@@ -38,6 +30,7 @@ public sealed class SettingsForm : AppForm
         P2pRoutingSettingsStore store,
         IServiceProvider services,
         ILogger<SettingsForm> logger)
+        : this()
     {
         _auth = auth;
         _live = live;
@@ -47,12 +40,6 @@ public sealed class SettingsForm : AppForm
         _appRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "TorgLink", "WinForms");
-
-        Text = "Настройки";
-        Width = 580;
-        Height = 640;
-        StartPosition = FormStartPosition.CenterParent;
-        MinimizeBox = false;
 
         foreach (var mode in new[]
                  {
@@ -65,80 +52,19 @@ public sealed class SettingsForm : AppForm
 
         _economy.SelectedIndexChanged += (_, _) => UpdateEconomyHint();
 
-        var save = new Button { Text = "Сохранить", AutoSize = true };
-        var editProfile = new Button { Text = "Мой профиль…", AutoSize = true };
-        var keys = new Button { Text = "Копировать ключи", AutoSize = true };
-        var about = new Button { Text = "О программе", AutoSize = true };
-        var close = new Button { Text = "Закрыть", DialogResult = DialogResult.OK, AutoSize = true };
-        save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
-        editProfile.Click += (_, _) =>
+        _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
+        _editProfile.Click += (_, _) =>
         {
             using var f = _services.GetRequiredService<ProfileForm>();
             if (f.ShowDialog(this) == DialogResult.OK)
                 _ = LoadAsync();
         };
-        keys.Click += (_, _) => CopyKeys();
-        about.Click += (_, _) => MessageBox.Show(this,
+        _keys.Click += (_, _) => CopyKeys();
+        _about.Click += (_, _) => MessageBox.Show(this,
             "Mesh-мессенджер.\nTorgLink.WinForms 0.1 (.NET Framework 4.8)\nWindows 7 SP1+\nБез BLE и камеры. QR — из файла.",
             "TorgLink", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-        var root = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            AutoScroll = true,
-            Padding = new Padding(12),
-            AutoSize = true
-        };
-
-        void Add(Control c) => root.Controls.Add(c);
-
-        Add(new Label { Text = "Профиль", Font = new Font(Font, FontStyle.Bold), AutoSize = true });
-        Add(_profile);
-        Add(editProfile);
-        Add(new Label { Text = "UDP-порт данных (только просмотр)", AutoSize = true });
-        Add(_udpPort);
-        Add(new Label
-        {
-            Text = "Bluetooth в этом клиенте недоступен. Язык/тема Maui не перенесены (интерфейс на русском).",
-            ForeColor = SystemColors.GrayText,
-            AutoSize = true,
-            MaximumSize = new Size(520, 0)
-        });
-        Add(new Label { Text = "Сеть", Font = new Font(Font, FontStyle.Bold), AutoSize = true });
-        Add(_lan);
-        Add(_shareRoutes);
-        Add(new Label { Text = "Экономия трафика", AutoSize = true });
-        Add(_economy);
-        Add(_economyHint);
-        Add(new Label { Text = "Маршрутизация", Font = new Font(Font, FontStyle.Bold), AutoSize = true });
-        Add(Labeled("Макс. глубина поиска (1–3)", _hops));
-        Add(Labeled("Повторы поиска при ошибке", _attempts));
-        Add(Labeled("Пауза между попытками, мс", _delayMs));
-        Add(Labeled("Таймаут FIND, мс", _timeoutMs));
-        Add(new Label { Text = "Пресет скорости канала", AutoSize = true });
-        Add(_link);
-        Add(new Label { Text = "Хранилище", Font = new Font(Font, FontStyle.Bold), AutoSize = true });
-        Add(_storage);
-
-        var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        buttons.Controls.Add(save);
-        buttons.Controls.Add(keys);
-        buttons.Controls.Add(about);
-        buttons.Controls.Add(close);
-        Add(buttons);
-
-        Controls.Add(root);
-        AcceptButton = close;
         Load += async (_, _) => await LoadAsync().ConfigureAwait(true);
-    }
-
-    private static Control Labeled(string text, Control inner)
-    {
-        var p = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        p.Controls.Add(new Label { Text = text, AutoSize = true, Padding = new Padding(0, 6, 8, 0) });
-        p.Controls.Add(inner);
-        return p;
     }
 
     private async Task LoadAsync()

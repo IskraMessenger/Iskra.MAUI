@@ -11,112 +11,25 @@ using Rectangle = SixLabors.ImageSharp.Rectangle;
 namespace TorgLink.WinForms;
 
 /// <summary>Редактирование своего Avatar и AboutMe (только локально). Аватар: квадратная обрезка 512×512.</summary>
-public sealed class ProfileForm : AppForm
+public sealed partial class ProfileForm : AppForm
 {
     private const int AvatarDimension = 512;
 
-    private readonly AuthService _auth;
-    private readonly ILogger<ProfileForm> _logger;
-    private readonly PictureBox _avatarPreview = new()
-    {
-        Width = 96,
-        Height = 96,
-        SizeMode = PictureBoxSizeMode.Zoom,
-        BorderStyle = BorderStyle.FixedSingle
-    };
-
-    private readonly TextBox _aboutMe = new()
-    {
-        Multiline = true,
-        Width = 420,
-        Height = 100,
-        MaxLength = PeerProfileLimits.MaxAboutMeChars,
-        ScrollBars = ScrollBars.Vertical
-    };
-
-    private readonly Label _aboutCounter = new() { AutoSize = true, ForeColor = SystemColors.GrayText };
-    private readonly Button _loadAvatar = new() { Text = "Выбрать аватар…", AutoSize = true };
-    private readonly Button _clearAvatar = new() { Text = "Убрать аватар", AutoSize = true };
-    private readonly Button _save = new() { Text = "Сохранить", AutoSize = true };
-    private readonly Button _cancel = new() { Text = "Отмена", DialogResult = DialogResult.Cancel, AutoSize = true };
+    private readonly AuthService _auth = null!;
+    private readonly ILogger<ProfileForm> _logger = null!;
 
     private byte[]? _avatarBytes;
 
+    public ProfileForm()
+    {
+        InitializeComponent();
+    }
+
     public ProfileForm(AuthService auth, ILogger<ProfileForm> logger)
+        : this()
     {
         _auth = auth;
         _logger = logger;
-        Text = "Мой профиль";
-        StartPosition = FormStartPosition.CenterParent;
-        Width = 520;
-        Height = 380;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-
-        var root = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 6,
-            Padding = new Padding(12)
-        };
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-        var avatarRow = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false
-        };
-        avatarRow.Controls.Add(_avatarPreview);
-        var avatarBtns = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            Padding = new Padding(12, 0, 0, 0)
-        };
-        avatarBtns.Controls.Add(_loadAvatar);
-        avatarBtns.Controls.Add(_clearAvatar);
-        avatarRow.Controls.Add(avatarBtns);
-
-        var aboutLabel = new Label
-        {
-            AutoSize = true,
-            Text = $"О себе (до {PeerProfileLimits.MaxAboutMeChars} символов):"
-        };
-        var hint = new Label
-        {
-            AutoSize = true,
-            ForeColor = SystemColors.GrayText,
-            MaximumSize = new System.Drawing.Size(460, 0),
-            Text =
-                $"Аватар — квадратная обрезка {AvatarDimension}×{AvatarDimension}, до {PeerProfileLimits.MaxAvatarBytes / 1024} КБ. " +
-                "Данные хранятся только локально и отдаются пирам при скане сети."
-        };
-
-        var bottom = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            FlowDirection = FlowDirection.RightToLeft,
-            Dock = DockStyle.Fill
-        };
-        bottom.Controls.Add(_cancel);
-        bottom.Controls.Add(_save);
-
-        root.Controls.Add(avatarRow, 0, 0);
-        root.Controls.Add(aboutLabel, 0, 1);
-        root.Controls.Add(_aboutMe, 0, 2);
-        root.Controls.Add(_aboutCounter, 0, 3);
-        root.Controls.Add(hint, 0, 4);
-        root.Controls.Add(bottom, 0, 5);
-        Controls.Add(root);
 
         _loadAvatar.Click += (_, _) => OnLoadAvatar();
         _clearAvatar.Click += (_, _) =>
@@ -126,8 +39,6 @@ public sealed class ProfileForm : AppForm
         };
         _aboutMe.TextChanged += (_, _) => UpdateAboutCounter();
         _save.Click += async (_, _) => await OnSaveAsync().ConfigureAwait(true);
-        AcceptButton = _save;
-        CancelButton = _cancel;
 
         Shown += (_, _) => LoadCurrentProfileBestEffort();
     }
@@ -333,17 +244,5 @@ public sealed class ProfileForm : AppForm
             MessageBox.Show(this, "Не удалось сохранить профиль.", "Профиль", MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            var img = _avatarPreview.Image;
-            _avatarPreview.Image = null;
-            img?.Dispose();
-        }
-
-        base.Dispose(disposing);
     }
 }

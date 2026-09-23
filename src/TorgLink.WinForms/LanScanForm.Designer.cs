@@ -41,8 +41,8 @@ partial class LanScanForm
         this._colAbout = new System.Windows.Forms.ColumnHeader();
         this._colLastSeen = new System.Windows.Forms.ColumnHeader();
         this._bottom = new System.Windows.Forms.FlowLayoutPanel();
-        this._scan = new System.Windows.Forms.Button();
         this._close = new System.Windows.Forms.Button();
+        this._scan = new System.Windows.Forms.Button();
         this._root.SuspendLayout();
         this._bottom.SuspendLayout();
         this.SuspendLayout();
@@ -89,25 +89,7 @@ partial class LanScanForm
         // 
         // _list
         // 
-        this._colName.Text = "Имя";
-        this._colName.Width = 160;
-        this._colNetworkId.Text = "Network id";
-        this._colNetworkId.Width = 180;
-        this._colTransport.Text = "Транспорт";
-        this._colTransport.Width = 100;
-        this._colStatus.Text = "Статус";
-        this._colStatus.Width = 80;
-        this._colAbout.Text = "О себе";
-        this._colAbout.Width = 160;
-        this._colLastSeen.Text = "Последний контакт";
-        this._colLastSeen.Width = 140;
-        this._list.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this._colName,
-            this._colNetworkId,
-            this._colTransport,
-            this._colStatus,
-            this._colAbout,
-            this._colLastSeen});
+        this._list.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] { this._colName, this._colNetworkId, this._colTransport, this._colStatus, this._colAbout, this._colLastSeen });
         this._list.Dock = System.Windows.Forms.DockStyle.Fill;
         this._list.FullRowSelect = true;
         this._list.GridLines = true;
@@ -119,6 +101,36 @@ partial class LanScanForm
         this._list.TabIndex = 2;
         this._list.UseCompatibleStateImageBehavior = false;
         this._list.View = System.Windows.Forms.View.Details;
+        // 
+        // _colName
+        // 
+        this._colName.Text = "Имя";
+        this._colName.Width = 160;
+        // 
+        // _colNetworkId
+        // 
+        this._colNetworkId.Text = "Network id";
+        this._colNetworkId.Width = 180;
+        // 
+        // _colTransport
+        // 
+        this._colTransport.Text = "Транспорт";
+        this._colTransport.Width = 100;
+        // 
+        // _colStatus
+        // 
+        this._colStatus.Text = "Статус";
+        this._colStatus.Width = 80;
+        // 
+        // _colAbout
+        // 
+        this._colAbout.Text = "О себе";
+        this._colAbout.Width = 160;
+        // 
+        // _colLastSeen
+        // 
+        this._colLastSeen.Text = "Последний контакт";
+        this._colLastSeen.Width = 140;
         // 
         // _bottom
         // 
@@ -133,15 +145,6 @@ partial class LanScanForm
         this._bottom.Size = new System.Drawing.Size(714, 45);
         this._bottom.TabIndex = 3;
         // 
-        // _scan
-        // 
-        this._scan.AutoSize = true;
-        this._scan.Location = new System.Drawing.Point(505, 11);
-        this._scan.Name = "_scan";
-        this._scan.Size = new System.Drawing.Size(113, 31);
-        this._scan.TabIndex = 0;
-        this._scan.Text = "Сканировать";
-        // 
         // _close
         // 
         this._close.DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -150,6 +153,15 @@ partial class LanScanForm
         this._close.Size = new System.Drawing.Size(87, 31);
         this._close.TabIndex = 1;
         this._close.Text = "Закрыть";
+        // 
+        // _scan
+        // 
+        this._scan.AutoSize = true;
+        this._scan.Location = new System.Drawing.Point(505, 11);
+        this._scan.Name = "_scan";
+        this._scan.Size = new System.Drawing.Size(113, 31);
+        this._scan.TabIndex = 0;
+        this._scan.Text = "Сканировать";
         // 
         // LanScanForm
         // 

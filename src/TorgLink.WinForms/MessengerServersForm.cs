@@ -5,63 +5,27 @@ using ShortP2P.Client.Services.MessengerServers;
 
 namespace TorgLink.WinForms;
 
-public sealed class MessengerServersForm : AppForm
+public sealed partial class MessengerServersForm : AppForm
 {
-    private readonly MessengerServerManager _manager;
-    private readonly ILogger<MessengerServersForm> _logger;
-    private readonly TextBox _baseUrl = new() { Width = 420 };
-    private readonly ListView _list = new()
+    private readonly MessengerServerManager _manager = null!;
+    private readonly ILogger<MessengerServersForm> _logger = null!;
+
+    public MessengerServersForm()
     {
-        View = View.Details,
-        FullRowSelect = true,
-        HideSelection = false,
-        Dock = DockStyle.Fill
-    };
-    private readonly Label _status = new() { AutoSize = true, ForeColor = SystemColors.GrayText };
+        InitializeComponent();
+    }
 
     public MessengerServersForm(MessengerServerManager manager, ILogger<MessengerServersForm> logger)
+        : this()
     {
         _manager = manager;
         _logger = logger;
-        Text = "Messenger servers";
-        Width = 900;
-        Height = 420;
-        StartPosition = FormStartPosition.CenterParent;
-        MinimizeBox = false;
 
-        _list.Columns.Add("URL", 280);
-        _list.Columns.Add("Active", 60);
-        _list.Columns.Add("Trusted", 70);
-        _list.Columns.Add("Fingerprint", 280);
-
-        var add = new Button { Text = "Добавить", AutoSize = true };
-        var qrFile = new Button { Text = "QR из файла…", AutoSize = true };
-        var share = new Button { Text = "Показать QR", AutoSize = true };
-        var del = new Button { Text = "Удалить", AutoSize = true };
-        var refresh = new Button { Text = "Обновить", AutoSize = true };
-        var close = new Button { Text = "Закрыть", DialogResult = DialogResult.OK, AutoSize = true };
-        add.Click += async (_, _) => await AddAsync().ConfigureAwait(true);
-        qrFile.Click += async (_, _) => await ImportQrAsync().ConfigureAwait(true);
-        share.Click += ShareSelected;
-        del.Click += async (_, _) => await DeleteAsync().ConfigureAwait(true);
-        refresh.Click += async (_, _) => await ReloadAsync().ConfigureAwait(true);
-
-        var addRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, Padding = new Padding(8) };
-        addRow.Controls.Add(new Label { Text = "Base URL:", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
-        addRow.Controls.Add(_baseUrl);
-        addRow.Controls.Add(add);
-        addRow.Controls.Add(qrFile);
-
-        var actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Bottom, Padding = new Padding(8) };
-        actions.Controls.Add(share);
-        actions.Controls.Add(del);
-        actions.Controls.Add(refresh);
-        actions.Controls.Add(close);
-        actions.Controls.Add(_status);
-
-        Controls.Add(_list);
-        Controls.Add(actions);
-        Controls.Add(addRow);
+        _add.Click += async (_, _) => await AddAsync().ConfigureAwait(true);
+        _qrFile.Click += async (_, _) => await ImportQrAsync().ConfigureAwait(true);
+        _share.Click += ShareSelected;
+        _del.Click += async (_, _) => await DeleteAsync().ConfigureAwait(true);
+        _refresh.Click += async (_, _) => await ReloadAsync().ConfigureAwait(true);
 
         Load += async (_, _) => await ReloadAsync().ConfigureAwait(true);
     }

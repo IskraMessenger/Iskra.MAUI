@@ -137,6 +137,7 @@ public sealed partial class LanScanForm : AppForm
 
     private void BindList()
     {
+        EnsureListColumns();
         _list.BeginUpdate();
         try
         {
@@ -156,6 +157,26 @@ public sealed partial class LanScanForm : AppForm
         {
             _list.EndUpdate();
         }
+    }
+
+    /// <summary>
+    /// Designer sometimes rewrites InitializeComponent and drops Detail columns;
+    /// without them View=Details shows a blank grid even when Items are populated.
+    /// </summary>
+    private void EnsureListColumns()
+    {
+        if (_list.View != View.Details)
+            _list.View = View.Details;
+        if (_list.Columns.Count > 0)
+            return;
+
+        _colName = new ColumnHeader { Text = "Имя", Width = 160 };
+        _colNetworkId = new ColumnHeader { Text = "Network id", Width = 180 };
+        _colTransport = new ColumnHeader { Text = "Транспорт", Width = 100 };
+        _colStatus = new ColumnHeader { Text = "Статус", Width = 80 };
+        _colAbout = new ColumnHeader { Text = "О себе", Width = 160 };
+        _colLastSeen = new ColumnHeader { Text = "Последний контакт", Width = 140 };
+        _list.Columns.AddRange([_colName, _colNetworkId, _colTransport, _colStatus, _colAbout, _colLastSeen]);
     }
 
     private async Task TrySyncChatNicknameFromLanAsync(ChatEntity chat)

@@ -8,60 +8,34 @@ using ShortP2P.Client.Services.MessengerServers;
 
 namespace TorgLink.WinForms;
 
-public sealed class AddChatForm : AppForm
+public sealed partial class AddChatForm : AppForm
 {
-    private readonly AuthService _auth;
-    private readonly ChatRepository _chats;
-    private readonly MessengerServerSyncService _sync;
-    private readonly ILogger<AddChatForm> _logger;
-    private readonly TextBox _nick = new() { Width = 360 };
-    private readonly TextBox _id = new() { Width = 360 };
-    private readonly TextBox _pub = new() { Width = 360, Height = 90, Multiline = true, ScrollBars = ScrollBars.Vertical };
-    private readonly TextBox _host = new() { Width = 360 };
+    private readonly AuthService _auth = null!;
+    private readonly ChatRepository _chats = null!;
+    private readonly MessengerServerSyncService _sync = null!;
+    private readonly ILogger<AddChatForm> _logger = null!;
 
     public ChatEntity? CreatedChat { get; private set; }
+
+    public AddChatForm()
+    {
+        InitializeComponent();
+    }
 
     public AddChatForm(
         AuthService auth,
         ChatRepository chats,
         MessengerServerSyncService sync,
         ILogger<AddChatForm> logger)
+        : this()
     {
         _auth = auth;
         _chats = chats;
         _sync = sync;
         _logger = logger;
-        Text = "Добавить чат";
-        StartPosition = FormStartPosition.CenterParent;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        MinimizeBox = false;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        Padding = new Padding(12);
 
-        var qrFile = new Button { Text = "QR из файла…", AutoSize = true };
-        var save = new Button { Text = "Сохранить" };
-        var cancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel };
-        qrFile.Click += OnQrFromFile;
-        save.Click += async (_, _) => await OnSaveAsync().ConfigureAwait(true);
-        CancelButton = cancel;
-
-        var layout = new TableLayoutPanel { ColumnCount = 1, AutoSize = true };
-        layout.Controls.Add(new Label { Text = "Ник пира", AutoSize = true });
-        layout.Controls.Add(_nick);
-        layout.Controls.Add(new Label { Text = "Network id", AutoSize = true });
-        layout.Controls.Add(_id);
-        layout.Controls.Add(new Label { Text = "RSA public JSON", AutoSize = true });
-        layout.Controls.Add(_pub);
-        layout.Controls.Add(new Label { Text = "Host / id (необязательно)", AutoSize = true });
-        layout.Controls.Add(_host);
-        var buttons = new FlowLayoutPanel { AutoSize = true };
-        buttons.Controls.Add(qrFile);
-        buttons.Controls.Add(save);
-        buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons);
-        Controls.Add(layout);
+        _qrFile.Click += OnQrFromFile;
+        _save.Click += async (_, _) => await OnSaveAsync().ConfigureAwait(true);
     }
 
     private void OnQrFromFile(object? sender, EventArgs e)

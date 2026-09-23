@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using TorgLink.Maui.Localization;
 using TorgLink.Maui.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Layouts;
 using ShortP2P.Client.Data;
 using ShortP2P.Client.Qr;
 using ShortP2P.Client.Services.MessengerServers;
@@ -117,80 +118,84 @@ public sealed class MessengerServersPage : ContentPage
     private DataTemplate CreateItemTemplate() =>
         new(() =>
         {
-            var url = new Label { FontSize = 16, LineBreakMode = LineBreakMode.TailTruncation };
+            var url = new Label { FontSize = 16, LineBreakMode = LineBreakMode.WordWrap };
             url.SetBinding(Label.TextProperty, nameof(MessengerServerRowVm.DisplayBaseUrl));
             url.Triggers.Add(LowRatingColorTrigger());
 
-            var meta = new Label { FontSize = 12, TextColor = Colors.Gray };
+            var meta = new Label { FontSize = 12, TextColor = Colors.Gray, LineBreakMode = LineBreakMode.WordWrap };
             meta.SetBinding(Label.TextProperty, nameof(MessengerServerRowVm.MetaLine));
             meta.Triggers.Add(LowRatingColorTrigger());
 
-            var active = new Switch();
+            var active = new Switch { VerticalOptions = LayoutOptions.Center };
             active.SetBinding(Switch.IsToggledProperty, new Binding(nameof(MessengerServerRowVm.Active),
                 BindingMode.OneWay));
             active.Toggled += OnActiveToggled;
 
-            var share = new Button
-            {
-                Text = Loc.T("servers.share"),
-                Padding = new Thickness(10, 4)
-            };
+            var share = CreateRowActionButton(Loc.T("servers.share"));
             share.Clicked += OnShareClicked;
 
-            var recheck = new Button
-            {
-                Text = Loc.T("servers.check"),
-                Padding = new Thickness(10, 4)
-            };
+            var recheck = CreateRowActionButton(Loc.T("servers.check"));
             recheck.Clicked += OnRecheckClicked;
 
-            var ask = new Button
-            {
-                Text = Loc.T("servers.ask"),
-                Padding = new Thickness(10, 4)
-            };
+            var ask = CreateRowActionButton(Loc.T("servers.ask"));
             ask.SetBinding(VisualElement.IsVisibleProperty, nameof(MessengerServerRowVm.CanAskServers));
             ask.Clicked += OnAskServersClicked;
 
-            var delete = new Button
-            {
-                Text = Loc.T("servers.delete"),
-                BackgroundColor = Colors.DarkRed,
-                TextColor = Colors.White,
-                Padding = new Thickness(10, 4)
-            };
+            var delete = CreateRowActionButton(Loc.T("servers.delete"));
+            delete.BackgroundColor = Colors.DarkRed;
+            delete.TextColor = Colors.White;
             delete.Clicked += OnDeleteClicked;
 
             var texts = new VerticalStackLayout
             {
                 Spacing = 2,
+                VerticalOptions = LayoutOptions.Center,
                 Children = { url, meta }
             };
 
-            return new Grid
+            var header = new Grid
             {
-                Padding = new Thickness(0, 8),
                 ColumnDefinitions =
                 {
                     new ColumnDefinition(GridLength.Star),
-                    new ColumnDefinition(GridLength.Auto),
-                    new ColumnDefinition(GridLength.Auto),
-                    new ColumnDefinition(GridLength.Auto),
-                    new ColumnDefinition(GridLength.Auto),
                     new ColumnDefinition(GridLength.Auto)
                 },
                 ColumnSpacing = 8,
                 Children =
                 {
                     texts,
-                    share.AtColumn(1),
-                    recheck.AtColumn(2),
-                    ask.AtColumn(3),
-                    active.AtColumn(4),
-                    delete.AtColumn(5)
+                    active.AtColumn(1)
                 }
             };
+
+            var actions = new FlexLayout
+            {
+                Direction = FlexDirection.Row,
+                Wrap = FlexWrap.Wrap,
+                AlignItems = FlexAlignItems.Center,
+                JustifyContent = FlexJustify.Start
+            };
+            actions.Children.Add(share);
+            actions.Children.Add(recheck);
+            actions.Children.Add(ask);
+            actions.Children.Add(delete);
+
+            return new VerticalStackLayout
+            {
+                Padding = new Thickness(0, 8),
+                Spacing = 4,
+                Children = { header, actions }
+            };
         });
+
+    private static Button CreateRowActionButton(string text) =>
+        new()
+        {
+            Text = text,
+            Padding = new Thickness(10, 4),
+            Margin = new Thickness(0, 0, 8, 8),
+            HorizontalOptions = LayoutOptions.Start
+        };
 
     private static DataTrigger LowRatingColorTrigger() =>
         new(typeof(Label))
