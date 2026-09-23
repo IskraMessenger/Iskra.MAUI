@@ -81,8 +81,10 @@ partial class MainForm
 
         _status.AutoSize = true;
         _status.Dock = DockStyle.Top;
+        _status.MinimumSize = new Size(0, 56);
         _status.Name = "_status";
-        _status.Padding = new Padding(8, 6, 8, 8);
+        _status.Padding = new Padding(10, 12, 10, 12);
+        _status.TextAlign = ContentAlignment.MiddleLeft;
 
         _root.ColumnCount = 1;
         _root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));

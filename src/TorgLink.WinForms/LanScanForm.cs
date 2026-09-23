@@ -14,7 +14,7 @@ namespace TorgLink.WinForms;
 /// <summary>
 /// Contacts-style list: existing chats + discovered peers (UDP LAN + messenger GetClients). No BLE.
 /// </summary>
-public sealed class LanScanForm : AppForm
+public sealed partial class LanScanForm : AppForm
 {
     private sealed class ContactRow
     {
@@ -28,31 +28,24 @@ public sealed class LanScanForm : AppForm
         public required string LastSeen { get; init; }
     }
 
-    private readonly AuthService _auth;
-    private readonly ChatRepository _chats;
-    private readonly LocalNetworkScanner _scanner;
-    private readonly MessengerServerSyncService _sync;
-    private readonly MessengerServerManager _manager;
-    private readonly IUdpTransportFactory _udpFactory;
-    private readonly P2pRoutingSettings _settings;
-    private readonly ILogger<LanScanForm> _logger;
+    private readonly AuthService _auth = null!;
+    private readonly ChatRepository _chats = null!;
+    private readonly LocalNetworkScanner _scanner = null!;
+    private readonly MessengerServerSyncService _sync = null!;
+    private readonly MessengerServerManager _manager = null!;
+    private readonly IUdpTransportFactory _udpFactory = null!;
+    private readonly P2pRoutingSettings _settings = null!;
+    private readonly ILogger<LanScanForm> _logger = null!;
     private readonly Action<ChatEntity>? _openChat;
     private readonly Func<Task>? _refreshChats;
 
-    private readonly ListView _list = new()
-    {
-        View = View.Details,
-        FullRowSelect = true,
-        GridLines = true,
-        Dock = DockStyle.Fill,
-        MultiSelect = false
-    };
-
-    private readonly Button _scan = new() { Text = "Сканировать", AutoSize = true };
-    private readonly Button _close = new() { Text = "Закрыть", DialogResult = DialogResult.OK };
-    private readonly Label _status = new() { AutoSize = true, ForeColor = SystemColors.GrayText, Text = "" };
     private readonly List<ContactRow> _rows = [];
     private bool _scanning;
+
+    public LanScanForm()
+    {
+        InitializeComponent();
+    }
 
     public LanScanForm(
         AuthService auth,
@@ -65,6 +58,7 @@ public sealed class LanScanForm : AppForm
         ILogger<LanScanForm> logger,
         Action<ChatEntity>? openChat = null,
         Func<Task>? refreshChats = null)
+        : this()
     {
         _auth = auth;
         _chats = chats;
@@ -77,59 +71,8 @@ public sealed class LanScanForm : AppForm
         _openChat = openChat;
         _refreshChats = refreshChats;
 
-        Text = "Контакты";
-        StartPosition = FormStartPosition.CenterParent;
-        Width = 760;
-        Height = 460;
-        MinimizeBox = false;
-
-        _list.Columns.Add("Имя", 160);
-        _list.Columns.Add("Network id", 180);
-        _list.Columns.Add("Транспорт", 100);
-        _list.Columns.Add("Статус", 80);
-        _list.Columns.Add("О себе", 160);
-        _list.Columns.Add("Последний контакт", 140);
-
-        var bottom = new FlowLayoutPanel
-        {
-            AutoSize = true,
-            FlowDirection = FlowDirection.LeftToRight,
-            Dock = DockStyle.Bottom,
-            Padding = new Padding(0, 8, 0, 0)
-        };
-        bottom.Controls.Add(_scan);
-        bottom.Controls.Add(_close);
-
-        var hint = new Label
-        {
-            AutoSize = true,
-            ForeColor = SystemColors.GrayText,
-            MaximumSize = new Size(720, 0),
-            Text =
-                "Как в TorgLink.Maui → Контакты: чаты, клиенты с messenger-серверов (GetClients) и LAN (UDP). " +
-                "Двойной щелчок — открыть/создать чат. BLE не поддерживается."
-        };
-
-        var root = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 4,
-            Padding = new Padding(12)
-        };
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.Controls.Add(hint, 0, 0);
-        root.Controls.Add(_status, 0, 1);
-        root.Controls.Add(_list, 0, 2);
-        root.Controls.Add(bottom, 0, 3);
-        Controls.Add(root);
-
         _scan.Click += async (_, _) => await OnScanAsync().ConfigureAwait(true);
         _list.ItemActivate += async (_, _) => await OnActivateAsync().ConfigureAwait(true);
-        AcceptButton = _close;
 
         // Known chats (+ already-discovered peers). No GetClients/LAN probe until «Сканировать».
         Shown += async (_, _) =>

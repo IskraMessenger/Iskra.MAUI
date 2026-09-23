@@ -14,7 +14,7 @@ internal static class MediaEconomy
 
     private const int EconomyVoiceBitrateBps = 12_000;
     private const int UltraEconomyVoiceBitrateBps = 8_000;
-    private const int MinVoiceBitrateBps = UltraEconomyVoiceBitrateBps;
+    public const int MinVoiceBitrateBps = UltraEconomyVoiceBitrateBps;
     private const int DefaultSpeechBitrateBps = TrafficQualityModeExtensions.NormalVoiceBitrate;
 
     private static TrafficQualityMode Mode(P2pRoutingSettings settings) => settings.TrafficQuality;

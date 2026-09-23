@@ -118,7 +118,10 @@ public sealed partial class MainForm : AppForm
             return;
         var inner = Math.Max(50, _root.ClientSize.Width - _root.Padding.Horizontal);
         if (_status.MaximumSize.Width != inner)
+        {
             _status.MaximumSize = new Size(inner, 0);
+            _root.PerformLayout();
+        }
     }
 
     private void OnLoad(object? sender, EventArgs e)
@@ -544,5 +547,10 @@ public sealed partial class MainForm : AppForm
     {
         var t = text.Trim();
         return t.Length <= max ? t : t[..max] + "…";
+    }
+
+    private void _btnLan_Click(object sender, EventArgs e)
+    {
+        throw new System.NotImplementedException();
     }
 }

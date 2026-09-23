@@ -32,9 +32,16 @@ public sealed partial class ChatForm : AppForm
     private bool _sidebarSelectSuppressed;
     private bool _switchBusy;
     private bool _splitterInitialized;
-    private int _sidebarPreferredWidth = 220;
+    private int _sidebarPreferredWidth = 180;
+    private int _messagesLayoutWidth;
+    private bool _messagesLayoutReady;
+    private bool _relayoutingMessages;
     private const int SidebarMinWidth = 140;
     private const int MessagesMinWidth = 240;
+    private const int MessageTextPadX = 2;
+    private const int MessageRowPad = 8;
+    private const TextFormatFlags MessageWrapFlags =
+        TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl | TextFormatFlags.NoPadding;
 
     public int ActiveChatId => _chat.Id;
 
@@ -79,6 +86,8 @@ public sealed partial class ChatForm : AppForm
         _attachImage.Click += async (_, _) => await OnAttachImageAsync().ConfigureAwait(true);
         _attachDocument.Click += async (_, _) => await OnAttachDocumentAsync().ConfigureAwait(true);
         _messages.DrawItem += OnMessagesDrawItem;
+        _messages.MeasureItem += OnMessagesMeasureItem;
+        _messages.Resize += (_, _) => RelayoutMessageHeights();
         _messages.MouseClick += OnMessagesMouseClick;
 
         _buttonTooltips.SetToolTip(_attachVoice,
@@ -91,7 +100,12 @@ public sealed partial class ChatForm : AppForm
         _sidebar.SelectedIndexChanged += OnSidebarSelectedIndexChanged;
 
         Load += (_, _) => ApplySplitterLayout();
-        Shown += (_, _) => ApplySplitterLayout();
+        Shown += (_, _) =>
+        {
+            ApplySplitterLayout();
+            _messagesLayoutReady = true;
+            RelayoutMessageHeights();
+        };
         Resize += (_, _) => ApplySplitterLayout();
         Load += async (_, _) => await OnLoadAsync().ConfigureAwait(true);
         _chats.ChatMessageAppended += OnRepoMessagesChanged;
@@ -117,15 +131,19 @@ public sealed partial class ChatForm : AppForm
 
     /// <summary>
     /// Item heights and sidebar width after the form 12pt font is applied (not the default 8.25pt).
-    /// Two-line sidebar rows: bold name + preview. Width fits a typical 18-char nickname.
+    /// Two-line sidebar rows: bold name + preview. Width fits a short nick (e.g. Ragnarnar).
     /// </summary>
     private void ApplyListRowMetrics()
     {
         using var bold = new Font(Font, FontStyle.Bold);
         _sidebar.ItemHeight = 4 + bold.Height + Font.Height + 4;
         _messages.ItemHeight = Math.Max(Font.Height + 8, 26);
-        var nickWidth = TextRenderer.MeasureText("Wwwwwwwwwwwwwwwwww", bold).Width;
-        _sidebarPreferredWidth = Math.Max(220, nickWidth + 24);
+        var nickWidth = TextRenderer.MeasureText("Ragnarnar", bold).Width;
+        _sidebarPreferredWidth = Math.Max(180, nickWidth + 28);
+
+        // 3 visible lines + single-line TextBox chrome (PreferredHeight is always 1-line).
+        var chrome = Math.Max(8, _input.PreferredHeight - _input.Font.Height);
+        _bottom.Height = _input.Font.Height * 3 + chrome + _bottom.Padding.Vertical;
     }
 
     /// <summary>Switch the open conversation in this window (reload DB messages + rebind session cache).</summary>
@@ -611,11 +629,90 @@ public sealed partial class ChatForm : AppForm
         var text = line?.Text ?? _messages.Items[e.Index]?.ToString() ?? "";
         var color = line is { Outgoing: false } ? PeerMessageColor : e.ForeColor;
         var font = e.Font ?? _messages.Font;
-        var bounds = new Rectangle(e.Bounds.X + 2, e.Bounds.Y, e.Bounds.Width - 4, e.Bounds.Height);
+        var bounds = new Rectangle(
+            e.Bounds.X + MessageTextPadX,
+            e.Bounds.Y + MessageRowPad / 2,
+            Math.Max(1, e.Bounds.Width - MessageTextPadX * 2),
+            Math.Max(1, e.Bounds.Height - MessageRowPad));
         TextRenderer.DrawText(e.Graphics, text, font, bounds, color,
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis |
-            TextFormatFlags.NoPadding);
+            TextFormatFlags.Left | MessageWrapFlags);
         e.DrawFocusRectangle();
+    }
+
+    private void OnMessagesMeasureItem(object? sender, MeasureItemEventArgs e)
+    {
+        var font = _messages.Font;
+        var min = Math.Min(255, Math.Max(1, Math.Max(font.Height + MessageRowPad, 26)));
+        var width = MessageTextWidth();
+        if (width <= 0 || e.Index < 0 || e.Index >= _messages.Items.Count)
+        {
+            e.ItemHeight = min;
+            return;
+        }
+
+        var line = _messages.Items[e.Index] as ChatLine;
+        var text = line?.Text ?? _messages.Items[e.Index]?.ToString() ?? "";
+        var measured = TextRenderer.MeasureText(text, font, new Size(width, int.MaxValue),
+            MessageWrapFlags);
+        var h = measured.Height + MessageRowPad;
+        if (h < min)
+            h = min;
+        else if (h > 255)
+            h = 255;
+        e.ItemHeight = h;
+    }
+
+    private int MessageTextWidth()
+    {
+        if (!_messages.IsHandleCreated)
+            return 0;
+        var w = _messages.ClientSize.Width - MessageTextPadX * 2;
+        return w > 0 ? w : 0;
+    }
+
+    private void RelayoutMessageHeights()
+    {
+        if (!_messagesLayoutReady || _relayoutingMessages)
+            return;
+        if (!IsHandleCreated || !_messages.IsHandleCreated || _messages.RecreatingHandle)
+            return;
+        if (_messages.IsDisposed || _messages.DrawMode != DrawMode.OwnerDrawVariable)
+            return;
+
+        var w = _messages.ClientSize.Width;
+        if (w <= 0 || w == _messagesLayoutWidth)
+            return;
+
+        _relayoutingMessages = true;
+        try
+        {
+            _messagesLayoutWidth = w;
+            if (_messages.Items.Count == 0)
+                return;
+
+            var top = _messages.TopIndex;
+            var sel = _messages.SelectedIndex;
+            var items = new object[_messages.Items.Count];
+            _messages.Items.CopyTo(items, 0);
+            _messages.BeginUpdate();
+            try
+            {
+                _messages.Items.Clear();
+                _messages.Items.AddRange(items);
+                if (sel >= 0 && sel < _messages.Items.Count)
+                    _messages.SelectedIndex = sel;
+                if (top >= 0 && top < _messages.Items.Count)
+                    _messages.TopIndex = top;
+            }
+            finally
+            {
+                _messages.EndUpdate();
+            }
+        }
+        finally
+        {
+            _relayoutingMessages = false;
+        }
     }
 
     private void OnMessagesMouseClick(object? sender, MouseEventArgs e)

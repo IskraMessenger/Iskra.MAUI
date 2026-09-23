@@ -46,21 +46,29 @@ partial class ChatForm
         _sidebar.IntegralHeight = false;
         _sidebar.Name = "_sidebar";
 
+        _input.AcceptsReturn = true;
         _input.Dock = DockStyle.Fill;
+        _input.Multiline = true;
         _input.Name = "_input";
+        _input.ScrollBars = ScrollBars.Vertical;
+        _input.WordWrap = true;
 
+        _attachVoice.Anchor = AnchorStyles.None;
         _attachVoice.Font = new Font("Segoe UI Emoji", 11f);
         _attachVoice.Name = "_attachVoice";
         _attachVoice.Size = new Size(36, 32);
         _attachVoice.Text = "🎤";
+        _attachImage.Anchor = AnchorStyles.None;
         _attachImage.Font = new Font("Segoe UI Emoji", 11f);
         _attachImage.Name = "_attachImage";
         _attachImage.Size = new Size(36, 32);
         _attachImage.Text = "🖼";
+        _attachDocument.Anchor = AnchorStyles.None;
         _attachDocument.Font = new Font("Segoe UI Emoji", 11f);
         _attachDocument.Name = "_attachDocument";
         _attachDocument.Size = new Size(36, 32);
         _attachDocument.Text = "📄";
+        _send.Anchor = AnchorStyles.None;
         _send.Name = "_send";
         _send.Size = new Size(120, 32);
         _send.Text = "Отправить";
@@ -71,17 +79,20 @@ partial class ChatForm
         _bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _bottom.RowCount = 1;
+        _bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         _bottom.Controls.Add(_input, 0, 0);
         _bottom.Controls.Add(_attachVoice, 1, 0);
         _bottom.Controls.Add(_attachImage, 2, 0);
         _bottom.Controls.Add(_attachDocument, 3, 0);
         _bottom.Controls.Add(_send, 4, 0);
         _bottom.Dock = DockStyle.Bottom;
-        _bottom.Height = 44;
+        _bottom.Height = 84;
         _bottom.Name = "_bottom";
+        _bottom.Padding = new Padding(6);
 
         _messages.Dock = DockStyle.Fill;
-        _messages.DrawMode = DrawMode.OwnerDrawFixed;
+        _messages.DrawMode = DrawMode.OwnerDrawVariable;
         _messages.IntegralHeight = false;
         _messages.Name = "_messages";
 
@@ -98,11 +109,10 @@ partial class ChatForm
         _split.Panel1.Controls.Add(_sidebar);
         _split.Panel2.Controls.Add(_right);
 
-        AcceptButton = _send;
         Controls.Add(_split);
         Name = "ChatForm";
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(780, 520);
+        ClientSize = new Size(960, 600);
         Text = "Чат";
 
         _bottom.ResumeLayout(false);
