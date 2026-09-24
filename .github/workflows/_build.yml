@@ -103,59 +103,13 @@ jobs:
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android
 
-      - name: Decode keystore
-        if: inputs.configuration == 'Release'
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
-            echo "No keystore secret; skipping decode (unsigned APK)."
-            exit 0
-          fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/torglink.keystore"
-
       - name: Publish APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: |
-          set -euo pipefail
-          extra=()
-          if [ "${{ inputs.configuration }}" = "Release" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ] && [ -n "${ANDROID_KEY_ALIAS:-}" ] && [ -n "${ANDROID_KEY_PASSWORD:-}" ] && [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ]; then
-            extra+=(
-              -p:AndroidKeyStore=true
-              -p:AndroidSigningKeyStore="$RUNNER_TEMP/torglink.keystore"
-              -p:AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS"
-              -p:AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD"
-              -p:AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
-            )
-          else
-            echo "Debug configuration or signing secrets incomplete; publishing without release signing."
-          fi
-          # EnableWindowsTargeting: restore вычисляет все TFM TorgLink.Maui, и для windows-TFM
-          # в граф попадает ShortP2P.Transport.Bluetooth.Windows (net10.0-windows). На Linux
-          # его restore без этого флага падает с NETSDK1100. Проект только restore-ится,
-          # в сборку android-TFM он не входит (ProjectReference с условием на windows).
-          dotnet publish src/TorgLink.Maui/TorgLink.Maui.csproj \
-            -c ${{ inputs.configuration }} \
-            -f net10.0-android \
-            -p:IncludeAndroid=true \
-            -p:EnableWindowsTargeting=true \
-            -p:RuntimeIdentifier=${{ matrix.rid }} \
-            -p:AndroidPackageFormat=apk \
-            "${extra[@]}"
-          mkdir -p dist/apk
-          mapfile -t apks < <(find src/TorgLink.Maui/bin -type f -name '*.apk' ! -name '*-unsigned.apk')
-          if [ ${#apks[@]} -eq 0 ]; then
-            mapfile -t apks < <(find src/TorgLink.Maui/bin -type f -name '*.apk')
-          fi
-          if [ ${#apks[@]} -eq 0 ]; then
-            echo "No APK produced" >&2
-            exit 1
-          fi
-          cp "${apks[0]}" "dist/apk/TorgLink-${{ matrix.rid }}.apk"
+        run: bash scripts/ci/publish-android-apk.sh ${{ matrix.rid }} ${{ inputs.configuration }}
 
       - uses: actions/upload-artifact@v4
         with:
