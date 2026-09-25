@@ -61,7 +61,7 @@ public sealed partial class SettingsForm : AppForm
         };
         _keys.Click += (_, _) => CopyKeys();
         _about.Click += (_, _) => MessageBox.Show(this,
-            "Mesh-мессенджер.\nTorgLink.WinForms 0.1 (.NET Framework 4.8)\nWindows 7 SP1+\nБез BLE и камеры. QR — из файла.",
+            "Mesh-мессенджер.\nTorgLink.WinForms 0.1 (.NET Framework 4.7.2)\nWindows 7 SP1+\nБез BLE и камеры. QR — из файла.",
             "TorgLink", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         Load += async (_, _) => await LoadAsync().ConfigureAwait(true);

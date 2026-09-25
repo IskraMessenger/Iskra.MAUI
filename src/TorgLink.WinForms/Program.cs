@@ -119,7 +119,7 @@ internal static class Program
 
         using var provider = services.BuildServiceProvider();
         var logger = provider.GetRequiredService<ILoggerFactory>().CreateLogger("TorgLink.WinForms");
-        logger.LogInformation("TorgLink WinForms (net48) started");
+        logger.LogInformation("TorgLink WinForms (net472) started");
 
         try
         {

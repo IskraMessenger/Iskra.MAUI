@@ -1,4 +1,4 @@
-; TorgLink.WinForms (.NET Framework 4.8) installer. Defines from nsis_winforms_*.ps1:
+; TorgLink.WinForms (.NET Framework 4.7.2) installer. Defines from nsis_winforms_*.ps1:
 ;   APP_VERSION APP_PRODUCT_VERSION ARCH SOURCE_DIR OUT_FILE
 Unicode true
 SetCompressor /SOLID lzma
@@ -29,8 +29,9 @@ SetCompressor /SOLID lzma
 !endif
 
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
-!define NET48_RELEASE 528040
-!define NET48_URL "https://dotnet.microsoft.com/download/dotnet-framework/net48"
+; NDP v4 Full Release: 461808 = 4.7.2 (4.8 has a higher value and is accepted).
+!define NET472_RELEASE 461808
+!define NET472_URL "https://dotnet.microsoft.com/download/dotnet-framework/net472"
 
 !include "MUI2.nsh"
 !include "x64.nsh"
@@ -83,14 +84,14 @@ Function .onInit
   ${EndIf}
 
   ReadRegDWORD $0 HKLM "SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" "Release"
-  IntCmp $0 ${NET48_RELEASE} net48_ok net48_missing net48_ok
-net48_missing:
-  MessageBox MB_YESNO|MB_ICONSTOP "This application requires .NET Framework 4.8.$\r$\nНужен .NET Framework 4.8.$\r$\n$\r$\nOpen download page? / Открыть страницу загрузки?" IDYES open_net48
+  IntCmp $0 ${NET472_RELEASE} net472_ok net472_missing net472_ok
+net472_missing:
+  MessageBox MB_YESNO|MB_ICONSTOP "This application requires .NET Framework 4.7.2.$\r$\nНужен .NET Framework 4.7.2.$\r$\n$\r$\nOpen download page? / Открыть страницу загрузки?" IDYES open_net472
   Abort
-open_net48:
-  ExecShell "open" "${NET48_URL}"
+open_net472:
+  ExecShell "open" "${NET472_URL}"
   Abort
-net48_ok:
+net472_ok:
 FunctionEnd
 
 Section "Install"

@@ -99,7 +99,7 @@ public sealed partial class MainForm : AppForm
     private void SizeFormToStatusLine()
     {
         const string typical =
-            "Nickname  id=WWWWWWWWWWWWWWW  чатов: 99  (черновик net48, UDP LAN, без BLE/камеры)";
+            "Nickname  id=WWWWWWWWWWWWWWW  чатов: 99  (черновик net472, UDP LAN, без BLE/камеры)";
         var textSize = TextRenderer.MeasureText(
             typical,
             Font,
@@ -311,7 +311,7 @@ public sealed partial class MainForm : AppForm
 
                     var about = string.IsNullOrWhiteSpace(user.AboutMe) ? "" : $" · {TrimAbout(user.AboutMe, 40)}";
                     _status.Text =
-                        $"{user.Nickname}  id={user.NetworkIdShort}{about}  чатов: {_items.Count}  (черновик net48, UDP LAN, без BLE/камеры)";
+                        $"{user.Nickname}  id={user.NetworkIdShort}{about}  чатов: {_items.Count}  (черновик net472, UDP LAN, без BLE/камеры)";
                     UpdateStatusWrapWidth();
                 }
 
